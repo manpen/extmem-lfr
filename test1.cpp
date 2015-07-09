@@ -1,46 +1,30 @@
-/***************************************************************************
- *  test1.cpp
- *
- *  Part of a simple STXXL example. See http://stxxl.sourceforge.net
- *
- *  Copyright (C) 2013 Timo Bingmann <tb@panthema.net>
- *
- *  Distributed under the Boost Software License, Version 1.0.
- *  (See accompanying file LICENSE_1_0.txt or copy at
- *  http://www.boost.org/LICENSE_1_0.txt)
- **************************************************************************/
-
 #include <iostream>
-#include <limits>
 
 #include <stxxl/vector>
-#include <stxxl/random>
-#include <stxxl/sort>
+#include "PowerlawDegreeSequence.h"
+#include "HavelHakimiGenerator.h"
 
-struct my_less_int : std::less<int>
-{
-    int min_value() const { return std::numeric_limits<int>::min(); };
-    int max_value() const { return std::numeric_limits<int>::max(); };
-};
+int main() {
 
-int main()
-{
+    stxxl::int64 numNodes = 10 * 1024 * 1024;
+    PowerlawDegreeSequence degreeSequence(2, 100000, -2, numNodes);
+
+    HavelHakimiGenerator hhgenerator(degreeSequence);
+
     // create vector
-    stxxl::VECTOR_GENERATOR<int>::result vector;
+    typedef stxxl::VECTOR_GENERATOR<HavelHakimiGenerator::value_type>::result result_vector_type;
+    result_vector_type vector(hhgenerator.maxEdges());
 
-    // fill vector with random integers
-    stxxl::random_number32 random;
+    auto endIt = stxxl::stream::materialize(hhgenerator, vector.begin());
+    vector.resize(endIt - vector.begin());
 
-    for (size_t i = 0; i < 100*1024*1024; ++i) {
-        vector.push_back(random());
+    std::cout << "Generated " << vector.size() << " edges of possibly " << hhgenerator.maxEdges() << " edges" << std::endl;
+
+#if 0
+    for (auto edge : vector) {
+        std::cout << edge.first << ", " << edge.second << std::endl;
     }
-
-    // sort vector using 16 MiB RAM
-    stxxl::sort(vector.begin(), vector.end(), my_less_int(), 16*1024*1024);
-
-    // output first and last items:
-    std::cout << vector.size() << " items sorted ranging from "
-              << vector.front() << " to " << vector.back() << std::endl;
+#endif
 
     return 0;
 }
