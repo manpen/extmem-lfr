@@ -39,11 +39,13 @@ private:
     value_type current;
 
     stxxl::int64 numEdges;
+
+    bool is_empty;
 public:
     template <typename InputStream>
     HavelHakimiGenerator(InputStream &degrees) : pool(static_cast<stxxl::read_write_pool<block_type>::size_type>(8*1024*1024/block_type::raw_size),
                                                       static_cast<stxxl::read_write_pool<block_type>::size_type>(8*1024*1024/block_type::raw_size)),
-                                                 prioQueue(pool) {
+                                                 prioQueue(pool), is_empty(false) {
         numEdges = 0;
 
         stxxl::int64 u = 0;
@@ -64,7 +66,7 @@ public:
     const value_type & operator * () const { return current; };
     const value_type * operator -> () const { return &current; };
     HavelHakimiGenerator & operator++ ();
-    bool empty() { return prioQueue.empty() && stack.empty(); };
+    bool empty() { return is_empty; };
 
     stxxl::int64 maxEdges() const { return numEdges; };
 };

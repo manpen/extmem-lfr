@@ -29,6 +29,12 @@ HavelHakimiGenerator &HavelHakimiGenerator::operator++() {
         if (partner.degree > 0) {
             stack.push(partner);
         }
+    } else {
+        if (current_node_degree.degree > 0) {
+            STXXL_ERRMSG("Degree sequence not realizable, node " << current_node_degree.node << " should have got " << current_node_degree.degree << " more neighbors");
+        }
+
+        is_empty = true;
     }
 
     return *this;
