@@ -1,0 +1,7 @@
+disk=/stxxl/emspace01/stxxl.manuel,500G,linuxaio unlink
+disk=/stxxl/emspace02/stxxl.manuel,500G,linuxaio unlink
+disk=/stxxl/emspace03/stxxl.manuel,500G,linuxaio unlink
+disk=/stxxl/emspace04/stxxl.manuel,500G,linuxaio unlink
+disk=/stxxl/emspace05/stxxl.manuel,500G,linuxaio unlink
+disk=/stxxl/emspace06/stxxl.manuel,500G,linuxaio unlink
+
