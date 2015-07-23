@@ -37,7 +37,7 @@ public:
     const stxxl::int64 & operator * () const { return currentDegree; };
     const stxxl::int64 * operator -> () const { return &currentDegree; };
     PowerlawDegreeSequence & operator++ () ;
-    bool empty() { return sortedRandomStream.empty(); };
+    bool empty() const { return sortedRandomStream.empty(); };
 };
 
 

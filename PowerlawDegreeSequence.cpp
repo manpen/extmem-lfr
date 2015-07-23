@@ -6,7 +6,7 @@
 #include "PowerlawDegreeSequence.h"
 
 PowerlawDegreeSequence::PowerlawDegreeSequence(stxxl::int64 minDeg, stxxl::int64 maxDeg, double gamma, stxxl::int64 numNodes)
-        : minDeg(minDeg), maxDeg(maxDeg), gamma(gamma), randomStream(numNodes), sortedRandomStream(randomStream, rand_less(), 32*1024*1024) {
+        : minDeg(minDeg), maxDeg(maxDeg), gamma(gamma), randomStream(numNodes), sortedRandomStream(randomStream, rand_less(), 64*1024*1024) {
 
     probabilitySum = 0;
     for (double d = minDeg; d <= maxDeg; ++d) {
@@ -27,6 +27,9 @@ void PowerlawDegreeSequence::findNextDegree() {
 
 PowerlawDegreeSequence &PowerlawDegreeSequence::operator++() {
     ++sortedRandomStream;
-    findNextDegree();
+    
+    if (!empty())
+      findNextDegree();
+    
     return *this;
 }
