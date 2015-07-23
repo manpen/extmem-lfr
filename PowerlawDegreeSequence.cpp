@@ -29,7 +29,7 @@ PowerlawDegreeSequence &PowerlawDegreeSequence::operator++() {
     ++sortedRandomStream;
     
     if (!empty())
-      findNextDegree();
+        findNextDegree();
     
     return *this;
 }
