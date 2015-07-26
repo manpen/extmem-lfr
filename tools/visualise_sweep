@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Execute this script within the log directory of a sweep
+# It expects logs from the classic HH as stdout_*, and logs from the RLE-HH from file stdoutr_*
+
+for pref in stdout_ stdoutr_; do
+    outfile=${pref}comp.dat
+    rm $outfile.tmp
+    for file in $pref*; do
+        if [[ $(grep "Time since" $file | wc -l) != "2" ]]; then
+            echo "$file seems to incomplete"
+            continue
+        fi
+    
+        nodes=$(grep "num-nodes set" $file | tail -n 1 | sed 's/[^0-9]//g' -)
+        pptime=$(grep "Time since" $file | head -n 1 | sed 's/[^0-9.]//g' -)
+        tottime=$(grep "Time since" $file | tail -n 1 | sed 's/[^0-9.]//g' -)
+    
+        ppwrites=$(grep "total number of writes" $file | head -n 1 | sed 's/[^0-9.]//g' -)
+        totwrite=$(grep "total number of writes" $file | tail -n 1 | sed 's/[^0-9.]//g' -)
+        
+        echo "$nodes $pptime $tottime $ppwrites $totwrite" >> $outfile.tmp
+    done
+    sort -n $outfile.tmp > $outfile
+done
+
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+gnuplot $DIR/visualise_sweep.gp

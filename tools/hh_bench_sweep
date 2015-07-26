@@ -1,0 +1,14 @@
+#!/bin/bash  
+
+BINARY=./test1
+DIR=logs_$(date +"%Y_%m_%d_%H%M%S")
+
+mkdir $DIR
+rm logs_current
+ln -s $DIR logs_current
+
+for i in 1K 10K 100K 1M 5M 10M 50M 100M 500M 1G 5G; do
+    echo "Problem size $i"
+    $BINARY -s 123 -n  $i    2> $DIR/stderr_$i  > $DIR/stdout_$i
+    $BINARY -s 123 -n  $i -r 2> $DIR/stderrr_$i  > $DIR/stdoutr_$i
+done
