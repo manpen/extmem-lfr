@@ -44,6 +44,7 @@ private:
     value_type _current_edge;
 
     stxxl::uint64 _num_edges;
+    stxxl::uint64 _edge_id;
 
     bool _empty;
     
@@ -52,7 +53,7 @@ private:
     // If two neighbouring blocks of the same degree with sequential indicies are found,
     // they are automatically merge in order to compensate for fragmentation
     void _write_buffer_back() {
-#if 1
+#if 0
         // variant that allows for fragmentation
         while(!_buffer.empty()) {
             _prioQueue.push(_buffer.top());
@@ -63,33 +64,40 @@ private:
         if (_buffer.empty())
             return;
         
-        node_block_type this_block;
+        node_block_type last_block;
         if (_prioQueue.empty()) {
-            this_block = _buffer.top();
+            last_block = _buffer.top();
             _buffer.pop();
         } else {
-            this_block = _prioQueue.top();
-            _prioQueue.pop();
+            last_block = _prioQueue.top();
+            node_block_type block = _buffer.top();
+
+            if ( (last_block.value == block.value) && (block.index - block.count == last_block.index) ) {
+                _prioQueue.pop();
+            } else {
+                last_block = block;
+                _buffer.pop();
+            }
         }
             
         while(!_buffer.empty()) {
             node_block_type block = _buffer.top();
             _buffer.pop();
             
-            // TODO: Change order of block/this_block if buffer is a FIFO
-            if ( (this_block.value == block.value) && (block.index - block.count == this_block.index) ) {
+            // TODO: Change order of block/last_block if buffer is a FIFO
+            if ( (last_block.value == block.value) && (block.index - block.count == last_block.index) ) {
                 // we can merge those blocks !
-                block.count += this_block.count;
+                block.count += last_block.count;
                 
             } else {
-                _prioQueue.push(this_block);
+                _prioQueue.push(last_block);
                 
             }
             
-            this_block = block;
+            last_block = block;
         }
         
-        _prioQueue.push(this_block);
+        _prioQueue.push(last_block);
 #endif        
     }
     
@@ -153,7 +161,8 @@ private:
             _current_node_degree = block.value;
             _consume_and_buffer_block(block, _current_node_degree);
             
-            //std::cout << "Started with node " << _current_node << " and requested degree of " << _current_node_degree << std::endl;
+            if (_edge_id >= _num_edges)
+                std::cout << "Started with node " << _current_node << " and requested degree of " << _current_node_degree << std::endl;
             
             assert(_current_node_degree);
         }
@@ -177,10 +186,16 @@ private:
             }
         }
         
+        if (_edge_id >= _num_edges) {
+            std::cout << _prioQueue.size() << " " << _current_node_degree << " " << _current_node_degree << std::endl;
+        }
+            
+            
         
         _current_edge = {_current_node, _current_partner_node--};
         _current_node_degree--;
         _current_partner_block_nodes_left--;
+        _edge_id++;
     }
     
     
@@ -188,7 +203,8 @@ public:
     HavelHakimiGeneratorRLE(InputStream &input) 
         : _pool(static_cast<size_t>(8*1024*1024/pq_block_type::raw_size), static_cast<size_t>(8*1024*1024/pq_block_type::raw_size))
         , _prioQueue(_pool)
-        , _empty(false) 
+        , _edge_id(0)
+        , _empty(false)
     {
         _num_edges = 0;
 
