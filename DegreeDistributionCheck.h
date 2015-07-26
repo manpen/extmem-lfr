@@ -51,7 +51,7 @@ private:
         
         for(unsigned int phase=0; phase < 2; phase++) {
             // in the first phase we deal with the edge's first node, in the second phase with the second one
-            stxxl::sorter<edge_type, my_comparator> edge_sorter(my_comparator(), 64*1024*1024);
+            stxxl::sorter<edge_type, my_comparator> edge_sorter(my_comparator(), 256*1024*1024);
             
             for (InputIterator it = edges_begin; it != edges_end; ++it) {
                 edge_type edge = *it;
@@ -96,7 +96,7 @@ private:
 public:
     // Construct object and compute node degrees (expensive)
     DegreeDistributionCheck(InputIterator edges_begin, InputIterator edges_end)
-        : _sorter(DegreeDistributionCheckIntComp(), 64*1024*1024)
+        : _sorter(DegreeDistributionCheckIntComp(), 256*1024*1024)
     {
         _compute_node_degrees_from_edges(edges_begin, edges_end);
     }
