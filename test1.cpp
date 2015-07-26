@@ -100,10 +100,18 @@ void benchmark(RunConfig & config) {
         HavelHakimiGenerator hhgenerator(degreeSequence);
         std::cout << "Stats after filling of prio queue:" << (stxxl::stats_data(*stats) - stats_begin);
         
-        edges.resize(hhgenerator.maxEdges());
-        auto endIt = stxxl::stream::materialize(hhgenerator, edges.begin());
-        edges.resize(endIt - edges.begin());
-        std::cout << "Generated " << edges.size() << " edges of possibly " << hhgenerator.maxEdges() << " edges" << std::endl;
+//         edges.resize(hhgenerator.maxEdges());
+//         auto endIt = stxxl::stream::materialize(hhgenerator, edges.begin());
+//         edges.resize(endIt - edges.begin());
+//         std::cout << "Generated " << edges.size() << " edges of possibly " << hhgenerator.maxEdges() << " edges" << std::endl;
+        
+        stxxl::uint64 c = 0;
+        for(; !hhgenerator.empty(); ++hhgenerator)
+            c++;
+        
+        std::cout << c << " of " << hhgenerator.maxEdges()
+         << " " << (c -  hhgenerator.maxEdges())       
+        << std::endl;
     }
     
     std::cout << (stxxl::stats_data(*stats) - stats_begin);
@@ -124,6 +132,8 @@ void benchmark(RunConfig & config) {
             auto block = *deg_distr;
             std::cout << block.value << " " << block.count << " # ResDD  Degree Count" << std::endl;
         }
+
+        std::cout << "Stats after degree comp:" << (stxxl::stats_data(*stats) - stats_begin);
     }
 }
 
