@@ -1,5 +1,7 @@
 #pragma once
 
+#include "defs.h"
+
 #include <stxxl/types>
 #include <stxxl/priority_queue>
 #include <stxxl/stack>
@@ -8,10 +10,11 @@
 template <typename InputStream>
 class HavelHakimiGeneratorRLE {
 public:
-    typedef std::pair<stxxl::uint64, stxxl::uint64> value_type;
+    using value_type = edge_t;
 
 private:
     using node_block_type = typename InputStream::value_type;
+    
     struct ComparatorLess
     {
         bool operator () (const node_block_type& a, const node_block_type & b) const { 
@@ -36,31 +39,22 @@ private:
     using node_degree_stack_type = typename stxxl::STACK_GENERATOR<node_block_type, stxxl::external, stxxl::grow_shrink>::result;
     node_degree_stack_type _buffer;
 
-    stxxl::int64 _current_node;
-    stxxl::int64 _current_node_degree;
-    stxxl::int64 _current_partner_block_nodes_left;
-    stxxl::int64 _current_partner_node;
+    int_t _current_node;
+    int_t _current_node_degree;
+    int_t _current_partner_block_nodes_left;
+    int_t _current_partner_node;
     
     value_type _current_edge;
 
-    stxxl::uint64 _num_edges;
-    stxxl::uint64 _edge_id;
+    int_t _num_edges;
+    int_t _edge_id;
 
     bool _empty;
-    
 
     // Moves elements from the buffer back into the priority queue
     // If two neighbouring blocks of the same degree with sequential indicies are found,
     // they are automatically merge in order to compensate for fragmentation
     void _write_buffer_back() {
-#if 0
-        // variant that allows for fragmentation
-        while(!_buffer.empty()) {
-            _prioQueue.push(_buffer.top());
-            _buffer.pop();
-        }
-        
-#else        
         if (_buffer.empty())
             return;
         
@@ -84,7 +78,6 @@ private:
             node_block_type block = _buffer.top();
             _buffer.pop();
             
-            // TODO: Change order of block/last_block if buffer is a FIFO
             if ( (last_block.value == block.value) && (block.index - block.count == last_block.index) ) {
                 // we can merge those blocks !
                 block.count += last_block.count;
@@ -98,12 +91,11 @@ private:
         }
         
         _prioQueue.push(last_block);
-#endif        
     }
     
     // helper function that will reduce the degree of up to #nodes_to_consume of the block
     // provided by one and then buffer this block (or the resulting two blocks of different degrees)
-    void _consume_and_buffer_block(node_block_type & block, stxxl::uint64 nodes_to_consume) {
+    void _consume_and_buffer_block(node_block_type & block, int_t nodes_to_consume) {
         assert(block.index >= block.count);
         
         if (!block.count)
@@ -161,9 +153,6 @@ private:
             _current_node_degree = block.value;
             _consume_and_buffer_block(block, _current_node_degree);
             
-            if (_edge_id >= _num_edges)
-                std::cout << "Started with node " << _current_node << " and requested degree of " << _current_node_degree << std::endl;
-            
             assert(_current_node_degree);
         }
         
@@ -185,12 +174,6 @@ private:
                 _consume_and_buffer_block(block, _current_node_degree);
             }
         }
-        
-        if (_edge_id >= _num_edges) {
-            std::cout << _prioQueue.size() << " " << _current_node_degree << " " << _current_node_degree << std::endl;
-        }
-            
-            
         
         _current_edge = {_current_node, _current_partner_node--};
         _current_node_degree--;
@@ -222,15 +205,24 @@ public:
         _generate_next_edge();
     }
 
-    const value_type & operator * () const { return _current_edge; };
-    const value_type * operator -> () const { return &_current_edge; };
+    const value_type & operator * () const {
+        return _current_edge;
+    };
+    
+    const value_type * operator -> () const {
+        return &_current_edge;
+    };
     
     HavelHakimiGeneratorRLE & operator++ () {
         _generate_next_edge();
         return *this;
     }
     
-    bool empty() const { return _empty; };
+    bool empty() const { 
+        return _empty;
+    };
 
-    stxxl::uint64 maxEdges() const { return _num_edges; };
+    int_t maxEdges() const {
+        return _num_edges;
+    };
 };
