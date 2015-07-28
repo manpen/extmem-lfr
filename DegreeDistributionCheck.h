@@ -4,6 +4,7 @@
 
 #include <stxxl/vector>
 #include <stxxl/sorter>
+#include "DistributionCount.h"
 
 
 /*
