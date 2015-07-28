@@ -1,11 +1,12 @@
-#pragma once
-
 /**
- * @file  
- * @brief Defines all global data types and constants and 
- *        should be included in every file of the project.
+ * @file
+ * @brief  Defines all global data types and constants and should be included in every file of the project.
+ * @author Michael Hamann
+ * @author Manuel Penschuck
+ * @copyright to be decided
  */
 
+#pragma once
 #include <cstdint>
 
 /** 
