@@ -2,6 +2,8 @@
 #include <chrono>
 
 #include <stxxl/cmdline>
+
+#include <stack>
 #include <stxxl/vector>
 
 #include "PowerlawDegreeSequence.h"
@@ -22,6 +24,7 @@ struct RunConfig {
     bool rle;
     bool showInitDegrees;
     bool showResDegrees;
+    bool internalMem;
 
     unsigned int randomSeed;
 
@@ -33,6 +36,7 @@ struct RunConfig {
         , rle(false)
         , showInitDegrees(false)
         , showResDegrees(false)
+        , internalMem(false)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -49,7 +53,8 @@ struct RunConfig {
         cp.add_double('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr.");
         cp.add_uint  ('s', "seed",      randomSeed,   "Initial seed for PRNG");
         
-        cp.add_flag  ('r', "rle",       rle,          "Use RLE HavelHakimi");
+        cp.add_flag  ('t', "internal-mem", internalMem,     "Use Internal Memory for HH prio/stack (rather than STXXL containers)");
+        cp.add_flag  ('r', "rle",          rle,             "Use RLE HavelHakimi");
         cp.add_flag  ('i', "init-degrees", showInitDegrees, "Output requested degrees (no HH gen)");
         cp.add_flag  ('d', "res-degrees",  showResDegrees,  "Output degree distribution of result");
 
@@ -62,6 +67,18 @@ struct RunConfig {
         return true;
     }
 };
+
+template <typename Generator, typename Vector>
+void materialize(Generator& gen, Vector & edges, stxxl::stats * stats, stxxl::stats_data& stats_begin) {
+    std::cout << "Stats after filling of prio queue:" << (stxxl::stats_data(*stats) - stats_begin);
+    
+    edges.resize(gen.maxEdges());
+    auto endIt = stxxl::stream::materialize(gen, edges.begin());
+    edges.resize(endIt - edges.begin());
+
+    std::cout << "Generated " << edges.size() << " edges of possibly " << gen.maxEdges() << " edges" << std::endl;
+}
+    
 
 
 void benchmark(RunConfig & config) {
@@ -82,36 +99,31 @@ void benchmark(RunConfig & config) {
     }
     
     // create vector
-    typedef stxxl::VECTOR_GENERATOR<HavelHakimiGenerator::value_type>::result result_vector_type;
+    using result_vector_type = stxxl::VECTOR_GENERATOR<edge_t>::result;
     result_vector_type edges;
     
     if (config.rle) {
         DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
         HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
-        std::cout << "Stats after filling of prio queue:" << (stxxl::stats_data(*stats) - stats_begin);
-        
-        edges.resize(hhgenerator.maxEdges());
-        auto endIt = stxxl::stream::materialize(hhgenerator, edges.begin());
-        edges.resize(endIt - edges.begin());
-
-        std::cout << "Generated " << edges.size() << " edges of possibly " << hhgenerator.maxEdges() << " edges" << std::endl;
+        materialize(hhgenerator, edges, stats, stats_begin);
         
     } else {
-        HavelHakimiGenerator hhgenerator(degreeSequence);
-        std::cout << "Stats after filling of prio queue:" << (stxxl::stats_data(*stats) - stats_begin);
-        
-//         edges.resize(hhgenerator.maxEdges());
-//         auto endIt = stxxl::stream::materialize(hhgenerator, edges.begin());
-//         edges.resize(endIt - edges.begin());
-//         std::cout << "Generated " << edges.size() << " edges of possibly " << hhgenerator.maxEdges() << " edges" << std::endl;
-        
-        stxxl::uint64 c = 0;
-        for(; !hhgenerator.empty(); ++hhgenerator)
-            c++;
-        
-        std::cout << c << " of " << hhgenerator.maxEdges()
-         << " " << (c -  hhgenerator.maxEdges())       
-        << std::endl;
+        if (config.internalMem) {
+            HavelHakimiPrioQueueInt prio_queue;
+            std::stack<HavelHakimiNodeDegree> stack;
+            
+            HavelHakimiGenerator<HavelHakimiPrioQueueInt, std::stack<HavelHakimiNodeDegree>> hhgenerator{prio_queue, stack, degreeSequence};
+            materialize(hhgenerator, edges, stats, stats_begin);
+        } else {
+            using hh_prio_queue = HavelHakimiPrioQueueExt<16 * IntScale::Mi, IntScale::Mi>;
+            hh_prio_queue prio_queue;
+            
+            using hh_stack = stxxl::STACK_GENERATOR<HavelHakimiNodeDegree, stxxl::external, stxxl::grow_shrink>::result;
+            hh_stack stack;
+            
+            HavelHakimiGenerator<hh_prio_queue, hh_stack> hhgenerator{prio_queue, stack, degreeSequence};
+            materialize(hhgenerator, edges, stats, stats_begin);
+        }            
     }
     
     std::cout << (stxxl::stats_data(*stats) - stats_begin);

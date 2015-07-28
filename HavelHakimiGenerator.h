@@ -1,53 +1,102 @@
-//
-// Created by michael on 09.07.15.
-//
+#pragma once
 
-#ifndef MYPROJECT_HAVELHAKIMIGENERATOR_H
-#define MYPROJECT_HAVELHAKIMIGENERATOR_H
-
-
-#include <stxxl/types>
-#include <stxxl/priority_queue>
-#include <stxxl/stack>
+#include <vector>
+#include <queue>
 #include <utility>
 
-class HavelHakimiGenerator {
-public:
-    typedef std::pair<stxxl::int64, stxxl::int64> value_type;
-    struct node_degree {
-        stxxl::int64 node;
-        stxxl::int64 degree;
+#include <stxxl/priority_queue>
+#include <stxxl/stack>
 
-        bool operator < (const node_degree & o) const { return std::tie(degree, node) < std::tie(o.degree, o.node); }
+#include "defs.h"
+
+struct HavelHakimiNodeDegree {
+    stxxl::int64 node;
+    stxxl::int64 degree;
+
+    bool operator < (const HavelHakimiNodeDegree & o) const { return std::tie(degree, node) < std::tie(o.degree, o.node); }
+    
+    struct ComparatorLess {
+        bool operator () (const HavelHakimiNodeDegree& a, const HavelHakimiNodeDegree & b) const { return a < b; }
+        HavelHakimiNodeDegree min_value() const { return {0LL, std::numeric_limits<stxxl::int64>::min()}; }
     };
+};
 
-private:
-    struct ComparatorLess
-    {
-        bool operator () (const node_degree& a, const node_degree & b) const { return a < b; }
-        node_degree min_value() const { return {std::numeric_limits<stxxl::int64>::min(), std::numeric_limits<stxxl::int64>::min()}; }
-    };
+inline std::ostream &operator<<(std::ostream &os, HavelHakimiNodeDegree const &m) {
+    return os << "{node:" << m.node << ", degree:" << m.degree << "}";
+}
 
-    typedef stxxl::PRIORITY_QUEUE_GENERATOR<node_degree, ComparatorLess, 16*1024*1024, 1024*1024>::result pqueue_type;
-    typedef pqueue_type::block_type block_type;
+template <uint InternalMemory, uint MaxElements>
+struct HavelHakimiPrioQueueExt {
+    using pqueue_type = typename stxxl::PRIORITY_QUEUE_GENERATOR<
+                                     HavelHakimiNodeDegree,
+                                     HavelHakimiNodeDegree::ComparatorLess,
+                                     InternalMemory,
+                                     MaxElements
+                                 >::result;
+        
+    using block_type  = typename pqueue_type::block_type;
+    
     stxxl::read_write_pool<block_type> pool;
     pqueue_type prioQueue;
+    
+    HavelHakimiPrioQueueExt(size_t memory_for_pools = InternalMemory)
+        : pool(static_cast<size_t>(memory_for_pools/2/block_type::raw_size),
+               static_cast<size_t>(memory_for_pools/2/block_type::raw_size))
+        , prioQueue(pool)
+    {}
+    
+    ~HavelHakimiPrioQueueExt() = default;
+    
+    pqueue_type & queue() {
+        return prioQueue;
+    }
+};
 
-    typedef stxxl::STACK_GENERATOR<node_degree, stxxl::external, stxxl::grow_shrink>::result node_degree_stack_type;
-    node_degree_stack_type stack;
+struct HavelHakimiPrioQueueInt {
+    using pqueue_type = std::priority_queue<
+                            HavelHakimiNodeDegree,
+                            std::vector<HavelHakimiNodeDegree>,
+                            HavelHakimiNodeDegree::ComparatorLess
+                        >;
+    
+    pqueue_type prioQueue;
+    
+    HavelHakimiPrioQueueInt()
+        : prioQueue()
+    {}
+    
+    ~HavelHakimiPrioQueueInt() = default;    
+    
+    pqueue_type & queue() {
+        return prioQueue;
+    }    
+};
 
-    node_degree current_node_degree;
+template <typename PrioQueue, typename Stack>
+class HavelHakimiGenerator {
+public:
+    using value_type = edge_t;
 
+private:
+    // configured containters have to be supplied via constructor
+    using pqueue_type = typename PrioQueue::pqueue_type;
+    pqueue_type & prioQueue;
+    Stack & stack;
+
+    // HavelHakimi state
+    HavelHakimiNodeDegree current_node_degree;
     value_type current;
 
     stxxl::int64 numEdges;
-
     bool is_empty;
+    
 public:
     template <typename InputStream>
-    HavelHakimiGenerator(InputStream &degrees) : pool(static_cast<stxxl::read_write_pool<block_type>::size_type>(8*1024*1024/block_type::raw_size),
-                                                      static_cast<stxxl::read_write_pool<block_type>::size_type>(8*1024*1024/block_type::raw_size)),
-                                                 prioQueue(pool), is_empty(false) {
+    HavelHakimiGenerator(PrioQueue & queue, Stack & stack, InputStream &degrees) 
+        : prioQueue(queue.queue())
+        , stack(stack)
+        , is_empty(false) 
+    {
         numEdges = 0;
 
         stxxl::int64 u = 0;
@@ -64,19 +113,69 @@ public:
         numEdges /= 2;
         ++(*this);
     }
+     
+    HavelHakimiGenerator<PrioQueue, Stack>& operator++() {
+        if (prioQueue.empty() && current_node_degree.degree > 0) {
+            STXXL_ERRMSG("Degree sequence not realizable, node " << current_node_degree.node << " should have got " << current_node_degree.degree << " more neighbors");
+        }
 
-    const value_type & operator * () const { return current; };
-    const value_type * operator -> () const { return &current; };
-    HavelHakimiGenerator & operator++ ();
-    bool empty() { return is_empty; };
+        // if no more edges need to be generated anymore for the current node or cannot be generated anymore (PQ empty)
+        if (current_node_degree.degree <= 0 || (prioQueue.empty() && !stack.empty())) {
+            // remove nodes from stack and put them back into the PQ
+            while (!stack.empty()) {
+                prioQueue.push(stack.top());
+                stack.pop();
+            }
 
-    stxxl::int64 maxEdges() const { return numEdges; };
+            // new source node
+            if (!prioQueue.empty()) {
+                current_node_degree = prioQueue.top();
+                prioQueue.pop();
+            }
+        }
+
+        // if the current node needs edges and we can find targets for edges in the PQ
+        if (current_node_degree.degree > 0 && !prioQueue.empty()) {
+            // target node is node with highest degree from PQ
+            HavelHakimiNodeDegree partner = prioQueue.top();
+            prioQueue.pop();
+            // set current edge
+            current = {current_node_degree.node, partner.node};
+            // decrease degrees of both nodes
+            --partner.degree;
+            --current_node_degree.degree;
+            // if the target node needs to get more edges add it to the stack so it gets re-added to the PQ
+            if (partner.degree > 0) {
+                stack.push(partner);
+            }
+        } else {
+        // as in the first part we already tried to make edge generation possible not being able to create edges
+        // here means that we cannot generated any edges anymore
+            if (current_node_degree.degree > 0) {
+                STXXL_ERRMSG("Degree sequence not realizable, node " << current_node_degree.node << " should have got " << current_node_degree.degree << " more neighbors");
+            }
+
+            is_empty = true;
+        }
+
+        return *this;
+    }
+    
+    const value_type & operator * () const {
+        return current;
+    };
+    
+    const value_type * operator -> () const {
+        return &current;
+    };
+    
+    bool empty() {
+        return is_empty;
+    };
+
+    stxxl::int64 maxEdges() const {
+        return numEdges;
+    };
 };
 
 
-inline std::ostream &operator<<(std::ostream &os, HavelHakimiGenerator::node_degree const &m) {
-    return os << "{node:" << m.node << ", degree:" << m.degree << "}";
-}
-
-
-#endif //MYPROJECT_HAVELHAKIMIGENERATOR_H

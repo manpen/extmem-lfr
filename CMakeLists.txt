@@ -43,7 +43,7 @@ include_directories(${STXXL_INCLUDE_DIRS})
 
 # Declare the library
 add_library(libextmemgraphgen STATIC
-    RandomStream.cpp PowerlawDegreeSequence.cpp HavelHakimiGenerator.cpp
+    RandomStream.cpp PowerlawDegreeSequence.cpp
 )
 
 # Specify here the include directories exported
