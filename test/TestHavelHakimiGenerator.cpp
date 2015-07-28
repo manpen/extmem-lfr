@@ -8,6 +8,7 @@
 #include <PowerlawDegreeSequence.h>
 #include <DegreeDistributionCheck.h>
 #include <HavelHakimiGenerator.h>
+#include <defs.h>
 
 TEST_F(TestHavelHakimiGenerator, testClique) {
     constexpr int_t numNodes = 10000;
@@ -42,8 +43,8 @@ TEST_F(TestHavelHakimiGenerator, testClique) {
 
 TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
     stxxl::srandom_number32(42);
-    constexpr int_t numNodes = 100*1000;
-    PowerlawDegreeSequence sequence(2, 100000-1, -2, numNodes);
+    constexpr int_t numNodes = 10 * IntScale::Mi;
+    PowerlawDegreeSequence sequence(2, 100000, -2, numNodes);
 
     // store degree sequence
     stxxl::vector<int_t> degrees(numNodes);
@@ -52,7 +53,7 @@ TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
 
     auto inputStream = stxxl::stream::streamify(degrees.begin(), degrees.end());
 
-    HavelHakimiPrioQueueExt<16 * IntScale::Mi, numNodes> prio_queue;
+    HavelHakimiPrioQueueExt<256 * IntScale::Mi, numNodes> prio_queue;
     stxxl::STACK_GENERATOR<HavelHakimiNodeDegree, stxxl::external, stxxl::grow_shrink>::result stack;
     HavelHakimiGenerator<decltype(prio_queue), decltype(stack)> gen{prio_queue, stack, inputStream};
 
