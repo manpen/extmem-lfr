@@ -8,7 +8,7 @@
 template <typename InputStream>
 class HavelHakimiGeneratorRLE {
 public:
-    typedef std::pair<stxxl::uint64, stxxl::uint64> value_type;
+    typedef std::pair<stxxl::int64, stxxl::int64> value_type;
 
 private:
     using node_block_type = typename InputStream::value_type;

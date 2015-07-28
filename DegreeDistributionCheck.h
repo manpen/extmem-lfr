@@ -12,7 +12,7 @@
  *  1.) Provided an (unsorted) list of edges, it computes the degree of every node
  *  2.) Offers an DistributionCount-based streaming interface to query the degree distribution
  */
-template <typename InputIterator, typename EdgeType = typename InputIterator::value_type, typename T = stxxl::uint64>
+template <typename InputIterator, typename EdgeType = typename InputIterator::value_type, typename T = stxxl::int64>
 class DegreeDistributionCheck {
 public:
     struct DegreeDistributionCheckIntComp {
@@ -42,9 +42,9 @@ private:
         InputIterator edges_begin, InputIterator edges_end
     ) {
         struct my_comparator {
-            bool operator()(const std::pair<T,T> &a, const std::pair<T,T> &b) const {return a.first < b.first;}
-            std::pair<T,T> min_value() const {return {std::numeric_limits<T>::min(),std::numeric_limits<T>::min()};}
-            std::pair<T,T> max_value() const {return {std::numeric_limits<T>::max(),std::numeric_limits<T>::max()};}
+            bool operator()(const edge_type &a, const edge_type &b) const {return a.first < b.first;}
+            edge_type min_value() const {return {std::numeric_limits<T>::min(),std::numeric_limits<T>::min()};}
+            edge_type max_value() const {return {std::numeric_limits<T>::max(),std::numeric_limits<T>::max()};}
         };    
         
         
@@ -59,7 +59,7 @@ private:
                 if (phase) {
                     std::swap(edge.first, edge.second);
                 } else {
-                    max_node_id = std::max(max_node_id, std::max<stxxl::uint64>(edge.first, edge.second));
+                    max_node_id = std::max(max_node_id, std::max<T>(edge.first, edge.second));
                 }
                 edge_sorter.push(edge);
             }
