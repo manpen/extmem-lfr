@@ -24,6 +24,8 @@
 struct HavelHakimiNodeDegree {
     stxxl::int64 node;    ///< node index
     stxxl::int64 degree;  ///< node degree
+
+    bool operator < (const HavelHakimiNodeDegree & o) const { return std::tie(degree, node) < std::tie(o.degree, o.node); }
     
     /***
      * @class ComparatorLess
@@ -33,13 +35,8 @@ struct HavelHakimiNodeDegree {
      * The default operator is return iff a.degree < b.degree
      */
     struct ComparatorLess {
-        bool operator () (const HavelHakimiNodeDegree& a, const HavelHakimiNodeDegree & b) const {
-            return a.degree < b.degree;
-        }
-        
-        HavelHakimiNodeDegree min_value() const {
-            return {0LL, std::numeric_limits<stxxl::int64>::min()};
-        }
+        bool operator () (const HavelHakimiNodeDegree& a, const HavelHakimiNodeDegree & b) const { return a < b; }
+        HavelHakimiNodeDegree min_value() const { return {0LL, std::numeric_limits<stxxl::int64>::min()}; }
     };
 };
 

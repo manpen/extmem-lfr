@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 2.6.4)
 
 # we first give our project a name
-project(myproject)
+project(extmemgraphgen)
 
 # prohibit in-source builds
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
@@ -41,10 +41,22 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
 # add STXXL include directory
 include_directories(${STXXL_INCLUDE_DIRS})
 
-# create and executable and linke with STXXL
-add_executable(test1 test1.cpp RandomStream.cpp PowerlawDegreeSequence.cpp)
-target_link_libraries(test1 ${STXXL_LIBRARIES})
+# Declare the library
+add_library(libextmemgraphgen STATIC
+    RandomStream.cpp PowerlawDegreeSequence.cpp
+)
 
+# Specify here the include directories exported
+# by this library
+target_include_directories(libextmemgraphgen PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# create and executable and linke with STXXL
+add_executable(test1 test1.cpp)
+target_link_libraries(test1 ${STXXL_LIBRARIES} libextmemgraphgen)
+
+add_subdirectory(test)
 
 # Doxygen
 find_package(Doxygen)
