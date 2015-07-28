@@ -10,8 +10,6 @@
 #include <stxxl/priority_queue>
 #include <stxxl/stack>
 #include <utility>
-#include <stack>
-#include <algorithm>
 
 class HavelHakimiGenerator {
 public:
@@ -38,11 +36,6 @@ private:
     typedef stxxl::STACK_GENERATOR<node_degree, stxxl::external, stxxl::grow_shrink>::result node_degree_stack_type;
     node_degree_stack_type stack;
 
-#ifndef NDEBUG
-    std::stack<node_degree> intStack;
-    std::vector<node_degree> intPrioQueue;
-#endif
-
     node_degree current_node_degree;
 
     value_type current;
@@ -57,30 +50,16 @@ public:
                                                  prioQueue(pool), is_empty(false) {
         numEdges = 0;
 
-
         stxxl::int64 u = 0;
         for (; !degrees.empty(); ++degrees, ++u) {
             if (*degrees > 0) {
                 prioQueue.push({u, *degrees});
-#ifndef NDEBUG
-                intPrioQueue.push_back({u, *degrees});
-#endif
             }
             numEdges += *degrees;
         }
 
-#ifndef NDEBUG
-        std::make_heap(intPrioQueue.begin(), intPrioQueue.end());
-#endif
-
         current_node_degree = prioQueue.top();
         prioQueue.pop();
-#ifndef NDEBUG
-        std::pop_heap(intPrioQueue.begin(), intPrioQueue.end());
-        assert(current_node_degree.degree == intPrioQueue.back().degree);
-        assert(current_node_degree.node == intPrioQueue.back().node);
-        intPrioQueue.pop_back();
-#endif
 
         numEdges /= 2;
         ++(*this);
