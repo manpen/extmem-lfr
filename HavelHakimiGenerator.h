@@ -17,13 +17,15 @@ public:
     struct node_degree {
         stxxl::int64 node;
         stxxl::int64 degree;
+
+        bool operator < (const node_degree & o) const { return std::tie(degree, node) < std::tie(o.degree, o.node); }
     };
 
 private:
     struct ComparatorLess
     {
-        bool operator () (const node_degree& a, const node_degree & b) const { return a.degree < b.degree; }
-        node_degree min_value() const { return {0LL, std::numeric_limits<stxxl::int64>::min()}; }
+        bool operator () (const node_degree& a, const node_degree & b) const { return a < b; }
+        node_degree min_value() const { return {std::numeric_limits<stxxl::int64>::min(), std::numeric_limits<stxxl::int64>::min()}; }
     };
 
     typedef stxxl::PRIORITY_QUEUE_GENERATOR<node_degree, ComparatorLess, 16*1024*1024, 1024*1024>::result pqueue_type;
