@@ -14,6 +14,13 @@ HavelHakimiGenerator &HavelHakimiGenerator::operator++() {
         // remove nodes from stack and put them back into the PQ
         while (!stack.empty()) {
             prioQueue.push(stack.top());
+#ifndef NDEBUG
+            assert(intStack.top().degree == stack.top().degree);
+            assert(intStack.top().node == stack.top().node);
+            intPrioQueue.push_back(intStack.top());
+            std::push_heap(intPrioQueue.begin(), intPrioQueue.end());
+            intStack.pop();
+#endif
             stack.pop();
         }
 
@@ -21,6 +28,11 @@ HavelHakimiGenerator &HavelHakimiGenerator::operator++() {
         if (!prioQueue.empty()) {
             current_node_degree = prioQueue.top();
             prioQueue.pop();
+#ifndef NDEBUG
+            std::pop_heap(intPrioQueue.begin(), intPrioQueue.end());
+            assert(current_node_degree.degree == intPrioQueue.back().degree);
+            intPrioQueue.pop_back();
+#endif
         }
     }
 
@@ -29,6 +41,12 @@ HavelHakimiGenerator &HavelHakimiGenerator::operator++() {
         // target node is node with highest degree from PQ
         node_degree partner = prioQueue.top();
         prioQueue.pop();
+#ifndef  NDEBUG
+        std::pop_heap(intPrioQueue.begin(), intPrioQueue.end());
+        assert(partner.degree == intPrioQueue.back().degree);
+        assert(partner.node == intPrioQueue.back().node);
+        intPrioQueue.pop_back();
+#endif
         // set current edge
         current = {current_node_degree.node, partner.node};
         // decrease degrees of both nodes
@@ -37,6 +55,11 @@ HavelHakimiGenerator &HavelHakimiGenerator::operator++() {
         // if the target node needs to get more edges add it to the stack so it gets re-added to the PQ
         if (partner.degree > 0) {
             stack.push(partner);
+#ifndef NDEBUG
+            intStack.push(partner);
+            assert(stack.top().degree == intStack.top().degree);
+            assert(stack.top().node == intStack.top().node);
+#endif
         }
     } else {
     // as in the first part we already tried to make edge generation possible not being able to create edges
