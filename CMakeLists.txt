@@ -42,5 +42,5 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
 include_directories(${STXXL_INCLUDE_DIRS})
 
 # create and executable and linke with STXXL
-add_executable(test1 test1.cpp RandomStream.cpp PowerlawDegreeSequence.cpp HavelHakimiGenerator.cpp)
+add_executable(test1 test1.cpp RandomStream.cpp PowerlawDegreeSequence.cpp)
 target_link_libraries(test1 ${STXXL_LIBRARIES})
