@@ -14,7 +14,7 @@ echo "Run HH"
 ./test1 "$@" -d | grep "ResDD" > dd_logs/res
 
 echo "Run HH RLE"
-./test1 "$@" -d -r | grep "ResDD" > dd_logs/res_rle
+./test1 "$@" -d -t | grep "ResDD" > dd_logs/res_rle
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 gnuplot $DIR/compare_degree_dists.gp
