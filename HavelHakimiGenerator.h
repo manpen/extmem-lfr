@@ -59,7 +59,6 @@ inline std::ostream &operator<<(std::ostream &os, HavelHakimiNodeDegree const &m
  *  HavelHakimiGenerator<hh_prio_queue, hh_stack> hhgenerator{prio_queue, stack, degreeSequence};
  * @endcode
  */
- */
 template <uint InternalMemory, uint MaxElements>
 struct HavelHakimiPrioQueueExt {
     using pqueue_type = typename stxxl::PRIORITY_QUEUE_GENERATOR<
