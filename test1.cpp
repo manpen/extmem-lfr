@@ -43,20 +43,27 @@ struct RunConfig {
         randomSeed = d.count();
     }
 
-
+#if STXXL_VERSION_INTEGER > 10401
+    #define CMDLINE_COMP(chr, str, dest, args...) \
+        chr, str, dest, args
+#else
+    #define CMDLINE_COMP(chr, str, dest, args...) \
+        chr, str, args, dest
+#endif
+    
     bool parse_cmdline(int argc, char* argv[]) {
         stxxl::cmdline_parser cp;
 
-        cp.add_bytes ('n', "num-nodes", numNodes, "Generate # nodes, Default: 10 Mi");
-        cp.add_bytes ('a', "min-deg",   minDeg,   "Min. Deg of Powerlaw Deg. Distr.");
-        cp.add_bytes ('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr.");
-        cp.add_double('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr.");
-        cp.add_uint  ('s', "seed",      randomSeed,   "Initial seed for PRNG");
+        cp.add_bytes (CMDLINE_COMP('n', "num-nodes", numNodes, "Generate # nodes, Default: 10 Mi"));
+        cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,   "Min. Deg of Powerlaw Deg. Distr."));
+        cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr."));
+        //cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr."));
+        cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
         
-        cp.add_flag  ('t', "internal-mem", internalMem,     "Use Internal Memory for HH prio/stack (rather than STXXL containers)");
-        cp.add_flag  ('r', "rle",          rle,             "Use RLE HavelHakimi");
-        cp.add_flag  ('i', "init-degrees", showInitDegrees, "Output requested degrees (no HH gen)");
-        cp.add_flag  ('d', "res-degrees",  showResDegrees,  "Output degree distribution of result");
+        cp.add_flag  (CMDLINE_COMP('t', "internal-mem", internalMem,     "Use Internal Memory for HH prio/stack (rather than STXXL containers)"));
+        cp.add_flag  (CMDLINE_COMP('r', "rle",          rle,             "Use RLE HavelHakimi"));
+        cp.add_flag  (CMDLINE_COMP('i', "init-degrees", showInitDegrees, "Output requested degrees (no HH gen)"));
+        cp.add_flag  (CMDLINE_COMP('d', "res-degrees",  showResDegrees,  "Output degree distribution of result"));
 
         if (!cp.process(argc, argv)) {
             cp.print_usage();
@@ -152,12 +159,16 @@ void benchmark(RunConfig & config) {
 
 
 int main(int argc, char* argv[]) {
-   RunConfig config;
-   if (!config.parse_cmdline(argc, argv))
-      return -1;
-   
-   stxxl::srandom_number32(config.randomSeed);
-   
-   benchmark(config);
-   return 0;
+#ifndef NDEBUG
+    std::cout << "[build with assertions]" << std::endl;
+#endif
+    std::cout << STXXL_VERSION_INTEGER << std::endl;
+    RunConfig config;
+    if (!config.parse_cmdline(argc, argv))
+        return -1;
+
+    stxxl::set_seed(config.randomSeed);
+
+    benchmark(config);
+    return 0;
 }
