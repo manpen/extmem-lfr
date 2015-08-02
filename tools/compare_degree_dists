@@ -1,4 +1,8 @@
 #!/bin/bash
+
+ident=$(echo "$@" | sed -r 's/-+/_/g' | sed -r 's/ //g')
+
+
 echo "Execute it in the build directory !"
 echo "Remeber to provide a seed with the -s argument"
 
@@ -8,13 +12,18 @@ sleep 1
 mkdir -p dd_logs
 
 echo "Build initial sequence"
-./test1 "$@" -i | grep "InitDD" > dd_logs/init
+./test1 "$@" -i | tee dd_logs/stdout_init | grep "InitDD" > dd_logs/init &
 
 echo "Run HH"
-./test1 "$@" -d | grep "ResDD" > dd_logs/res
+./test1 "$@" -d | tee dd_logs/stdout_res | grep "ResDD" > dd_logs/res &
 
 echo "Run HH RLE"
-./test1 "$@" -d -t | grep "ResDD" > dd_logs/res_rle
+./test1 "$@" -d -t | tee dd_logs/stdout_res_rle | grep "ResDD" > dd_logs/res_rle &
 
+wait
+
+echo "Plotting ..."
+echo "set title 'Degree Distributions with \"$@\"'" > degree_distr_title.gp
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 gnuplot $DIR/compare_degree_dists.gp
+cp degree_distr.pdf degree_distr_$ident.pdf
