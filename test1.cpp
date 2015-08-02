@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
     if (!config.parse_cmdline(argc, argv))
         return -1;
 
-    stxxl::set_seed(config.randomSeed);
+    stxxl::srandom_number32(config.randomSeed);
 
     benchmark(config);
     return 0;
