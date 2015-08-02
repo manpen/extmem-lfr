@@ -6,6 +6,7 @@
 #include <stxxl/sorter>
 #include "DistributionCount.h"
 
+#include "defs.h"
 
 /*
  * Implements two features:
@@ -30,68 +31,74 @@ private:
     degree_vector_type _degrees;
     degree_sorter_type _sorter; 
     
-    /* Computes the degree of each node (assuming the edge list represents an undirected (multi)graph).
-     * To acchive sort-complexity the following algorithm is used:
-     *  0.) Initialise a vector with n integers, where n = max( {u,v} for {u,v} in edges )
-     *  1.) Sort by the first node of each edge
-     *  2.) Scan over the edge list and degree vector in parallel, increasing the latter of each node in the former one
-     * 
-     *  3.) Repeat steps 1 and 2 with the second entry of each edge
-     */
     void _compute_node_degrees_from_edges(
         InputIterator edges_begin, InputIterator edges_end
     ) {
-        struct my_comparator {
-            bool operator()(const edge_type &a, const edge_type &b) const {return a.first < b.first;}
-            edge_type min_value() const {return {std::numeric_limits<T>::min(),std::numeric_limits<T>::min()};}
-            edge_type max_value() const {return {std::numeric_limits<T>::max(),std::numeric_limits<T>::max()};}
-        };    
-        
-        
         T max_node_id = 0;
         
-        for(unsigned int phase=0; phase < 2; phase++) {
-            // in the first phase we deal with the edge's first node, in the second phase with the second one
-            stxxl::sorter<edge_type, my_comparator> edge_sorter(my_comparator(), 256*1024*1024);
-            
-            for (InputIterator it = edges_begin; it != edges_end; ++it) {
-                edge_type edge = *it;
-                if (phase) {
-                    std::swap(edge.first, edge.second);
-                } else {
-                    max_node_id = std::max(max_node_id, std::max<T>(edge.first, edge.second));
-                }
-                edge_sorter.push(edge);
-            }
-                
-            edge_sorter.sort();
-            
-            if (!phase)
-                _degrees.resize(max_node_id + 1);
-            
-            bool first = true;
-            T last_node, counter = 0;
-            while(!edge_sorter.empty()) {
-                auto edge = *edge_sorter;
-                auto node = edge.first;
-                
-                if (last_node != node || first) {
-                    if (LIKELY (!first)) {
-                        _degrees[last_node] += counter;
-                    } else {
-                        first = false;
-                    }
-                    
-                    counter = 0;
-                    last_node = node;
-                }
-                
-                counter++;
-                ++edge_sorter;
-            }
-            
-            _degrees[last_node] += counter;
+        stxxl::sorter<T, DegreeDistributionCheckIntComp> 
+            node_sorter(DegreeDistributionCheckIntComp(), 256*1024*1024);
+
+        // copy nodes of edges into sorter
+#ifndef NDEBUG            
+        T sum_push = 0;
+        T num_push = 0;
+#endif        
+        for (InputIterator it = edges_begin; it != edges_end; ++it) {
+            edge_type edge = *it;
+            max_node_id = std::max(max_node_id, std::max<T>(edge.first, edge.second));
+            node_sorter.push(edge.first);
+            node_sorter.push(edge.second);
+
+#ifndef NDEBUG            
+            sum_push += edge.first + edge.second;
+            num_push += 2;
+#endif        
         }
+        node_sorter.sort();
+        
+        _degrees.resize(max_node_id + 1);
+        for(T i=0; i <= max_node_id; i++)
+            _degrees[i] = 0;
+        
+        bool first = true;
+        T last_node = 0; // prevent warning
+        T counter = 0;
+        
+#ifndef NDEBUG            
+        T sum_consume = 0;
+#endif
+        while(!node_sorter.empty()) {
+            auto node = *node_sorter;
+#ifndef NDEBUG            
+            sum_consume += node;
+#endif
+            
+            if (last_node != node || first) {
+                if (LIKELY (!first)) {
+                    _degrees[last_node] += counter;
+                } else {
+                    first = false;
+                }
+                
+                counter = 0;
+                last_node = node;
+            }
+            
+            counter++;
+            ++node_sorter;
+        }
+
+        
+        _degrees[last_node] += counter;
+
+#ifndef NDEBUG            
+        T num_ref = std::accumulate(_degrees.begin(), _degrees.end(), 0);
+        std::cout << "Pushed: "  << sum_push << " Consumed: " << sum_consume << std::endl;
+        std::cout << "Num Pushed: " << num_push << " Generated: " << num_ref << std::endl;
+        assert(sum_push == sum_consume);
+        assert(num_push == num_ref);
+#endif
     }
     
 public:
