@@ -27,7 +27,7 @@ using uint_t = std::uint64_t;
 
 using node_t = int_t; ///< Type for every node id used in this project
 using edge_t = std::pair<node_t, node_t>; ///<Type for every (un)directed edge
-
+using edgeid_t = int_t; ///< Type used to address edges
 
 /**
  * @class Scale
