@@ -6,13 +6,13 @@
 #include <stack>
 #include <stxxl/vector>
 
-#include "PowerlawDegreeSequence.h"
-#include "HavelHakimiGenerator.h"
+#include <PowerlawDegreeSequence.h>
+#include <HavelHakimiGenerator.h>
 
-#include "DistributionCount.h"
-#include "HavelHakimiGeneratorRLE.h"
+#include <DistributionCount.h>
+#include <HavelHakimiGeneratorRLE.h>
 
-#include "DegreeDistributionCheck.h"
+#include <DegreeDistributionCheck.h>
 
 
 struct RunConfig {
