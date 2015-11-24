@@ -15,6 +15,8 @@ cmake_minimum_required(VERSION 2.6.4)
 
 # we first give our project a name
 project(extmemgraphgen)
+include_directories(include/)
+
 
 # prohibit in-source builds
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
@@ -43,8 +45,8 @@ include_directories(${STXXL_INCLUDE_DIRS})
 
 # Declare the library
 add_library(libextmemgraphgen STATIC
-    RandomStream.cpp PowerlawDegreeSequence.cpp EdgeVector.cpp
-)
+        include/RandomStream.cpp include/PowerlawDegreeSequence.cpp include/EdgeVector.cpp
+        )
 
 # Specify here the include directories exported
 # by this library
