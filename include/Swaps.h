@@ -8,6 +8,7 @@
 #pragma once
 #include <defs.h>
 
+using swapid_t = int64_t;
 
 /**
  * @brief Store edge ids and direction describing a swap
