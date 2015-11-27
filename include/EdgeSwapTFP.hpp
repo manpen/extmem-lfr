@@ -17,13 +17,13 @@ protected:
    debug_vector _results;
 
 public:
-   EdgeVectorTFP() = delete;
-   EdgeVectorTFP(const EdgeVectorTFP &) = delete;
+   EdgeSwapTFP() = delete;
+   EdgeSwapTFP(const EdgeVectorTFP &) = delete;
 
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
    //! @param swaps  Read-only swap vector
-   EdgeVectorTFP(edge_vector & edges, swap_vector & swaps)
+   EdgeSwapTFP(edge_vector & edges, swap_vector & swaps)
       : _edges(edges), _swaps(swaps)
    {}
 
