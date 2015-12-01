@@ -6,31 +6,35 @@
 
 
 #include <stxxl/vector>
+#include <stx/btree_map>
 #include "defs.h"
 
-class EdgeVector {
+class EdgeVectorCache {
 public:
     using vector_type = stxxl::VECTOR_GENERATOR<edge_t>::result;
-    EdgeVector(vector_type &external_edges);
+    EdgeVectorCache(vector_type &external_edges);
 
     template <typename Iterator>
-    inline void loadEdges(Iterator edges);
+    inline void loadEdges(Iterator& edges);
 
     void flushEdges();
 
     template <typename Iterator>
-    void loadAndFlushEdges(Iterator edges);
+    void loadAndFlushEdges(Iterator& edges);
 
-    edge_t getEdge(int_t id) { return _internal_edges[id]; }
+    edge_t& getEdge(int_t id) {
+        assert(_internal_edges.find(id) != _internal_edges.end());
+        return _internal_edges[id];
+    }
 
-    void setEdge(int_t id, node_t u, node_t v) { _internal_edges[id] = std::make_pair(u, v); };
+    void setEdge(int_t id, edge_t e) { _internal_edges[id] = e; };
 private:
     vector_type &_external_edges;
     std::map<int_t, edge_t> _internal_edges;
 };
 
 template <typename Iterator>
-void EdgeVector::loadEdges(Iterator edges) {
+void EdgeVectorCache::loadEdges(Iterator& edges) {
     // FIXME: which iterator type should be used? Is it already sorted?
 
     if (!_internal_edges.empty()) {
@@ -38,19 +42,22 @@ void EdgeVector::loadEdges(Iterator edges) {
     }
 
     int_t id = 0;
-    for (auto it : vector_type::bufreader_type(_external_edges)) {
+
+    vector_type::bufreader_type reader(_external_edges);
+    while (!reader.empty()) {
         if (edges.empty()) break;
 
-        while (*edges == id) {
-            _internal_edges[id] = it;
+        if (*edges == id) {
+            _internal_edges.insert(std::make_pair(id, *reader));
             ++edges;
         }
 
+        ++reader;
         ++id;
     }
 }
 template <typename Iterator>
-void EdgeVector::loadAndFlushEdges(Iterator edges) {
+void EdgeVectorCache::loadAndFlushEdges(Iterator &edges) {
     flushEdges(); // FIXME do this in one EM scan
     loadEdges(edges);
 }

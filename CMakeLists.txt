@@ -46,7 +46,7 @@ include_directories(${STXXL_INCLUDE_DIRS})
 
 # Declare the library
 add_library(libextmemgraphgen STATIC
-        include/RandomStream.cpp include/PowerlawDegreeSequence.cpp include/EdgeVector.cpp
+        include/RandomStream.cpp include/PowerlawDegreeSequence.cpp include/EdgeVectorCache.cpp
         )
 
 # Specify here the include directories exported

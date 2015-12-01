@@ -2,12 +2,12 @@
 // Created by michael on 22.09.15.
 //
 
-#include "EdgeVector.h"
+#include "EdgeVectorCache.h"
 
-EdgeVector::EdgeVector(EdgeVector::vector_type &external_edges) : _external_edges(external_edges) {
+EdgeVectorCache::EdgeVectorCache(EdgeVectorCache::vector_type &external_edges) : _external_edges(external_edges) {
 }
 
-void EdgeVector::flushEdges() {
+void EdgeVectorCache::flushEdges() {
     vector_type output_vector;
     output_vector.reserve(_external_edges.size());
     vector_type::bufwriter_type writer(output_vector);
@@ -43,6 +43,7 @@ void EdgeVector::flushEdges() {
             ++new_e;
         }  else if (!reader.empty()) { // due to the previous while loop both could be empty now
             writer << *reader;
+            ++read_id;
             ++reader;
         }
     }
