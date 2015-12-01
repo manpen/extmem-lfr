@@ -13,6 +13,8 @@
 #include <HavelHakimiGeneratorRLE.h>
 
 #include <DegreeDistributionCheck.h>
+#include <SwapGenerator.hpp>
+#include <EdgeSwapInternalSwaps.hpp>
 
 
 struct RunConfig {
@@ -25,6 +27,8 @@ struct RunConfig {
     bool showInitDegrees;
     bool showResDegrees;
     bool internalMem;
+    bool swapInternal;
+    stxxl::uint64 swapsPerIteration;
 
     unsigned int randomSeed;
 
@@ -37,6 +41,8 @@ struct RunConfig {
         , showInitDegrees(false)
         , showResDegrees(false)
         , internalMem(false)
+        , swapInternal(false)
+        , swapsPerIteration(1024*1024)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -64,6 +70,8 @@ struct RunConfig {
         cp.add_flag  (CMDLINE_COMP('r', "rle",          rle,             "Use RLE HavelHakimi"));
         cp.add_flag  (CMDLINE_COMP('i', "init-degrees", showInitDegrees, "Output requested degrees (no HH gen)"));
         cp.add_flag  (CMDLINE_COMP('d', "res-degrees",  showResDegrees,  "Output degree distribution of result"));
+        cp.add_flag  (CMDLINE_COMP('m', "swap-internal", swapInternal, "Perform edge swaps in internal memory"));
+        cp.add_bytes  (CMDLINE_COMP('p', "swaps-per-iteration", swapsPerIteration, "Number of swaps per iteration"));
 
         if (!cp.process(argc, argv)) {
             cp.print_usage();
@@ -131,6 +139,40 @@ void benchmark(RunConfig & config) {
             HavelHakimiGenerator<hh_prio_queue, hh_stack> hhgenerator{prio_queue, stack, degreeSequence};
             materialize(hhgenerator, edges, stats, stats_begin);
         }            
+    }
+
+    if (config.swapInternal) {
+        int_t m = edges.size();
+
+        result_vector_type swapEdges(m);
+        {
+            result_vector_type::bufreader_type edgeReader(edges);
+            stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), 128*IntScale::Mi);
+            while (!edgeReader.empty()) {
+                if (edgeReader->first < edgeReader->second) {
+                    edgeSorter.push(edge_t {edgeReader->first, edgeReader->second});
+                } else {
+                    edgeSorter.push(edge_t {edgeReader->second, edgeReader->first});
+                }
+
+                ++edgeReader;
+            }
+
+            edgeSorter.sort();
+
+            stxxl::stream::materialize(edgeSorter, swapEdges.begin());
+        }
+
+
+        int_t numSwaps = 10*m;
+        SwapGenerator swapGen(numSwaps, m);
+        stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps(numSwaps);
+        auto endIt = stxxl::stream::materialize(swapGen, swaps.begin());
+        if (endIt - swaps.begin() != swaps.size()) {
+            throw std::runtime_error("Error, the number of generated swaps is not as specified");
+        }
+
+        EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, config.swapsPerIteration);
     }
     
     std::cout << (stxxl::stats_data(*stats) - stats_begin);

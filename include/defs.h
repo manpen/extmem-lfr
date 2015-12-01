@@ -8,6 +8,8 @@
 
 #pragma once
 #include <cstdint>
+#include <utility>
+#include <limits>
 
 /** 
  * @typedef int_t
@@ -28,6 +30,12 @@ using uint_t = std::uint64_t;
 using node_t = int_t; ///< Type for every node id used in this project
 using edge_t = std::pair<node_t, node_t>; ///<Type for every (un)directed edge
 using edgeid_t = int_t; ///< Type used to address edges
+
+struct EdgeComparator {
+    bool operator()(const edge_t &a, const edge_t &b) const {return a < b;}
+    edge_t min_value() const {return std::make_pair(std::numeric_limits<node_t>::min(), std::numeric_limits<node_t>::min());}
+    edge_t max_value() const {return std::make_pair(std::numeric_limits<node_t>::max(), std::numeric_limits<node_t>::max());}
+};
 
 /**
  * @class Scale

@@ -18,7 +18,7 @@ protected:
 
 public:
    EdgeSwapTFP() = delete;
-   EdgeSwapTFP(const EdgeVectorTFP &) = delete;
+   EdgeSwapTFP(const EdgeSwapTFP &) = delete;
 
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
