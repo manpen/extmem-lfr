@@ -16,6 +16,7 @@ cmake_minimum_required(VERSION 2.6.4)
 # we first give our project a name
 project(extmemgraphgen)
 include_directories(include/)
+include_directories(stx-btree/include/)
 
 
 # prohibit in-source builds

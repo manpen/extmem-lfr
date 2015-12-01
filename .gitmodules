@@ -1,0 +1,3 @@
+[submodule "stx-btree"]
+	path = stx-btree
+	url = https://github.com/bingmann/stx-btree.git
