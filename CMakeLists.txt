@@ -10,54 +10,56 @@
 #  http://www.boost.org/LICENSE_1_0.txt)
 ############################################################################
 
-# require cmake 2.6.4 (but please use 2.8.x)
-cmake_minimum_required(VERSION 2.6.4)
+cmake_minimum_required(VERSION 2.8)
 
 # we first give our project a name
 project(extmemgraphgen)
-include_directories(include/)
-include_directories(stx-btree/include/)
-
 
 # prohibit in-source builds
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
-  message(SEND_ERROR "In-source builds are not allowed.")
+    message(SEND_ERROR "In-source builds are not allowed.")
 endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
+
+
+# add third-party dependencies
+add_subdirectory(libs/stxxl/)
+add_subdirectory(libs/googletest/googletest)
+include_directories(libs/stx-btree/include/)
+
+include_directories(include/)
 
 # enable warnings (always good)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
-# enable C++11
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-# search for stxxl-config.cmake which contains the library's configuration
-find_package(STXXL REQUIRED)
+# enable C++14
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-# print some info (this can be removed)
+# Include STXXL
 message(STATUS "STXXL_CXX_FLAGS: ${STXXL_CXX_FLAGS}")
 message(STATUS "STXXL_INCLUDE_DIRS: ${STXXL_INCLUDE_DIRS}")
 message(STATUS "STXXL_LIBRARIES: ${STXXL_LIBRARIES}")
 
 # apply CXXFLAGS to our configuration
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
-
-
-# add STXXL include directory
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-depth=1000")
 include_directories(${STXXL_INCLUDE_DIRS})
 
 # Declare the library
 add_library(libextmemgraphgen STATIC
-        include/RandomStream.cpp include/PowerlawDegreeSequence.cpp include/EdgeVectorCache.cpp
-        )
+    include/RandomStream.cpp
+    include/PowerlawDegreeSequence.cpp
+    include/EdgeVectorCache.cpp
+)
 
 # Specify here the include directories exported
 # by this library
-target_include_directories(libextmemgraphgen PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
+#target_include_directories(libextmemgraphgen PUBLIC
+#    ${CMAKE_CURRENT_SOURCE_DIR}
+#)
 
 # create and executable and linke with STXXL
-add_executable(test1 test1.cpp)
-target_link_libraries(test1 ${STXXL_LIBRARIES} libextmemgraphgen)
+add_executable(pa_test1 test1.cpp)
+target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
 
 add_subdirectory(test)
 

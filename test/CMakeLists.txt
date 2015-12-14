@@ -1,15 +1,15 @@
 enable_testing()
-find_package(GTest REQUIRED)
 
-include_directories(${GTEST_INCLUDE_DIRS})
+message(STATUS "gtest_SOURCE_DIR: ${gtest_SOURCE_DIR}")
 
 file(GLOB SRCS *.cpp)
-
 add_executable(testextmemgraphgen ${SRCS})
+
+include_directories(${gtest_SOURCE_DIR} ${gtest_SOURCE_DIR}/include)
 
 target_link_libraries(testextmemgraphgen
     libextmemgraphgen
-    ${GTEST_LIBRARIES}
+    gtest gtest_main
     ${STXXL_LIBRARIES}
 )
 
