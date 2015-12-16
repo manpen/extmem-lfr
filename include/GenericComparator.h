@@ -39,3 +39,14 @@ struct GenericComparator{
       T max_value() const {return std::numeric_limits<T>::max();}
    };
 };
+
+namespace std {
+   template<typename T1, typename T2>
+   class numeric_limits<std::pair<T1, T2>> {
+      using T = std::pair<T1, T2>;
+   public:
+      static T min() { return {numeric_limits<T1>::min(), numeric_limits<T2>::min()}; }
+
+      static T max() { return {numeric_limits<T1>::max(), numeric_limits<T2>::max()}; }
+   };
+}

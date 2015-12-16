@@ -15,7 +15,7 @@
  * @typedef int_t
  * @brief The default signed integer to be used.
  * 
- * You can assume, that this type has always atleast 64 bit
+ * You can assume, that this type has always at least 64 bit
  */
 using int_t = std::int64_t;
 
@@ -23,7 +23,7 @@ using int_t = std::int64_t;
  * @typedef uint_t
  * @brief The default unsigned integer to be used.
  *
- * You can assume, that this type has always atleast 64 bit
+ * You can assume, that this type has always at least 64 bit
  */
 using uint_t = std::uint64_t;
 
@@ -36,6 +36,11 @@ struct EdgeComparator {
     edge_t min_value() const {return std::make_pair(std::numeric_limits<node_t>::min(), std::numeric_limits<node_t>::min());}
     edge_t max_value() const {return std::make_pair(std::numeric_limits<node_t>::max(), std::numeric_limits<node_t>::max());}
 };
+
+inline std::ostream &operator<<(std::ostream &os, const edge_t & t) {
+   os << "edge(" << t.first << "," << t.second << ")";
+   return os;
+}
 
 /**
  * @class Scale
@@ -72,3 +77,12 @@ using IntScale = Scale<int_t>;
  * @see Scale
  */
 using DblScale = Scale<double>;
+
+#ifndef NDEBUG
+#define DEBUG_MSG(show, msg) if(show) {std::cout << msg << std::endl;}
+#else
+#define DEBUG_MSG(show, msg) {}
+#endif
+
+
+

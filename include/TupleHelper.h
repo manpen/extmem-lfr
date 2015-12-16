@@ -68,6 +68,67 @@ public:
    };
 };
 
+template <typename T,
+          typename TupleT = decltype(T::tuple(*((T*)nullptr)))>
+class GenericComparatorStruct {
+   template < typename... Ts>
+   using tuple_with_removed_refs = std::tuple<typename std::remove_reference<Ts>::type...>;
+
+   template <typename... Ts>
+   static tuple_with_removed_refs<Ts...> remove_ref_from_tuple_members(std::tuple<Ts...> const& t) {
+      return tuple_with_removed_refs<Ts...> { };
+   }
+
+public:
+   struct Ascending {
+      Ascending() {}
+
+      bool operator()(const T &a, const T &b) const {
+         return T::tuple(a) < T::tuple(b);
+      }
+
+      T min_value() const {
+         T result;
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         typename GenericComparatorTuple<TupleNoRefT>::Ascending comp;
+         T::tuple(result) = comp.min_value();
+         return result;
+      }
+
+      T max_value() const {
+         T result;
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         typename GenericComparatorTuple<TupleNoRefT>::Ascending comp;
+         T::tuple(result) = comp.max_value();
+         return result;
+      }
+   };
+
+   struct Descending {
+      Descending() {}
+
+      bool operator()(const T &a, const T &b) const {
+         return T::tuple(b) < T::tuple(a);
+      }
+
+      T min_value() const {
+         T result;
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         typename GenericComparatorTuple<TupleNoRefT>::Descending comp;
+         T::tuple(result) = comp.min_value();
+         return result;
+      }
+
+      T max_value() const {
+         T result;
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         typename GenericComparatorTuple<TupleNoRefT>::Descending comp;
+         T::tuple(result) = comp.max_value();
+         return result;
+      }
+   };
+};
+
 //! @brief Helper class to push a tuple into a ostringstream
 template <class Stream, class Tuple, unsigned int i>
 struct TuplePrint {
@@ -97,11 +158,34 @@ inline std::ostream &operator<<(std::ostream &os, std::tuple<Args...> t) {
 
    // use helper to print the tuple into the string buffer
    using Tuple = decltype(t);
-   oss << "tuple(";
+   oss << "(";
    TuplePrint<decltype(oss), Tuple, std::tuple_size<Tuple>::value>::print(oss, t);
    oss << ")";
 
    // copy text into output stream (thread-safe, hence no race-conditions)
    os << oss.str();
+   return os;
+}
+
+struct TupleSortable {
+   virtual void streamify(std::ostream &) {}
+};
+
+#define DECL_LEX_COMPARE(name, ...) \
+   auto to_tuple() {return std::tie(__VA_ARGS__);} \
+   const auto to_tuple() const {return std::tie(__VA_ARGS__);} \
+   static auto tuple(name & o) {return o.to_tuple();} \
+   const static auto tuple(const name & o) {return o.to_tuple();} \
+   bool operator< (const name& o) const {return to_tuple() <  o.to_tuple(); } \
+   bool operator> (const name& o) const {return to_tuple() >  o.to_tuple(); } \
+   bool operator<=(const name& o) const {return to_tuple() <= o.to_tuple(); } \
+   bool operator>=(const name& o) const {return to_tuple() >= o.to_tuple(); } \
+   bool operator==(const name& o) const {return to_tuple() == o.to_tuple(); } \
+   bool operator!=(const name& o) const {return to_tuple() != o.to_tuple(); } \
+   void streamify(std::ostream &os) {os << #name << to_tuple();}
+
+
+inline std::ostream &operator<<(std::ostream &os, TupleSortable t) {
+   t.streamify(os);
    return os;
 }
