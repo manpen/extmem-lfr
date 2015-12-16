@@ -9,12 +9,12 @@
 #include <vector>
 #include <stack>
 #include <functional>
-#include "Swaps.h"
+#include "EdgeSwapBase.h"
 #include "EdgeVectorCache.h"
 #include "GenericComparator.h"
 
 template <class EdgeVector = stxxl::vector<node_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
-class EdgeSwapInternalSwaps {
+class EdgeSwapInternalSwaps : EdgeSwapBase {
 public:
    using debug_vector = stxxl::vector<SwapResult>;
    using edge_vector = EdgeVector;
@@ -103,34 +103,6 @@ public:
 
             std::cout << "Identified " << uniqueEdges.duplicates.size() << " duplicate edge ids which could lead to conflicts" << std::endl;
 
-            auto swapEdge = [](edge_t e0, edge_t e1, bool direction) {
-                edge_t t0, t1;
-                if (direction) {
-                    if (e0.first < e1.second) {
-                        t0 = {e0.first, e1.second};
-                    } else {
-                        t0 = {e1.second, e0.first};
-                    }
-                    if (e0.second < e1.first) {
-                        t1 = {e0.second, e1.first};
-                    } else {
-                        t1 = {e1.first, e0.second};
-                    }
-                } else {
-                    if (e0.second < e1.second) {
-                        t0 = {e0.second, e1.second};
-                    } else {
-                        t0 = {e1.second, e0.second};
-                    }
-                    if (e1.first < e0.first) {
-                        t1 = {e1.first, e0.first};
-                    } else {
-                        t1 = {e0.first, e1.first};
-                    }
-                }
-                return std::make_pair(t0, t1);
-            };
-
 
             stx::btree_set<PossibleEdge> edgeSets;
             std::stack<PossibleEdge> newEdges;
@@ -148,7 +120,7 @@ public:
 
                 auto addPossibleSwap = [&](edge_t e0, edge_t e1) {
                         edge_t t0, t1;
-                        std::tie(t0, t1) = swapEdge(e0, e1, direction);
+                        std::tie(t0, t1) = _swap_edge(e0, e1, direction);
                         if (t0.first != t0.second) {
                             if (store0) {
                                 newEdges.push(PossibleEdge {eid0, t0});
@@ -252,7 +224,7 @@ public:
                 //std::cout << "Testing swap of " << e0.first << ", " << e0.second << " and " << e1.first << ", " << e1.second << std::endl;
 
                 edge_t t0, t1;
-                std::tie(t0, t1) = swapEdge(e0, e1, s.direction());
+                std::tie(t0, t1) = _swap_edge(e0, e1, s.direction());
 
                 //std::cout << "Target edges " << t0.first << ", " << t0.second << " and " << t1.first << ", " << t1.second << std::endl;
 

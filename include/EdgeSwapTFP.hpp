@@ -12,9 +12,10 @@
 #include "GenericComparator.h"
 #include "TupleHelper.h"
 
+#include "EdgeSwapBase.h"
 
 template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
-class EdgeSwapTFP {
+class EdgeSwapTFP : EdgeSwapBase {
 public:
    using debug_vector = stxxl::vector<SwapResult>;
    using edge_vector = EdgeVector;
@@ -263,18 +264,11 @@ protected:
          // compute "cartesian" product between possible edges to determine all possible new edges
          for(auto & e1 : edges[0]) {
             for (auto &e2 : edges[1]) {
-               // direction == false: (v1, v3) and (v2, v4)
-               // direction == true : (v2, v3) and (v1, v4)
-               edge_t new_edges[2] = {
-                  edge_t{ swap.direction() ? e1.second : e1.first, e2.first},
-                  edge_t{!swap.direction() ? e1.second : e1.first, e2.second}
-               };
+               auto swapped = _swap_edges(e1, e2, swap.direction());
+               edge_t new_edges[2] = {swapped.first, swapped.second};
 
                for(unsigned int i=0; i<2; i++) {
                   auto &new_edge = new_edges[i];
-
-                  if (new_edge.first > new_edge.second)
-                     std::swap(new_edge.first, new_edge.second);
 
                   // send new edge to successor swap
                   if (successors[i]) {
@@ -378,10 +372,11 @@ protected:
          }
 
          // compute swapped edges
-         new_edges[0] = edge_t{ swap.direction() ? edges[0].second : edges[0].first, edges[1].first};
-         new_edges[1] = edge_t{!swap.direction() ? edges[0].second : edges[0].first, edges[1].second};
-         if (new_edges[0].first > new_edges[0].second) std::swap(new_edges[0].first, new_edges[0].second);
-         if (new_edges[1].first > new_edges[1].second) std::swap(new_edges[1].first, new_edges[1].second);
+         {
+            auto swapped = _swap_edges(edges[0], edges[1], swap.direction());
+            new_edges[0] = swapped.first;
+            new_edges[1] = swapped.second;
+         }
 
 #ifndef NDEBUG
          if (_debug) {
