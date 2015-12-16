@@ -73,7 +73,7 @@ struct SwapResult {
    void normalize() {
       bool valid[2];
       for(unsigned int i=0; i < 2; i++) {
-         if (edges[i].second > edges[i].first)
+         if (edges[i].second < edges[i].first)
             std::swap(edges[i].second, edges[i].first);
 
          valid[i] = (edges[i].second != edges[i].first);
@@ -91,11 +91,11 @@ struct SwapResult {
 inline std::ostream &operator<<(std::ostream &os, SwapResult const &m) {
    return os <<
       "{swap-result "
-          "pref:" << m.performed << ", "
+          "perf:" << m.performed << ", "
           "loop:" << m.loop << ", "
-          "edge0: [" << m.edges[0].first << "," << m.edges[1].second << "] "
+          "edge0: (" << m.edges[0].first << "," << m.edges[0].second << ") "
           "conf0: " << m.conflictDetected[0] << ", "
-          "edge1: [" << m.edges[1].first << "," << m.edges[1].second << "] "
+          "edge1: (" << m.edges[1].first << "," << m.edges[1].second << ") "
           "conf0: " << m.conflictDetected[1] <<
       "}";
 }
