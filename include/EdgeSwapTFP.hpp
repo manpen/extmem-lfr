@@ -264,8 +264,8 @@ protected:
          // compute "cartesian" product between possible edges to determine all possible new edges
          for(auto & e1 : edges[0]) {
             for (auto &e2 : edges[1]) {
-               auto swapped = _swap_edges(e1, e2, swap.direction());
-               edge_t new_edges[2] = {swapped.first, swapped.second};
+               edge_t new_edges[2];
+               std::tie(new_edges[0], new_edges[1]) =_swap_edges(e1, e2, swap.direction());
 
                for(unsigned int i=0; i<2; i++) {
                   auto &new_edge = new_edges[i];
@@ -372,11 +372,7 @@ protected:
          }
 
          // compute swapped edges
-         {
-            auto swapped = _swap_edges(edges[0], edges[1], swap.direction());
-            new_edges[0] = swapped.first;
-            new_edges[1] = swapped.second;
-         }
+         std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], swap.direction());
 
 #ifndef NDEBUG
          if (_debug) {
