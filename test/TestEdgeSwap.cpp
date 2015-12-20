@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <stxxl/vector>
+#include "EdgeSwapInternalSwaps.hpp"
 #include "EdgeSwapTFP.hpp"
+#include "EdgeSwapFullyInternal.hpp"
 
 namespace {
    using EdgeList = stxxl::vector<edge_t>;
@@ -21,7 +23,9 @@ namespace {
    };
 
    using TestEdgeSwapImplementations = ::testing::Types <
-      EdgeSwapTFP<EdgeList, SwapList>
+      EdgeSwapInternalSwaps<EdgeList, SwapList>,
+      EdgeSwapTFP<EdgeList, SwapList>,
+      EdgeSwapFullyInternal<EdgeList, SwapList>
    >;
 
    TYPED_TEST_CASE(TestEdgeSwap, TestEdgeSwapImplementations);
@@ -46,14 +50,13 @@ namespace {
       EdgeSwapAlgo algo(edge_list, swap_list, debug_this_test);
 
       this->_print_list(edge_list, debug_this_test);
-
+ 
       auto & debug = algo.debugVector();
       this->_print_list(debug, debug_this_test);
 
-      ASSERT_TRUE(debug[0].performed);
-      ASSERT_TRUE(debug[1].performed);
-      ASSERT_TRUE(debug[2].performed);
-      ASSERT_TRUE(debug[3].performed);
+      for(unsigned int i=0; i < swap_list.size(); i++) {
+         ASSERT_TRUE(debug[i].performed) << "with i=" << i << " and " << debug[i];
+      }
 
       ASSERT_EQ(edge_list[0], edge_t(0, 3));
       ASSERT_EQ(edge_list[1], edge_t(1, 2));
