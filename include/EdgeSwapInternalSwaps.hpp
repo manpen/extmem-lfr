@@ -84,6 +84,8 @@ public:
 
         EdgeVectorCache edgeCache(edges);
 
+        typename debug_vector::bufwriter_type debug_vector_writer(_results);
+
         while (!reader.empty()) {
             currentSwaps.clear();
 
@@ -215,12 +217,15 @@ public:
             std::cout << "Doing swaps" << std::endl;
 
             // do swaps
-            for (auto s : currentSwaps) {
+            for (const auto & s : currentSwaps) {
                 auto eid0 = s.edges()[0];
                 auto eid1 = s.edges()[1];
 
                 auto& e0 = edgeCache.getEdge(eid0);
                 auto& e1 = edgeCache.getEdge(eid1);
+
+                SwapResult result;
+
 
                 //std::cout << "Testing swap of " << e0.first << ", " << e0.second << " and " << e1.first << ", " << e1.second << std::endl;
 
@@ -228,27 +233,38 @@ public:
                 std::tie(t0, t1) = _swap_edges(e0, e1, s.direction());
 
                 //std::cout << "Target edges " << t0.first << ", " << t0.second << " and " << t1.first << ", " << t1.second << std::endl;
+                {
+                    // compute whether swap can be performed and write debug info out
+                    result.edges[0] = t0;
+                    result.edges[1] = t1;
+                    result.loop = (t0.first == t0.second || t1.first == t1.second); 
 
-                if (t0.first == t0.second || t1.first == t1.second) {
+                    #ifdef NDEBUG
+                    result.conflictDetected[0] = existsEdge.exists(t0);
+                    result.conflictDetected[1] = existsEdge.exists(t1);
+                    #else
+                    result.conflictDetected[0] = existsEdge[t0];
+                    result.conflictDetected[1] = existsEdge[t1]; 
+                    #endif
+
+                    result.performed = !result.loop && !(result.conflictDetected[0] || result.conflictDetected[1]);
+                    result.normalize();
+
+                    debug_vector_writer << result;
+                }
+
+                //std::cout << result << std::endl;
+
+                if (result.loop) {
                     //std::cout << "Aborting swap, creating loop" << std::endl;
                     continue;
                 } // loop
                 assert(existsEdge.find(t0) != existsEdge.end() && existsEdge.find(t1) != existsEdge.end());
 
-                #ifdef NDEBUG
-                if (existsEdge.exists(t0) || existsEdge.exists(t1)) {
-                #else
-                if (existsEdge[t0] || existsEdge[t1]) {
-                #endif
+                if (!result.performed) {
                     //std::cout << "Found conflict" << std::endl;
                     continue; // conflict
                 }
-
-                e0 = t0;
-                e1 = t1;
-
-                assert(edgeCache.getEdge(eid0) == t0);
-                assert(edgeCache.getEdge(eid1) == t1);
 
                 #ifdef NDEBUG
                 existsEdge.erase(e0);
@@ -261,12 +277,18 @@ public:
                 existsEdge[t0] = true;
                 existsEdge[t1] = true;
                 #endif
+
+                // updates the values in edgeCache 
+                e0 = t0;
+                e1 = t1;
             }
 
             edgeCache.flushEdges();
 
             std::cout << "Finished swap phase and writing back" << std::endl;
         }
+
+        debug_vector_writer.finish();
    }
 
    //! The i-th entry of this vector corresponds to the i-th
