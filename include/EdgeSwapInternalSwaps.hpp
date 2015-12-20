@@ -70,10 +70,11 @@ public:
    EdgeSwapInternalSwaps() = delete;
    EdgeSwapInternalSwaps(const EdgeSwapInternalSwaps &) = delete;
 
+
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
    //! @param swaps  Read-only swap vector
-   EdgeSwapInternalSwaps(edge_vector & edges, swap_vector & swaps, int_t num_swaps_per_iteration)
+   EdgeSwapInternalSwaps(edge_vector & edges, swap_vector & swaps, bool /*debug*/, int_t num_swaps_per_iteration = 10000)
       : _edges(edges), _swaps(swaps)
    {
         typename swap_vector::bufreader_type reader(swaps);
@@ -120,7 +121,7 @@ public:
 
                 auto addPossibleSwap = [&](edge_t e0, edge_t e1) {
                         edge_t t0, t1;
-                        std::tie(t0, t1) = _swap_edge(e0, e1, direction);
+                        std::tie(t0, t1) = _swap_edges(e0, e1, direction);
                         if (t0.first != t0.second) {
                             if (store0) {
                                 newEdges.push(PossibleEdge {eid0, t0});
@@ -224,7 +225,7 @@ public:
                 //std::cout << "Testing swap of " << e0.first << ", " << e0.second << " and " << e1.first << ", " << e1.second << std::endl;
 
                 edge_t t0, t1;
-                std::tie(t0, t1) = _swap_edge(e0, e1, s.direction());
+                std::tie(t0, t1) = _swap_edges(e0, e1, s.direction());
 
                 //std::cout << "Target edges " << t0.first << ", " << t0.second << " and " << t1.first << ", " << t1.second << std::endl;
 
