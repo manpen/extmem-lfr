@@ -31,6 +31,7 @@ struct RunConfig {
     bool swapInternal;
     bool swapTFP;
     stxxl::uint64 swapsPerIteration;
+    stxxl::uint64 numSwaps;
 
     unsigned int randomSeed;
 
@@ -45,6 +46,7 @@ struct RunConfig {
         , internalMem(false)
         , swapInternal(false)
         , swapsPerIteration(1024*1024)
+        , numSwaps(numNodes)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -67,14 +69,16 @@ struct RunConfig {
         cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr."));
         //cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr."));
         cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
-        
+
         cp.add_flag  (CMDLINE_COMP('t', "internal-mem", internalMem,     "Use Internal Memory for HH prio/stack (rather than STXXL containers)"));
         cp.add_flag  (CMDLINE_COMP('r', "rle",          rle,             "Use RLE HavelHakimi"));
         cp.add_flag  (CMDLINE_COMP('i', "init-degrees", showInitDegrees, "Output requested degrees (no HH gen)"));
         cp.add_flag  (CMDLINE_COMP('d', "res-degrees",  showResDegrees,  "Output degree distribution of result"));
+
         cp.add_flag  (CMDLINE_COMP('m', "swap-internal", swapInternal, "Perform edge swaps in internal memory"));
         cp.add_flag  (CMDLINE_COMP('e', "swap-tfp", swapTFP, "Perform edge swaps using TFP"));
         cp.add_bytes  (CMDLINE_COMP('p', "swaps-per-iteration", swapsPerIteration, "Number of swaps per iteration"));
+        cp.add_bytes  (CMDLINE_COMP('z', "num-swaps", numSwaps,   "Number of random swaps"));
 
         if (!cp.process(argc, argv)) {
             cp.print_usage();
@@ -166,21 +170,25 @@ void benchmark(RunConfig & config) {
             stxxl::stream::materialize(edgeSorter, swapEdges.begin());
         }
 
-
-        int_t numSwaps = 10*m;
-        SwapGenerator swapGen(numSwaps, m);
-        stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps(numSwaps);
+        SwapGenerator swapGen(config.numSwaps, m);
+        stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps(config.numSwaps);
         auto endIt = stxxl::stream::materialize(swapGen, swaps.begin());
         if (endIt - swaps.begin() != swaps.size()) {
             throw std::runtime_error("Error, the number of generated swaps is not as specified");
         }
 
         if (config.swapInternal) {
-            EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, false, config.swapsPerIteration);
+            auto stat_start = stxxl::stats_data(*stats);
+            EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, config.swapsPerIteration);
+            internalSwaps.run();
+            std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
 
         if (config.swapTFP) {
+            auto stat_start = stxxl::stats_data(*stats);
             EdgeSwapTFP<decltype(swapEdges), decltype(swaps)> TFPSwaps(swapEdges, swaps);
+            TFPSwaps.run();
+            std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
     }
     
