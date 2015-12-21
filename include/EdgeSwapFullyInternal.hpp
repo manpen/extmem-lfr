@@ -17,7 +17,7 @@
  * @brief Straight-forward (and slow) implementation of Edge Swaps used for cross-validation
  */
 template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
-class EdgeSwapFullyInternal : EdgeSwapBase {
+class EdgeSwapFullyInternal : public EdgeSwapBase {
 public:
    using debug_vector = stxxl::vector<SwapResult>;
    using edge_vector = EdgeVector;
@@ -28,8 +28,6 @@ protected:
    SwapVector & _swaps;
 
    debug_vector _result;
-
-   bool _debug;
 
    void _perform_swaps() {
       // copy edge list into btree
@@ -91,11 +89,14 @@ public:
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
    //! @param swaps  Read-only swap vector
-   EdgeSwapFullyInternal(edge_vector & edges, swap_vector & swaps, bool debug = false) :
+   EdgeSwapFullyInternal(edge_vector & edges, swap_vector & swaps) :
+      EdgeSwapBase(),
       _edges(edges),
-      _swaps(swaps),
-      _debug(debug)
-   {
+      _swaps(swaps)
+   {}
+
+
+   void run() {
       _perform_swaps();
    }
 

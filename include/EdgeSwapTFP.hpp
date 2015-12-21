@@ -15,15 +15,13 @@
 #include "EdgeSwapBase.h"
 
 template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
-class EdgeSwapTFP : EdgeSwapBase {
+class EdgeSwapTFP : public EdgeSwapBase {
 public:
    using debug_vector = stxxl::vector<SwapResult>;
    using edge_vector = EdgeVector;
    using swap_vector = SwapVector;
 
 protected:
-   bool _debug;
-
    constexpr static size_t _pq_mem = 1 << 25;
    constexpr static size_t _pq_pool_mem = 1 << 26;
    constexpr static size_t _sorter_mem = 1 << 30;
@@ -278,7 +276,7 @@ protected:
                   // register to receive information on whether this edge exists
                   _existence_request_sorter.push(ExistenceRequestMsg{new_edge, sid});
 
-                  DEBUG_MSG(_debug, "Swap " << sid << " may yield " << new_edge)
+                  DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge)
                }
             }
          }
@@ -375,7 +373,7 @@ protected:
          std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], swap.direction());
 
 #ifndef NDEBUG
-         if (_debug) {
+         if (_display_debug) {
             std::cout << "State in " << sid << ": ";
             for (unsigned int i = 0; i < 4; i++) {
                std::cout << edges[i] << " ";
@@ -400,7 +398,7 @@ protected:
          }
 
 #ifndef NDEBUG
-         if (_debug) {
+         if (_display_debug) {
             for (auto &k : existence_infos)
                std::cout << sid << " " << k.first << " " << k.second << std::endl;
          }
@@ -430,7 +428,7 @@ protected:
             res.normalize();
 
             debug_vector_writer << res;
-            DEBUG_MSG(_debug, "Swap " << sid << " " << res);
+            DEBUG_MSG(_display_debug, "Swap " << sid << " " << res);
          }
 
          for(unsigned int i = 0; i < 2; i++) {
@@ -473,7 +471,7 @@ protected:
             assert(state != existence_infos.end());
 
             _existence_info_pq.push(ExistenceInfoMsg{ succ.successor, sid, succ.edge, state->second });
-            DEBUG_MSG(_debug, "Send " << succ.edge << " exists: " << state->second << " to " << succ.successor);
+            DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << state->second << " to " << succ.successor);
          }
       }
 
@@ -512,7 +510,7 @@ protected:
             if (update.edge_id > eid)
                break;
 
-            DEBUG_MSG(_debug, "Got update " << update.to_tuple());
+            DEBUG_MSG(_display_debug, "Got update " << update.to_tuple());
             edge = update.updated_edge;
          }
 
@@ -534,8 +532,8 @@ public:
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
    //! @param swaps  Read-only swap vector
-   EdgeSwapTFP(edge_vector & edges, swap_vector & swaps, bool debug = false) :
-      _debug(debug),
+   EdgeSwapTFP(edge_vector & edges, swap_vector & swaps) :
+      EdgeSwapBase(),
       _edges(edges),
       _swaps(swaps),
 
@@ -549,13 +547,16 @@ public:
       _existence_info_pq(_existence_info_pool),
       _existence_successor_sorter(ExistenceSuccessorComparator{}, _sorter_mem),
       _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem)
-   {
+   {}
+
+   void run() {
       _compute_dependency_chain();
       _compute_conflicts();
       _process_existence_requests();
       _perform_swaps();
       _apply_updates();
    }
+
 
    //! The i-th entry of this vector corresponds to the i-th
    //! swap provided to the constructor

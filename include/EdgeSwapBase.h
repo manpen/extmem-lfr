@@ -4,6 +4,8 @@
 
 class EdgeSwapBase {
 protected:
+   bool _display_debug;
+
    std::pair<edge_t, edge_t> _swap_edges(const edge_t & e0, const edge_t & e1, bool direction) const {
       edge_t t0, t1;
       if (direction) {
@@ -32,4 +34,14 @@ protected:
 
       return std::make_pair(t0, t1);
    }
+
+public:
+   EdgeSwapBase() :
+         _display_debug(false)
+   {}
+
+   void setDisplayDebug(bool v) {
+      _display_debug = v;
+   }
+
 };

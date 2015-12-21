@@ -14,18 +14,20 @@
 #include "GenericComparator.h"
 
 template <class EdgeVector = stxxl::vector<node_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
-class EdgeSwapInternalSwaps : EdgeSwapBase {
+class EdgeSwapInternalSwaps : public EdgeSwapBase {
 public:
-   using debug_vector = stxxl::vector<SwapResult>;
-   using edge_vector = EdgeVector;
-   using swap_vector = SwapVector;
-   using swap_descriptor = typename swap_vector::value_type;
+    using debug_vector = stxxl::vector<SwapResult>;
+    using edge_vector = EdgeVector;
+    using swap_vector = SwapVector;
+    using swap_descriptor = typename swap_vector::value_type;
 
 protected:
-   EdgeVector & _edges;
-   SwapVector & _swaps;
+    EdgeVector & _edges;
+    SwapVector & _swaps;
 
-   debug_vector _results;
+    debug_vector _results;
+
+    int_t _num_swaps_per_iteration;
 
     struct PossibleEdge {
         edgeid_t eid;
@@ -63,26 +65,29 @@ protected:
             return *this;
         };
         bool empty() const { return input.empty(); };
-
     };
 
 public:
-   EdgeSwapInternalSwaps() = delete;
-   EdgeSwapInternalSwaps(const EdgeSwapInternalSwaps &) = delete;
+    EdgeSwapInternalSwaps() = delete;
+    EdgeSwapInternalSwaps(const EdgeSwapInternalSwaps &) = delete;
 
+    //! Swaps are performed during constructor.
+    //! @param edges  Edge vector changed in-place
+    //! @param swaps  Read-only swap vector
+    EdgeSwapInternalSwaps(edge_vector & edges, swap_vector & swaps, int_t num_swaps_per_iteration = 1000000) :
+        EdgeSwapBase(),
+        _edges(edges),
+        _swaps(swaps),
+        _num_swaps_per_iteration(num_swaps_per_iteration)
+    {}
 
-   //! Swaps are performed during constructor.
-   //! @param edges  Edge vector changed in-place
-   //! @param swaps  Read-only swap vector
-   EdgeSwapInternalSwaps(edge_vector & edges, swap_vector & swaps, bool /*debug*/, int_t num_swaps_per_iteration = 10000)
-      : _edges(edges), _swaps(swaps)
-   {
-        typename swap_vector::bufreader_type reader(swaps);
+    void run() {
+        typename swap_vector::bufreader_type reader(_swaps);
 
         std::vector<swap_descriptor> currentSwaps;
-        currentSwaps.reserve(num_swaps_per_iteration);
+        currentSwaps.reserve(_num_swaps_per_iteration);
 
-        EdgeVectorCache edgeCache(edges);
+        EdgeVectorCache edgeCache(_edges);
 
         typename debug_vector::bufwriter_type debug_vector_writer(_results);
 
@@ -91,7 +96,7 @@ public:
 
             // load edge endpoints for edges in the swap set
             stxxl::sorter<edgeid_t, GenericComparator<edgeid_t>::Ascending> swapSorter(GenericComparator<edgeid_t>::Ascending(), 128*IntScale::Mi);
-            for (int_t i = 0; i < num_swaps_per_iteration && !reader.empty(); ++i) {
+            for (int_t i = 0; i < _num_swaps_per_iteration && !reader.empty(); ++i) {
                 currentSwaps.emplace_back(*reader);
                 swapSorter.push(currentSwaps.back().edges()[0]);
                 swapSorter.push(currentSwaps.back().edges()[1]);
@@ -192,7 +197,7 @@ public:
             stx::btree_map<edge_t, bool> existsEdge;
             #endif
 
-            typename edge_vector::bufreader_type edgeReader(edges);
+            typename edge_vector::bufreader_type edgeReader(_edges);
             while (!uniqueQuery.empty()) {
                 if (edgeReader.empty() || *edgeReader > *uniqueQuery) { // edge reader went past the query - edge does not exist!
                     #ifndef NDEBUG
@@ -225,7 +230,6 @@ public:
                 auto& e1 = edgeCache.getEdge(eid1);
 
                 SwapResult result;
-
 
                 //std::cout << "Testing swap of " << e0.first << ", " << e0.second << " and " << e1.first << ", " << e1.second << std::endl;
 
@@ -278,9 +282,11 @@ public:
                 existsEdge[t1] = true;
                 #endif
 
-                // updates the values in edgeCache 
+                // updates the values in edgeCache
                 e0 = t0;
                 e1 = t1;
+                assert(edgeCache.getEdge(eid0) == t0);
+                assert(edgeCache.getEdge(eid1) == t1);
             }
 
             edgeCache.flushEdges();
