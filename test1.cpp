@@ -177,10 +177,12 @@ void benchmark(RunConfig & config) {
 
         if (config.swapInternal) {
             EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, false, config.swapsPerIteration);
+            internalSwaps.run();
         }
 
         if (config.swapTFP) {
             EdgeSwapTFP<decltype(swapEdges), decltype(swaps)> TFPSwaps(swapEdges, swaps);
+            TFPSwaps.run();
         }
     }
     
