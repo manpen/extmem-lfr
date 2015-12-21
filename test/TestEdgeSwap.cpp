@@ -6,9 +6,8 @@
 #include "EdgeSwapFullyInternal.hpp"
 
 namespace {
-   using EdgeList = stxxl::vector<edge_t>;
-   using SwapList = stxxl::vector<SwapDescriptor>;
-
+   using EdgeVector = stxxl::vector<edge_t>;
+   using SwapVector = stxxl::vector<SwapDescriptor>;
 
    template <class Algo>
    class TestEdgeSwap : public ::testing::Test {
@@ -23,9 +22,9 @@ namespace {
    };
 
    using TestEdgeSwapImplementations = ::testing::Types <
-      EdgeSwapInternalSwaps<EdgeList, SwapList>,
-      EdgeSwapTFP<EdgeList, SwapList>,
-      EdgeSwapFullyInternal<EdgeList, SwapList>
+      EdgeSwapInternalSwaps<EdgeVector, SwapVector>,
+      EdgeSwapTFP<EdgeVector, SwapVector>,
+      EdgeSwapFullyInternal<EdgeVector, SwapVector>
    >;
 
    TYPED_TEST_CASE(TestEdgeSwap, TestEdgeSwapImplementations);
@@ -34,20 +33,21 @@ namespace {
       bool debug_this_test = false;
       using EdgeSwapAlgo = TypeParam;
 
-      EdgeList edge_list;
+      EdgeVector edge_list;
       edge_list.push_back({0, 1});
       edge_list.push_back({1, 3});
       edge_list.push_back({2, 3});
       edge_list.push_back({3, 4});
 
-      SwapList swap_list;
+      SwapVector swap_list;
       swap_list.push_back({0, 2, true});
       swap_list.push_back({0, 3, true});
       swap_list.push_back({2, 3, false});
       swap_list.push_back({0, 2, true});
 
-
-      EdgeSwapAlgo algo(edge_list, swap_list, debug_this_test);
+      EdgeSwapAlgo algo(edge_list, swap_list);
+      algo.setDisplayDebug(debug_this_test);
+      algo.run();
 
       this->_print_list(edge_list, debug_this_test);
  
@@ -75,21 +75,23 @@ namespace {
    TYPED_TEST(TestEdgeSwap, configs) {
       bool debug_this_test = false;
       using EdgeSwapAlgo = TypeParam;
-      EdgeList edge_list;
+      EdgeVector edge_list;
 
       edge_list.push_back({0, 1});
       edge_list.push_back({2, 3});
       edge_list.push_back({4, 5});
       edge_list.push_back({6, 7});
 
-      SwapList swap_list;
+      SwapVector swap_list;
 
       swap_list.push_back({0, 1, true});
       swap_list.push_back({2, 3, true});
       swap_list.push_back({0, 2, true});
       swap_list.push_back({1, 3, true});
 
-      EdgeSwapAlgo algo(edge_list, swap_list, debug_this_test);
+      EdgeSwapAlgo algo(edge_list, swap_list);
+      algo.setDisplayDebug(debug_this_test);
+      algo.run();
 
       this->_print_list(edge_list, debug_this_test);
 
@@ -111,20 +113,22 @@ namespace {
       bool debug_this_test = false;
       using EdgeSwapAlgo = TypeParam;
 
-      EdgeList edge_list;
+      EdgeVector edge_list;
       edge_list.push_back({0, 1});
       edge_list.push_back({1, 2});
       edge_list.push_back({2, 3});
       edge_list.push_back({3, 4});
 
 
-      SwapList swap_list;
+      SwapVector swap_list;
 
       swap_list.push_back({0, 1, true});
       swap_list.push_back({0, 2, true});
       swap_list.push_back({0, 2, false});
 
-      EdgeSwapAlgo algo(edge_list, swap_list, debug_this_test);
+      EdgeSwapAlgo algo(edge_list, swap_list);
+      algo.setDisplayDebug(debug_this_test);
+      algo.run();
 
       this->_print_list(edge_list, debug_this_test);
 
