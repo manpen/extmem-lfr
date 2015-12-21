@@ -69,7 +69,7 @@ public:
 };
 
 template <typename T,
-          typename TupleT = decltype(T::tuple(*((T*)nullptr)))>
+          typename TupleT = decltype(std::declval<T>().to_tuple())>
 class GenericComparatorStruct {
    template < typename... Ts>
    using tuple_with_removed_refs = std::tuple<typename std::remove_reference<Ts>::type...>;
@@ -84,22 +84,22 @@ public:
       Ascending() {}
 
       bool operator()(const T &a, const T &b) const {
-         return T::tuple(a) < T::tuple(b);
+         return a.to_tuple() < b.to_tuple();
       }
 
       T min_value() const {
          T result;
-         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(std::declval<T>().to_tuple()));
          typename GenericComparatorTuple<TupleNoRefT>::Ascending comp;
-         T::tuple(result) = comp.min_value();
+         result.to_tuple() = comp.min_value();
          return result;
       }
 
       T max_value() const {
          T result;
-         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(std::declval<T>().to_tuple()));
          typename GenericComparatorTuple<TupleNoRefT>::Ascending comp;
-         T::tuple(result) = comp.max_value();
+         result.to_tuple() = comp.max_value();
          return result;
       }
    };
@@ -108,22 +108,22 @@ public:
       Descending() {}
 
       bool operator()(const T &a, const T &b) const {
-         return T::tuple(b) < T::tuple(a);
+         return b.to_tuple() < a.to_tuple();
       }
 
       T min_value() const {
          T result;
-         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(std::declval<T>().to_tuple()));
          typename GenericComparatorTuple<TupleNoRefT>::Descending comp;
-         T::tuple(result) = comp.min_value();
+         result.to_tuple() = comp.min_value();
          return result;
       }
 
       T max_value() const {
          T result;
-         using TupleNoRefT = decltype(remove_ref_from_tuple_members(T::tuple(result)));
+         using TupleNoRefT = decltype(remove_ref_from_tuple_members(std::declval<T>().to_tuple()));
          typename GenericComparatorTuple<TupleNoRefT>::Descending comp;
-         T::tuple(result) = comp.max_value();
+         result.to_tuple() = comp.max_value();
          return result;
       }
    };
@@ -174,8 +174,6 @@ struct TupleSortable {
 #define DECL_LEX_COMPARE(name, ...) \
    auto to_tuple() -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
    const auto to_tuple() const -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
-   static auto tuple(name & o) {return o.to_tuple();} \
-   const static auto tuple(const name & o) {return o.to_tuple();} \
    bool operator< (const name& o) const {return to_tuple() <  o.to_tuple(); } \
    bool operator> (const name& o) const {return to_tuple() >  o.to_tuple(); } \
    bool operator<=(const name& o) const {return to_tuple() <= o.to_tuple(); } \
