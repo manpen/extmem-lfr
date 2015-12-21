@@ -124,11 +124,9 @@ public:
                 bool store0 = (uniqueEdges.duplicates.find(eid0) != uniqueEdges.duplicates.end());
                 bool store1 = (uniqueEdges.duplicates.find(eid1) != uniqueEdges.duplicates.end());
 
-                bool direction = s.direction();
-
-                auto addPossibleSwap = [&](edge_t e0, edge_t e1) {
+                auto addPossibleSwap = [&](const edge_t& e0, const edge_t& e1) {
                         edge_t t0, t1;
-                        std::tie(t0, t1) = _swap_edges(e0, e1, direction);
+                        std::tie(t0, t1) = _swap_edges(e0, e1, s.direction());
                         if (t0.first != t0.second) {
                             if (store0) {
                                 newEdges.push(PossibleEdge {eid0, t0});
@@ -146,22 +144,26 @@ public:
                         }
                 };
 
-                auto e0 = edgeCache.getEdge(eid0);
-                auto e1 = edgeCache.getEdge(eid1);
+                const auto& e0 = edgeCache.getEdge(eid0);
+                const auto& e1 = edgeCache.getEdge(eid1);
                 addPossibleSwap(e0, e1);
 
-                if (store1) {
-                    for (auto it1 = edgeSets.lower_bound(PossibleEdge {eid1, std::make_pair(-1, -1)}); it1 != edgeSets.end() && it1->eid == eid1; ++it1) {
-                        addPossibleSwap(e0, *it1);
-                    }
-                }
+                if (store0 || store1) {
+                    auto lbe1 = edgeSets.lower_bound(PossibleEdge {eid1, std::make_pair(-1, -1)});
 
-                if (store0) {
-                    for (auto it0 = edgeSets.lower_bound(PossibleEdge {eid0, std::make_pair(-1, -1)}); it0 != edgeSets.end() && it0->eid == eid0; ++it0) {
-                        addPossibleSwap(*it0, e1);
-                        if (store1) {
-                            for (auto it1 = edgeSets.lower_bound(PossibleEdge {eid1, std::make_pair(-1, -1)}); it1 != edgeSets.end() && it1->eid == eid1; ++it1) {
-                                addPossibleSwap(*it0, *it1);
+                    if (store1) {
+                        for (auto it1 = lbe1; it1 != edgeSets.end() && it1->eid == eid1; ++it1) {
+                            addPossibleSwap(e0, *it1);
+                        }
+                    }
+
+                    if (store0) {
+                        for (auto it0 = edgeSets.lower_bound(PossibleEdge {eid0, std::make_pair(-1, -1)}); it0 != edgeSets.end() && it0->eid == eid0; ++it0) {
+                            addPossibleSwap(*it0, e1);
+                            if (store1) {
+                                for (auto it1 = lbe1; it1 != edgeSets.end() && it1->eid == eid1; ++it1) {
+                                    addPossibleSwap(*it0, *it1);
+                                }
                             }
                         }
                     }

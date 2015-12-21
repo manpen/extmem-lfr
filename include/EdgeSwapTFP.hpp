@@ -171,8 +171,7 @@ protected:
          std::tie(requested_edge, requesting_swap) = *edge_swap_sorter;
 
          // move reader buffer until we found the edge
-         for(; eid < requested_edge; ++eid) {
-            ++edge_reader;
+         for(; eid < requested_edge; ++eid, ++edge_reader) {
             assert(!edge_reader.empty());
          }
 
@@ -180,12 +179,12 @@ protected:
          if (eid == requested_edge) {
             assert(!edge_reader.empty());
             const edge_t & edge = *edge_reader;
-            ++edge_reader;
 
             _depchain_edge_pq.push({requesting_swap, requested_edge, edge});
             // TODO: may be cheaper to copy _depchain_edge_pq at the end of this function; but this is currently not possible
             _edge_state_pq.push({requesting_swap, requested_edge, edge});
-            
+
+            ++edge_reader;
             ++eid;
          } else {
             _depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requested_edge, requesting_swap});
@@ -218,12 +217,12 @@ protected:
       for (typename SwapVector::bufreader_type reader(_swaps); !reader.empty(); ++reader, ++sid) {
          auto & swap = *reader;
 
-         swapid_t successors[2] = {0,0};
+         swapid_t successors[2];
          std::list<edge_t> edges[2];
 
          // fetch messages sent to this edge
          for(unsigned int i=0; i<2; i++) {
-            edgeid_t eid = _depchain_edge_pq.top().edge_id;
+            const auto eid = swap.edges()[i];
 
             // get successor
             if (!_depchain_successor_sorter.empty()) {
@@ -239,6 +238,18 @@ protected:
                   ++_depchain_successor_sorter;
                }
             }
+
+            bool firstOver = true;
+            for(; !_depchain_successor_sorter.empty(); ++_depchain_successor_sorter) {
+               const auto & msg = *_depchain_successor_sorter;
+               if (msg.swap_id != sid) break;
+               if (firstOver) {
+                  std::cout << sid <<  " Successors: " << successors[0] << ", " << successors[1] << std::endl;
+                  firstOver = false;
+               }
+               std::cout << "Overflow: " << msg << std::endl;
+            }
+
 
             // fetch possible edge state before swap
             for(; !_depchain_edge_pq.empty(); _depchain_edge_pq.pop()) {

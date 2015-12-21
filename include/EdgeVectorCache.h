@@ -30,7 +30,7 @@ public:
     void setEdge(int_t id, edge_t e) { _internal_edges[id] = e; };
 private:
     vector_type &_external_edges;
-    std::map<int_t, edge_t> _internal_edges;
+    stx::btree_map<int_t, edge_t> _internal_edges;
 };
 
 template <typename Iterator>

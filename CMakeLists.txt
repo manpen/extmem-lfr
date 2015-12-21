@@ -32,7 +32,7 @@ include_directories(include/)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 
 # enable C++14
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 # Include STXXL
 message(STATUS "STXXL_CXX_FLAGS: ${STXXL_CXX_FLAGS}")
