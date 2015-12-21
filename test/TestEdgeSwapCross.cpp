@@ -53,6 +53,7 @@ namespace {
          edges.resize(edgeSorter.size());
 
          auto endIt = stxxl::stream::materialize(edgeSorter, edges.begin());
+         (void)endIt;
          assert(edges.size() == (endIt - edges.begin()));
 
          return edges;

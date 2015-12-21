@@ -27,7 +27,6 @@ public:
       : _edges{e1, e2}, _direction(dir)
    {
       assert(e1 != e2);
-      if (e1 > e2) std::swap(_edges[0], _edges[1]);
    }
 
    //! Constant array of two edge ids; the first ed

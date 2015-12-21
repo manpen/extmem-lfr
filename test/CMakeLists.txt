@@ -3,7 +3,8 @@ enable_testing()
 message(STATUS "gtest_SOURCE_DIR: ${gtest_SOURCE_DIR}")
 
 file(GLOB SRCS *.cpp)
-add_executable(testextmemgraphgen ${SRCS})
+#add_executable(testextmemgraphgen ${SRCS})
+add_executable(testextmemgraphgen TestEdgeSwap.cpp TestEdgeSwapCross.cpp)
 
 include_directories(${gtest_SOURCE_DIR} ${gtest_SOURCE_DIR}/include)
 

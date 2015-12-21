@@ -15,6 +15,7 @@
 #include <DegreeDistributionCheck.h>
 #include <SwapGenerator.hpp>
 #include <EdgeSwapInternalSwaps.hpp>
+#include <EdgeSwapTFP.hpp>
 
 
 struct RunConfig {
@@ -28,6 +29,7 @@ struct RunConfig {
     bool showResDegrees;
     bool internalMem;
     bool swapInternal;
+    bool swapTFP;
     stxxl::uint64 swapsPerIteration;
 
     unsigned int randomSeed;
@@ -71,6 +73,7 @@ struct RunConfig {
         cp.add_flag  (CMDLINE_COMP('i', "init-degrees", showInitDegrees, "Output requested degrees (no HH gen)"));
         cp.add_flag  (CMDLINE_COMP('d', "res-degrees",  showResDegrees,  "Output degree distribution of result"));
         cp.add_flag  (CMDLINE_COMP('m', "swap-internal", swapInternal, "Perform edge swaps in internal memory"));
+        cp.add_flag  (CMDLINE_COMP('e', "swap-tfp", swapTFP, "Perform edge swaps using TFP"));
         cp.add_bytes  (CMDLINE_COMP('p', "swaps-per-iteration", swapsPerIteration, "Number of swaps per iteration"));
 
         if (!cp.process(argc, argv)) {
@@ -141,7 +144,7 @@ void benchmark(RunConfig & config) {
         }            
     }
 
-    if (config.swapInternal) {
+    if (config.swapInternal || config.swapTFP) {
         int_t m = edges.size();
 
         result_vector_type swapEdges(m);
@@ -172,7 +175,13 @@ void benchmark(RunConfig & config) {
             throw std::runtime_error("Error, the number of generated swaps is not as specified");
         }
 
-        EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, config.swapsPerIteration);
+        if (config.swapInternal) {
+            EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, false, config.swapsPerIteration);
+        }
+
+        if (config.swapTFP) {
+            EdgeSwapTFP<decltype(swapEdges), decltype(swaps)> TFPSwaps(swapEdges, swaps);
+        }
     }
     
     std::cout << (stxxl::stats_data(*stats) - stats_begin);

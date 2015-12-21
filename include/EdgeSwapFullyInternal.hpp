@@ -70,6 +70,8 @@ protected:
             _edges[swap.edges()[1]] = se1;
             auto ec0 = edge_idx_map.erase_one(e0);
             auto ec1 = edge_idx_map.erase_one(e1);
+            (void)ec0;
+            (void)ec1;
             assert(ec0);
             assert(ec1);
             edge_idx_map.insert(se0, swap.edges()[0]);
