@@ -172,8 +172,8 @@ struct TupleSortable {
 };
 
 #define DECL_LEX_COMPARE(name, ...) \
-   auto to_tuple() {return std::tie(__VA_ARGS__);} \
-   const auto to_tuple() const {return std::tie(__VA_ARGS__);} \
+   auto to_tuple() -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
+   const auto to_tuple() const -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
    static auto tuple(name & o) {return o.to_tuple();} \
    const static auto tuple(const name & o) {return o.to_tuple();} \
    bool operator< (const name& o) const {return to_tuple() <  o.to_tuple(); } \
