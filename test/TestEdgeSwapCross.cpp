@@ -38,12 +38,25 @@ namespace {
          HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
 
 
-         edges.resize(hhgenerator.maxEdges());
-         auto endIt = stxxl::stream::materialize(hhgenerator, edges.begin());
-         edges.resize(endIt - edges.begin());
+            stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), 128*IntScale::Mi);
+            while (!hhgenerator.empty()) {
+                if (hhgenerator->first < hhgenerator->second) {
+                        edgeSorter.push(edge_t {hhgenerator->first, hhgenerator->second});
+                } else {
+                    edgeSorter.push(edge_t {hhgenerator->second, hhgenerator->first});
+                }
 
+                ++hhgenerator;
+            }
 
-         return edges;
+            edgeSorter.sort();
+
+            edges.resize(edgeSorter.size());
+
+            auto endIt = stxxl::stream::materialize(edgeSorter, edges.begin());
+            assert(edges.size() == (endIt - edges.begin()));
+
+            return edges;
       }
 
       SwapVector _generate_swaps(int_t number_of_swaps, int_t edges_in_graph) const {
