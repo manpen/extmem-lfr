@@ -37,26 +37,25 @@ namespace {
          DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
          HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
 
+         stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), 128*IntScale::Mi);
+         while (!hhgenerator.empty()) {
+             if (hhgenerator->first < hhgenerator->second) {
+                 edgeSorter.push(edge_t {hhgenerator->first, hhgenerator->second});
+             } else {
+                 edgeSorter.push(edge_t {hhgenerator->second, hhgenerator->first});
+             }
 
-            stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), 128*IntScale::Mi);
-            while (!hhgenerator.empty()) {
-                if (hhgenerator->first < hhgenerator->second) {
-                        edgeSorter.push(edge_t {hhgenerator->first, hhgenerator->second});
-                } else {
-                    edgeSorter.push(edge_t {hhgenerator->second, hhgenerator->first});
-                }
+             ++hhgenerator;
+         }
 
-                ++hhgenerator;
-            }
+         edgeSorter.sort();
 
-            edgeSorter.sort();
+         edges.resize(edgeSorter.size());
 
-            edges.resize(edgeSorter.size());
+         auto endIt = stxxl::stream::materialize(edgeSorter, edges.begin());
+         assert(edges.size() == (endIt - edges.begin()));
 
-            auto endIt = stxxl::stream::materialize(edgeSorter, edges.begin());
-            assert(edges.size() == (endIt - edges.begin()));
-
-            return edges;
+         return edges;
       }
 
       SwapVector _generate_swaps(int_t number_of_swaps, int_t edges_in_graph) const {
@@ -80,16 +79,19 @@ namespace {
       bool debug_this_test = false;
       using EdgeSwapAlgoUnderTest = TypeParam;
 
-      auto edges = this->_generate_hh_graph(100);
+      auto edges = this->_generate_hh_graph(1000);
       auto swaps = this->_generate_swaps(edges.size(), edges.size());
 
-      std::cout << " Using graph with " << edges.size() << " edges and request " << swaps.size() << "swaps" << std::endl;
+      std::cout << " Using graph with " << edges.size() << " edges and request " << swaps.size() << " swaps" << std::endl;
 
       EdgeVector edges_ref(edges);
       SwapVector swaps_ref(swaps);
 
+      this->_print_list(edges, debug_this_test);
+
       EdgeSwapFullyInternal<EdgeVector, SwapVector> es_ref(edges_ref, swaps_ref);
       EdgeSwapAlgoUnderTest es_test(edges, swaps);
+      es_test.setDisplayDebug(debug_this_test);
       es_ref.run();
       es_test.run();
 
@@ -99,6 +101,8 @@ namespace {
       ASSERT_EQ(res_ref.size(), swaps.size());
       ASSERT_EQ(res_test.size(), swaps.size());
       ASSERT_EQ(edges.size(), edges_ref.size());
+
+      this->_print_list(swaps, debug_this_test);
 
       // compare debug vectors
       int_t performed = 0;
