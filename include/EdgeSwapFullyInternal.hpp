@@ -61,6 +61,7 @@ protected:
          res.conflictDetected[0] = (s0_it != edge_idx_map.end());
          res.conflictDetected[1] = (s1_it != edge_idx_map.end());
          res.performed = !res.loop && !res.conflictDetected[0] && !res.conflictDetected[1];
+         res.normalize();
          debug_vector_writer << res;
 
          // update data structures
