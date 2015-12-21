@@ -67,8 +67,10 @@ protected:
          if (res.performed) {
             _edges[swap.edges()[0]] = se0;
             _edges[swap.edges()[1]] = se1;
-            assert(edge_idx_map.erase_one(e0));
-            assert(edge_idx_map.erase_one(e1));
+            auto ec0 = edge_idx_map.erase_one(e0);
+            auto ec1 = edge_idx_map.erase_one(e1);
+            assert(ec0);
+            assert(ec1);
             edge_idx_map.insert(se0, swap.edges()[0]);
             edge_idx_map.insert(se1, swap.edges()[1]);
          }
