@@ -95,6 +95,8 @@ namespace {
 
          ASSERT_EQ(rr.performed, rt.performed) << "i=" << i << " " << rr << " " << rt;
          ASSERT_EQ(rr.loop, rt.loop) << "i=" << i << " " << rr << " " << rt;
+         ASSERT_EQ(rr.edges[0], rt.edges[0]) << "i=" << i << " " << rr << " " << rt;
+         ASSERT_EQ(rr.edges[1], rt.edges[1]) << "i=" << i << " " << rr << " " << rt;
 
          performed += rr.performed;
       }
