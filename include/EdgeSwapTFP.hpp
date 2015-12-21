@@ -246,7 +246,8 @@ protected:
                if (msg.swap_id != sid || msg.edge_id != eid)
                   break;
 
-               edges[i].push_back(msg.edge);
+               if (edges[i].empty() || msg.edge != edges[i].back())
+                  edges[i].push_back(msg.edge);
             }
 
             // ensure that we received at least one state of the edge before the swap
@@ -258,8 +259,18 @@ protected:
          // ensure that all messages to this swap have been consumed
          assert(_depchain_edge_pq.empty() || _depchain_edge_pq.top().swap_id > sid);
 
+#ifndef NDEBUG
+         if (_display_debug) {
+            std::cout << "Swap " << sid << "edges[0] = [";
+            for (auto &e : edges[0]) std::cout << e << " ";
+            std::cout << "] edges[1]= [";
+            for (auto &e : edges[0]) std::cout << e << " ";
+            std::cout << "]" << std::endl;
+         }
+#endif
 
          // compute "cartesian" product between possible edges to determine all possible new edges
+         // TODO: Check for duplicates
          for(auto & e1 : edges[0]) {
             for (auto &e2 : edges[1]) {
                edge_t new_edges[2];
@@ -433,8 +444,10 @@ protected:
 
          for(unsigned int i = 0; i < 2; i++) {
             // update temporary structure
-            existence_infos[edges[i]]     = !perform_swap;
-            existence_infos[new_edges[i]] =  perform_swap;
+            existence_infos[edges[i]] = !perform_swap;
+            if (perform_swap) {
+               existence_infos[new_edges[i]] = true;
+            }
 
             // issue update of edge list
             if (perform_swap)
