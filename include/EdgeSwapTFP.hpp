@@ -577,3 +577,6 @@ public:
       return _result;
    }
 };
+
+// prevent implicit instantiation for default case
+extern template class EdgeSwapTFP<stxxl::vector<edge_t>, stxxl::vector<SwapDescriptor>>;

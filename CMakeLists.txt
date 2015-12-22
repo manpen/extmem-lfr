@@ -49,6 +49,8 @@ add_library(libextmemgraphgen STATIC
     include/RandomStream.cpp
     include/PowerlawDegreeSequence.cpp
     include/EdgeVectorCache.cpp
+    include/EdgeSwapInternalSwaps.cpp
+    include/EdgeSwapTFP.cpp
 )
 
 # Specify here the include directories exported

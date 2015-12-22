@@ -14,7 +14,7 @@
 #include <TupleHelper.h>
 #include <algorithm>
 
-template <class EdgeVector = stxxl::vector<node_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
+template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
 class EdgeSwapInternalSwaps : public EdgeSwapBase {
 public:
     using debug_vector = stxxl::vector<SwapResult>;
@@ -392,3 +392,6 @@ public:
       return _results;
    }
 };
+
+// prevent implicit instantiation for default case
+extern template class EdgeSwapInternalSwaps<stxxl::vector<edge_t>, stxxl::vector<SwapDescriptor>>;
