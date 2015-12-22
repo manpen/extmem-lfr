@@ -176,7 +176,7 @@ void benchmark(RunConfig & config) {
         }
 
         if (config.swapInternal) {
-            EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, false, config.swapsPerIteration);
+            EdgeSwapInternalSwaps<decltype(swapEdges), decltype(swaps)> internalSwaps(swapEdges, swaps, config.swapsPerIteration);
             internalSwaps.run();
         }
 
