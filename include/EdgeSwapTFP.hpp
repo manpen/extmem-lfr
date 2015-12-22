@@ -188,6 +188,7 @@ protected:
             ++eid;
          } else {
             _depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requested_edge, requesting_swap});
+            DEBUG_MSG(_display_debug, "Report to swap " << last_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
          }
 
          last_swap = requesting_swap;
@@ -234,20 +235,12 @@ protected:
                if (msg.swap_id != sid || msg.edge_id != eid) {
                   successors[i] = 0;
                } else {
+                  DEBUG_MSG(_display_debug, "Got successor for S" << sid << ", E" << eid << ": " << msg.to_tuple());
                   successors[i] = msg.successor;
                   ++_depchain_successor_sorter;
                }
-            }
-
-            bool firstOver = true;
-            for(; !_depchain_successor_sorter.empty(); ++_depchain_successor_sorter) {
-               const auto & msg = *_depchain_successor_sorter;
-               if (msg.swap_id != sid) break;
-               if (firstOver) {
-                  std::cout << sid <<  " Successors: " << successors[0] << ", " << successors[1] << std::endl;
-                  firstOver = false;
-               }
-               std::cout << "Overflow: " << msg << std::endl;
+            } else {
+               successors[i] = 0;
             }
 
 
@@ -261,6 +254,9 @@ protected:
                   edges[i].push_back(msg.edge);
             }
 
+            DEBUG_MSG(_display_debug, "SWAP " << sid << " Edge " << eid << " Successor: " << successors[i] << " States: " << edges[i].size());
+             
+
             // ensure that we received at least one state of the edge before the swap
             assert(!edges[i].empty());
 
@@ -272,7 +268,7 @@ protected:
 
 #ifndef NDEBUG
          if (_display_debug) {
-            std::cout << "Swap " << sid << "edges[0] = [";
+            std::cout << "Swap " << sid << " edges[0] = [";
             for (auto &e : edges[0]) std::cout << e << " ";
             std::cout << "] edges[1]= [";
             for (auto &e : edges[0]) std::cout << e << " ";
@@ -298,7 +294,7 @@ protected:
                   // register to receive information on whether this edge exists
                   _existence_request_sorter.push(ExistenceRequestMsg{new_edge, sid});
 
-                  DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge)
+                  DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge << " at " << swap.edges()[i]);
                }
             }
          }
@@ -551,7 +547,7 @@ protected:
 
 public:
    EdgeSwapTFP() = delete;
-   EdgeSwapTFP(const EdgeSwapTFP &) = delete;
+      EdgeSwapTFP(const EdgeSwapTFP &) = delete;
 
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
