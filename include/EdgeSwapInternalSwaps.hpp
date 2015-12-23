@@ -2,8 +2,6 @@
 
 #include <stxxl/vector>
 #include <stxxl/sorter>
-#include <stx/btree_set>
-#include <stx/btree_map>
 #include <tuple>
 #include <set>
 #include <vector>
@@ -134,8 +132,14 @@ public:
 
             std::cout << "Identified " << swap_successors.size() << " duplications of edge ids which need to be handled later." << std::endl;
 
+            struct edge_existence_request_t {
+                edge_t e;
+                int_t sid;
+                bool forward_only; // if this requests is only for generating the correct forwaring information but no existence information is needed
+                DECL_LEX_COMPARE(edge_existence_request_t, e, sid, forward_only);
+            };
 
-            stxxl::sorter<edge_t, EdgeComparator> querySorter(EdgeComparator(), 128*IntScale::Mi); // Query of possible conflict edges. This may be large (too large...)
+            stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> querySorter(typename GenericComparatorStruct<edge_existence_request_t>::Ascending(), 128*IntScale::Mi); // Query of possible conflict edges. This may be large (too large...)
 
             { // find possible conflicts
                 auto succ_it = swap_successors.begin();
@@ -169,6 +173,11 @@ public:
                             try_swap_edges.pop_back();
                         } else {
                             current_edges[spos].push_back(e);
+                            /* request all edges that might be deleted here as we need to correctly forward this information to other swaps that need the information
+                             * Note that either we know that the edge exists as it is the source of the swap or
+                             * the same edge has already been requested by a previous swap and the first one of this chain requests the actual information.
+                             */
+                            querySorter.push(edge_existence_request_t {e, sid, true});
 
                             // if this is no duplicate and we have a successor, send all edges also to the successor
                             if (std::get<0>(current_successors[spos])) {
@@ -194,15 +203,15 @@ public:
                             std::tie(t[0], t[1]) = _swap_edges(e0, e1, s_it->direction());
 
                             // record the two conflict edges unless the conflict is trivial
-                            for (unsigned char spos = 0; spos < 2; ++spos) {
-                                if (t[spos].first != t[spos].second) { // no loop
+                            if (t[0].first != t[0].second && t[1].first != t[1].second) {
+                                for (unsigned char spos = 0; spos < 2; ++spos) {
                                     if (std::get<0>(current_successors[spos])) { // forward the new candidates for our two edge ids to possible successors
                                         try_swap_edges.push_back(swap_edge_t {std::get<0>(current_successors[spos]), std::get<1>(current_successors[spos]), t[spos]});
                                         std::push_heap(try_swap_edges.begin(), try_swap_edges.end(), std::greater<swap_edge_t>());
                                     }
 
                                     // record the query
-                                    querySorter.push(t[spos]);
+                                    querySorter.push(edge_existence_request_t {t[spos], sid, false});
                                 }
                             }
                         }
@@ -219,38 +228,73 @@ public:
 
             std::cout << "Requesting " << querySorter.size() << " (possibly non-unique) possible conflict edges" << std::endl;
 
-            stxxl::stream::unique<decltype(querySorter)> uniqueQuery(querySorter);
+            struct edge_existence_answer_t {
+                int_t sid;
+                edge_t e;
+#ifndef NDEBUG
+                bool exists;
+#endif
+                DECL_LEX_COMPARE(edge_existence_answer_t, sid, e);
+            };
 
-            // check if any of the requested edges exists, store booleans only in debug mode
-            #ifdef NDEBUG
-            stx::btree_set<edge_t> existsEdge;
-            #else
-            stx::btree_map<edge_t, bool> existsEdge;
-            #endif
+            struct edge_existence_successor_t {
+                int_t from_sid;
+                edge_t e;
+                int_t to_sid;
+                DECL_LEX_COMPARE(edge_existence_successor_t, from_sid, e);
+            };
+
+            stxxl::sorter<edge_existence_successor_t, typename GenericComparatorStruct<edge_existence_successor_t>::Ascending> edge_existence_successors(typename GenericComparatorStruct<edge_existence_successor_t>::Ascending(), 128*IntScale::Mi);
+
+            std::vector<edge_existence_answer_t> edge_existence_pq;
 
             typename edge_vector::bufreader_type edgeReader(_edges);
-            while (!uniqueQuery.empty()) {
-                if (edgeReader.empty() || *edgeReader > *uniqueQuery) { // edge reader went past the query - edge does not exist!
-                    #ifndef NDEBUG
-                        existsEdge.insert(existsEdge.end(), std::make_pair(*uniqueQuery, false));
-                    #endif
-                    //std::cout << uniqueQuery->first << ", " << uniqueQuery->second << " does not exist" << std::endl;
-                    ++uniqueQuery;
-                } else if (*edgeReader == *uniqueQuery) { // found requested edge - advance both
-                    #ifdef NDEBUG
-                        existsEdge.insert(existsEdge.end(), *edgeReader);
-                    #else
-                        existsEdge.insert(existsEdge.end(), std::make_pair(*edgeReader, true));
-                    #endif
-                    //std::cout << edgeReader->first << ", " << edgeReader->second << " exists" << std::endl;
-                    ++edgeReader;
-                    ++uniqueQuery;
+            while (!querySorter.empty()) {
+                if (edgeReader.empty() || *edgeReader >= querySorter->e) { // found edge or went past it (does not exist)
+                    // first request for the edge - give existence info if edge exists
+                    auto lastQuery = *querySorter;
+
+                    if (!querySorter->forward_only) {
+                        if (edgeReader.empty() || *edgeReader > querySorter->e) { // edge reader went past the query - edge does not exist!
+                            #ifndef NDEBUG
+                            edge_existence_pq.push_back(edge_existence_answer_t {querySorter->sid, querySorter->e, false});
+                            #endif
+                            //std::cout << uniqueQuery->first << ", " << uniqueQuery->second << " does not exist" << std::endl;
+                        } else if (*edgeReader == querySorter->e) {
+                            #ifdef NDEBUG
+                            edge_existence_pq.push_back(edge_existence_answer_t {querySorter->sid, querySorter->e});
+                            #else
+                            edge_existence_pq.push_back(edge_existence_answer_t {querySorter->sid, querySorter->e, true});
+                            #endif
+                            //std::cout << edgeReader->first << ", " << edgeReader->second << " exists" << std::endl;
+                        }
+                    }
+
+                    // found requested edge - advance reader
+                    if (!edgeReader.empty() && *edgeReader == querySorter->e) {
+                        ++edgeReader;
+                    }
+                    ++querySorter;
+
+                    while (!querySorter.empty() && querySorter->e == lastQuery.e) {
+                        // skip duplicates
+                        if (querySorter->sid != lastQuery.sid) {
+                            edge_existence_successors.push(edge_existence_successor_t {lastQuery.sid, lastQuery.e, querySorter->sid});
+                            lastQuery = *querySorter;
+                        }
+                        ++querySorter;
+                    }
                 } else { // query edge might be after the current edge, advance edge reader to check
                     ++edgeReader;
                 }
             }
 
-            std::cout << "Loaded " << existsEdge.size() << " existence values" << std::endl;
+            querySorter.finish();
+            edge_existence_successors.sort();
+            std::make_heap(edge_existence_pq.begin(), edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+
+            std::cout << "Loaded " << edge_existence_pq.size() << " existence values" << std::endl;
+            std::cout << "Values might be forwarded " << edge_existence_successors.size() << " times" << std::endl;
 
             std::cout << "Doing swaps" << std::endl;
 
@@ -265,11 +309,19 @@ public:
                 // each swap sends edges to its successor(s) in swap_successors
                 // the last one in the chain then records the final result
                 auto succ_it = swap_successors.begin();
+                std::vector<edge_t> current_existence;
+#ifndef NDEBUG
+                std::vector<edge_t> current_missing;
+#endif
                 for (auto s_it = currentSwaps.begin(); s_it != currentSwaps.end(); ++s_it) {
                     const auto& eids = s_it->edges();
                     const auto sid = (s_it - currentSwaps.begin());
                     edge_t s_edges[2];
                     edge_t t_edges[2];
+                    current_existence.clear();
+#ifndef NDEBUG
+                    current_missing.clear();
+#endif
 
                     for (unsigned char spos = 0; spos < 2; ++spos) {
                         assert(swap_edges.front().sid == sid);
@@ -287,6 +339,22 @@ public:
 
                     std::tie(t_edges[0], t_edges[1]) = _swap_edges(s_edges[0], s_edges[1], s_it->direction());
 
+                    assert(edge_existence_pq.empty() || edge_existence_pq.front().sid >= sid);
+
+                    while (!edge_existence_pq.empty() && edge_existence_pq.front().sid == sid) {
+#ifdef NDEBUG
+                        current_existence.push_back(edge_existence_pq.front().e);
+#else
+                        if (edge_existence_pq.front().exists) {
+                            current_existence.push_back(edge_existence_pq.front().e);
+                        } else {
+                            current_missing.push_back(edge_existence_pq.front().e);
+                        }
+#endif
+                        std::pop_heap(edge_existence_pq.begin(), edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+                        edge_existence_pq.pop_back();
+                    }
+
                     //std::cout << "Target edges " << t0.first << ", " << t0.second << " and " << t1.first << ", " << t1.second << std::endl;
                     {
                         // compute whether swap can be performed and write debug info out
@@ -294,13 +362,19 @@ public:
                         result.edges[1] = t_edges[1];
                         result.loop = (t_edges[0].first == t_edges[0].second || t_edges[1].first == t_edges[1].second);
 
-                        #ifdef NDEBUG
-                        result.conflictDetected[0] = existsEdge.exists(t_edges[0]);
-                        result.conflictDetected[1] = existsEdge.exists(t_edges[1]);
-                        #else
-                        result.conflictDetected[0] = existsEdge[t_edges[0]];
-                        result.conflictDetected[1] = existsEdge[t_edges[1]];
-                        #endif
+                        result.conflictDetected[0] = std::binary_search(current_existence.begin(), current_existence.end(), t_edges[0]);
+                        result.conflictDetected[1] = std::binary_search(current_existence.begin(), current_existence.end(), t_edges[1]);
+#ifndef NDEBUG
+                        if (!result.loop) {
+                            if (!result.conflictDetected[0]) {
+                                assert(std::binary_search(current_missing.begin(), current_missing.end(), t_edges[0]));
+                            }
+
+                            if (!result.conflictDetected[1]) {
+                                assert(std::binary_search(current_missing.begin(), current_missing.end(), t_edges[1]));
+                            }
+                        }
+#endif
 
                         result.performed = !result.loop && !(result.conflictDetected[0] || result.conflictDetected[1]);
                         result.normalize();
@@ -310,23 +384,48 @@ public:
 
                     //std::cout << result << std::endl;
 
-                    assert(result.loop || ((existsEdge.find(t_edges[0]) != existsEdge.end() && existsEdge.find(t_edges[1]) != existsEdge.end())));
+                    //assert(result.loop || ((existsEdge.find(t_edges[0]) != existsEdge.end() && existsEdge.find(t_edges[1]) != existsEdge.end())));
 
-                    if (result.performed) {
-                        #ifdef NDEBUG
-                        existsEdge.erase(s_edges[0]);
-                        existsEdge.erase(s_edges[1]);
-                        existsEdge.insert(t_edges[0]);
-                        existsEdge.insert(t_edges[1]);
-                        #else
-                        existsEdge[s_edges[0]] = false;
-                        existsEdge[s_edges[1]] = false;
-                        existsEdge[t_edges[0]] = true;
-                        existsEdge[t_edges[1]] = true;
-                        #endif
-                    } else {
+                    if (!result.performed) {
                         t_edges[0] = s_edges[0];
                         t_edges[1] = s_edges[1];
+                    }
+
+                    while (!edge_existence_successors.empty() && edge_existence_successors->from_sid == sid) {
+                        const auto &succ = *edge_existence_successors;
+                        if (succ.e == t_edges[0] || succ.e == t_edges[1]) {
+                            // target edges always exist (might be source if no swap has been performed)
+#ifdef NDEBUG
+                            edge_existence_pq.push_back(edge_existence_answer_t {succ.to_sid, succ.e});
+#else
+                            edge_existence_pq.push_back(edge_existence_answer_t {succ.to_sid, succ.e, true});
+#endif
+                            std::push_heap(edge_existence_pq.begin(), edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+                        } else if (succ.e == s_edges[0] || succ.e == s_edges[1]) {
+                            // source edges never exist (if no swap has been performed or source = target, this has been handled above)
+#ifndef NDEBUG
+                            edge_existence_pq.push_back(edge_existence_answer_t {succ.to_sid, succ.e, false});
+                            std::push_heap(edge_existence_pq.begin(), edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+#endif
+                        } else {
+#ifdef NDEBUG
+                        if (std::binary_search(current_existence.begin(), current_existence.end(), succ.e)) {
+                            edge_existence_pq.push_back(edge_existence_answer_t {succ.to_sid, succ.e});
+                            std::push_heap(edge_existence_pq.begin(), edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+                        }
+#else
+                        if (std::binary_search(current_existence.begin(), current_existence.end(), succ.e)) {
+                            edge_existence_pq.push_back(edge_existence_answer_t {succ.to_sid, succ.e, true});
+                        } else {
+                            assert(std::binary_search(current_missing.begin(), current_missing.end(), succ.e));
+                            edge_existence_pq.push_back(edge_existence_answer_t {succ.to_sid, succ.e, false});
+                        }
+
+                        std::push_heap(edge_existence_pq.begin(), edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+#endif
+                        }
+
+                        ++edge_existence_successors;
                     }
 
                     for (unsigned char spos = 0; spos < 2; ++spos) {
@@ -381,7 +480,9 @@ public:
             }
 
             std::cout << "Finished swap phase and writing back" << std::endl;
+            std::cout << "Capacity of internal edge existence PQ: " << edge_existence_pq.capacity() << std::endl;
         }
+
 
         debug_vector_writer.finish();
    }
