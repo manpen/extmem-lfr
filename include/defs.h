@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <utility>
 #include <limits>
+#include <ostream>
 
 /** 
  * @typedef int_t

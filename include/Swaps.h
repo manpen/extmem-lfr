@@ -7,6 +7,7 @@
  */
 #pragma once
 #include <defs.h>
+#include <cassert>
 
 using swapid_t = int64_t;
 
