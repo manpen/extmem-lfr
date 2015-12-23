@@ -141,4 +141,34 @@ namespace {
       ASSERT_TRUE (debug[2].performed);
 
    }
+
+   TYPED_TEST(TestEdgeSwap, existencePropagation) {
+      bool debug_this_test = true;
+       using EdgeSwapAlgo = TypeParam;
+
+       EdgeVector edge_list;
+       edge_list.push_back({0, 2});
+       edge_list.push_back({1, 2});
+       edge_list.push_back({2, 3});
+       edge_list.push_back({4, 5});
+
+       SwapVector swap_list;
+
+       swap_list.push_back({2, 3, true});
+       swap_list.push_back({0, 1, true});
+
+       EdgeSwapAlgo algo(edge_list, swap_list);
+       algo.setDisplayDebug(debug_this_test);
+       algo.run();
+
+       this->_print_list(edge_list, debug_this_test);
+
+       auto & debug = algo.debugVector();
+       this->_print_list(debug, debug_this_test);
+
+       ASSERT_TRUE(debug[0].performed);
+       ASSERT_FALSE(debug[1].performed);
+       ASSERT_TRUE(debug[1].conflictDetected[0]);
+       ASSERT_TRUE(debug[1].conflictDetected[1]);
+   }
 }

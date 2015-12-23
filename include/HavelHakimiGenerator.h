@@ -10,6 +10,7 @@
 #include <vector>
 #include <queue>
 #include <utility>
+#include <stack>
 
 #include <stxxl/priority_queue>
 #include <stxxl/stack>
@@ -297,4 +298,4 @@ public:
     };
 };
 
-
+extern template class HavelHakimiGenerator<HavelHakimiPrioQueueInt, std::stack<HavelHakimiNodeDegree>>;

@@ -55,6 +55,8 @@ add_library(libextmemgraphgen STATIC
     include/EdgeVectorCache.cpp
     include/EdgeSwapInternalSwaps.cpp
     include/EdgeSwapTFP.cpp
+    include/HavelHakimiGenerator.cpp
+    include/HavelHakimiGeneratorRLE.cpp
 )
 
 # Specify here the include directories exported

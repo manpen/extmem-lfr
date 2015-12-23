@@ -7,6 +7,7 @@
  */
 #pragma once
 #include <defs.h>
+#include <cassert>
 
 using swapid_t = int64_t;
 
@@ -80,8 +81,7 @@ struct SwapResult {
          assert(!conflictDetected[i] || valid[i]);
       }
 
-      if ((conflictDetected[1] || !conflictDetected[0]) ||
-          (conflictDetected[0] && conflictDetected[1] && edges[1] > edges[0])) {
+      if (edges[1] > edges[0]) {
          std::swap(edges[0], edges[1]);
          std::swap(conflictDetected[0], conflictDetected[1]);
       }
