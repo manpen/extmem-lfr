@@ -101,7 +101,7 @@ private:
         if (!block.count)
             return;
         
-        if (nodes_to_consume >= block.count) {
+        if (static_cast<uint_t>(nodes_to_consume) >= block.count) {
             // whole block will be consumed, i.e. reduce degree of each node
             if (--block.value)
                 _buffer.push(block);
@@ -114,10 +114,10 @@ private:
             // split block and consume second half
             node_block_type new_block = {
                 .value = block.value - 1,
-                .count = nodes_to_consume,
-                .index = block.index - block.count + nodes_to_consume
+                .count = static_cast<uint_t>(nodes_to_consume),
+                .index = block.index - block.count + static_cast<uint_t>(nodes_to_consume)
             };
-            block.count -= nodes_to_consume;
+            block.count -= static_cast<uint_t>(nodes_to_consume);
 
             _buffer.push(block);
             
