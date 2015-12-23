@@ -72,12 +72,10 @@ struct SwapResult {
     * otherwise the edges are arranged s.t. v0 <= v3
     */
    void normalize() {
-      bool valid[2];
       for(unsigned int i=0; i < 2; i++) {
          if (edges[i].second < edges[i].first)
             std::swap(edges[i].second, edges[i].first);
 
-         valid[i] = (edges[i].second != edges[i].first);
          assert(!conflictDetected[i] || valid[i]);
       }
 
