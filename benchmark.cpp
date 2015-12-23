@@ -121,7 +121,7 @@ struct RunConfig {
     result_vector_type swapEdges(edges.size());
     {
          result_vector_type::bufreader_type edgeReader(edges);
-         stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), 128*IntScale::Mi);
+         stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), SORTER_MEM);
          while (!edgeReader.empty()) {
              if (edgeReader->first < edgeReader->second) {
                  edgeSorter.push(edge_t {edgeReader->first, edgeReader->second});
@@ -156,6 +156,7 @@ struct RunConfig {
     {
         SwapGenerator swapGen(config.sweep_max, edges.size());
         auto endit =  stxxl::stream::materialize(swapGen, swaps.begin());
+        STXXL_UNUSED(endit);
         assert(static_cast<uint_t>(endit - swaps.begin()) == config.sweep_max);
         STXXL_VERBOSE("Swaps generated");
     }

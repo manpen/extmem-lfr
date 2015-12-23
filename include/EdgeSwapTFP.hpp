@@ -19,9 +19,6 @@
 #include <sstream>
 #include <string>
 
-
-
-
 template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>, bool compute_stats = true>
 class EdgeSwapTFP : public EdgeSwapBase {
 public:
@@ -30,9 +27,9 @@ public:
    using swap_vector = SwapVector;
 
 protected:
-   constexpr static size_t _pq_mem = 1 << 25;
-   constexpr static size_t _pq_pool_mem = 1 << 26;
-   constexpr static size_t _sorter_mem = 1 << 27;
+   constexpr static size_t _pq_mem = PQ_INT_MEM;
+   constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
+   constexpr static size_t _sorter_mem = SORTER_MEM;
 
    EdgeVector & _edges;
    SwapVector & _swaps;
@@ -166,7 +163,7 @@ protected:
       typename EdgeVector::bufreader_type edge_reader(_edges);
       edgeid_t eid = 0; // points to the next edge that can be read
 
-      swapid_t last_swap;
+      swapid_t last_swap = 0; // initialize to make gcc shut up
 
       stx::btree_map<uint_t, uint_t> swaps_per_edges;
       uint_t swaps_per_edge = 1;
@@ -350,9 +347,10 @@ protected:
       }
 
       if (compute_stats) {
-         DEBUG_MSG(compute_stats, "Dropped " << duplicates_dropped << " duplicates in edge-state information in _compute_conflicts()");
-         for(const auto & it : state_sizes) 
-            DEBUG_MSG(compute_stats, it.first.first << " " << it.first.second << " " << (it.first.first + it.first.second) << " " << it.second << " #STATE-SIZE");
+         std::cout << "Dropped " << duplicates_dropped << " duplicates in edge-state information in _compute_conflicts()" << std::endl;
+         for(const auto & it : state_sizes) { 
+            std::cout << it.first.first << " " << it.first.second << " " << (it.first.first + it.first.second) << " " << it.second << " #STATE-SIZE" << std::endl;
+         }
       }
 
       _depchain_successor_sorter.rewind();

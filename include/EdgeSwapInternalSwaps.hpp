@@ -64,7 +64,7 @@ public:
 
             // load edge endpoints for edges in the swap set
             // TODO: this should already be done in the writeback phase
-            stxxl::sorter<edge_swap_t, typename GenericComparatorStruct<edge_swap_t>::Ascending> swapSorter(typename GenericComparatorStruct<edge_swap_t>::Ascending(), 128*IntScale::Mi);
+            stxxl::sorter<edge_swap_t, typename GenericComparatorStruct<edge_swap_t>::Ascending> swapSorter(typename GenericComparatorStruct<edge_swap_t>::Ascending(), SORTER_MEM);
             for (int_t i = 0; i < _num_swaps_per_iteration && !reader.empty(); ++i) {
                 currentSwaps.emplace_back(*reader);
                 swapSorter.push(edge_swap_t {reader->edges()[0], i, 0});
@@ -139,7 +139,7 @@ public:
                 DECL_LEX_COMPARE(edge_existence_request_t, e, sid, forward_only);
             };
 
-            stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> querySorter(typename GenericComparatorStruct<edge_existence_request_t>::Ascending(), 128*IntScale::Mi); // Query of possible conflict edges. This may be large (too large...)
+            stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> querySorter(typename GenericComparatorStruct<edge_existence_request_t>::Ascending(), SORTER_MEM); // Query of possible conflict edges. This may be large (too large...)
 
             { // find possible conflicts
                 auto succ_it = swap_successors.begin();
@@ -244,7 +244,7 @@ public:
                 DECL_LEX_COMPARE(edge_existence_successor_t, from_sid, e);
             };
 
-            stxxl::sorter<edge_existence_successor_t, typename GenericComparatorStruct<edge_existence_successor_t>::Ascending> edge_existence_successors(typename GenericComparatorStruct<edge_existence_successor_t>::Ascending(), 128*IntScale::Mi);
+            stxxl::sorter<edge_existence_successor_t, typename GenericComparatorStruct<edge_existence_successor_t>::Ascending> edge_existence_successors(typename GenericComparatorStruct<edge_existence_successor_t>::Ascending(), SORTER_MEM);
 
             std::vector<edge_existence_answer_t> edge_existence_pq;
 

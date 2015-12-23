@@ -33,7 +33,7 @@ private:
         }
     };
 
-    using pqueue_type = typename stxxl::PRIORITY_QUEUE_GENERATOR<node_block_type, ComparatorLess, 16*1024*1024, 1024*1024>::result;
+    using pqueue_type = typename stxxl::PRIORITY_QUEUE_GENERATOR<node_block_type, ComparatorLess, PQ_INT_MEM, 1024*1024>::result;
     using pq_block_type = typename pqueue_type::block_type;
     stxxl::read_write_pool<pq_block_type> _pool;
     pqueue_type _prioQueue;
@@ -186,7 +186,7 @@ private:
     
 public:
     HavelHakimiGeneratorRLE(InputStream &input) 
-        : _pool(static_cast<size_t>(8*1024*1024/pq_block_type::raw_size), static_cast<size_t>(8*1024*1024/pq_block_type::raw_size))
+        : _pool(static_cast<size_t>(PQ_POOL_MEM/pq_block_type::raw_size), static_cast<size_t>(PQ_POOL_MEM/pq_block_type::raw_size))
         , _prioQueue(_pool)
         , _edge_id(0)
         , _empty(false)
