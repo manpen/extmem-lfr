@@ -6,6 +6,8 @@
 #include <stxxl/priority_queue>
 #include <stxxl/stack>
 #include <utility>
+#include <PowerlawDegreeSequence.h>
+#include <DistributionCount.h>
 
 template <typename InputStream>
 class HavelHakimiGeneratorRLE {
@@ -226,3 +228,5 @@ public:
         return _num_edges;
     };
 };
+
+extern template class HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>>;
