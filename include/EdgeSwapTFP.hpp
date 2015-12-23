@@ -14,7 +14,15 @@
 
 #include "EdgeSwapBase.h"
 
-template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
+#include <stx/btree_map>
+
+#include <sstream>
+#include <string>
+
+
+
+
+template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>, bool compute_stats = true>
 class EdgeSwapTFP : public EdgeSwapBase {
 public:
    using debug_vector = stxxl::vector<SwapResult>;
@@ -160,6 +168,9 @@ protected:
 
       swapid_t last_swap;
 
+      stx::btree_map<uint_t, uint_t> swaps_per_edges;
+      uint_t swaps_per_edge = 1;
+
       // For every edge we send the incident vertices to the first swap,
       // i.e. the request with the lowest swap-id. We get this info by scanning
       // through the original edge list and the sorted request list in parallel
@@ -186,12 +197,27 @@ protected:
 
             ++edge_reader;
             ++eid;
+            
+            if (compute_stats) { 
+               swaps_per_edges[swaps_per_edge]++;
+               swaps_per_edge = 1;
+            }
          } else {
             _depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requested_edge, requesting_swap});
             DEBUG_MSG(_display_debug, "Report to swap " << last_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
+            if (compute_stats)
+               swaps_per_edge++;
          }
 
          last_swap = requesting_swap;
+      }
+
+      if (compute_stats) {
+         swaps_per_edges[swaps_per_edge]++;
+
+         for(const auto & it : swaps_per_edges) {
+            std::cout << it.first << " " << it.second << " #SWAPS-PER-EDGE" << std::endl;
+         }
       }
 
       _depchain_successor_sorter.sort();
@@ -215,6 +241,11 @@ protected:
     */
    void _compute_conflicts() {
       swapid_t sid = 0;
+      
+      uint_t duplicates_dropped = 0;
+      using state_size_t = std::pair<uint_t, uint_t>;
+      stx::btree_map<state_size_t, uint_t> state_sizes;
+
       for (typename SwapVector::bufreader_type reader(_swaps); !reader.empty(); ++reader, ++sid) {
          auto & swap = *reader;
 
@@ -250,12 +281,14 @@ protected:
                if (msg.swap_id != sid || msg.edge_id != eid)
                   break;
 
-               if (edges[i].empty() || msg.edge != edges[i].back())
+               if (edges[i].empty() || msg.edge != edges[i].back()) {
                   edges[i].push_back(msg.edge);
+               } else if (compute_stats && !edges[i].empty()) {
+                  duplicates_dropped++;
+               }
             }
 
             DEBUG_MSG(_display_debug, "SWAP " << sid << " Edge " << eid << " Successor: " << successors[i] << " States: " << edges[i].size());
-             
 
             // ensure that we received at least one state of the edge before the swap
             assert(!edges[i].empty());
@@ -266,6 +299,7 @@ protected:
          // ensure that all messages to this swap have been consumed
          assert(_depchain_edge_pq.empty() || _depchain_edge_pq.top().swap_id > sid);
 
+
 #ifndef NDEBUG
          if (_display_debug) {
             std::cout << "Swap " << sid << " edges[0] = [";
@@ -275,6 +309,12 @@ protected:
             std::cout << "]" << std::endl;
          }
 #endif
+
+         if (compute_stats) {
+            state_size_t ss(edges[0].size(), edges[1].size());
+            if (ss.first < ss.second) std::swap(ss.first, ss.second);
+            state_sizes[ss]++;
+         }
 
          // compute "cartesian" product between possible edges to determine all possible new edges
          // TODO: Check for duplicates
@@ -307,6 +347,12 @@ protected:
                _existence_request_sorter.push(ExistenceRequestMsg{edge, sid});
             }
          }
+      }
+
+      if (compute_stats) {
+         DEBUG_MSG(compute_stats, "Dropped " << duplicates_dropped << " duplicates in edge-state information in _compute_conflicts()");
+         for(const auto & it : state_sizes) 
+            DEBUG_MSG(compute_stats, it.first.first << " " << it.first.second << " " << (it.first.first + it.first.second) << " " << it.second << " #STATE-SIZE");
       }
 
       _depchain_successor_sorter.rewind();
@@ -544,6 +590,36 @@ protected:
       stxxl::stream::materialize(edge_sorter, _edges.begin());
    }
 
+   stxxl::stats_data _stats;
+
+   void _start_stats() {
+      if (!compute_stats) return;
+      _stats = stxxl::stats_data(*stxxl::stats::get_instance());
+   }
+
+   void _report_stats(const std::string & prefix) {
+      if (!compute_stats) return;
+
+      auto start = _stats;
+      _start_stats();
+      std::ostringstream ss;
+      ss << (_stats - start);
+
+      std::string str = ss.str();
+      std::string replace = "\n" + prefix;
+      str = prefix + str;
+      
+      size_t pos = prefix.size();
+      while(1) {
+         pos = str.find("\n", pos);
+         if (pos == std::string::npos) break;
+         str.replace(pos, 1, replace);
+         pos += replace.length();
+      }
+
+      std::cout << str << std::endl; 
+   }
+
 
 public:
    EdgeSwapTFP() = delete;
@@ -570,11 +646,17 @@ public:
    {}
 
    void run() {
+      _start_stats();
       _compute_dependency_chain();
+      _report_stats("_compute_dependency_chain: ");
       _compute_conflicts();
+      _report_stats("_compute_conflicts: ");
       _process_existence_requests();
+      _report_stats("_process_existence_requests: ");
       _perform_swaps();
+      _report_stats("_perform_swaps: ");
       _apply_updates();
+      _report_stats("_apply_updates: ");
    }
 
 
