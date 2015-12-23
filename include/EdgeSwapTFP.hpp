@@ -24,7 +24,7 @@ public:
 protected:
    constexpr static size_t _pq_mem = 1 << 25;
    constexpr static size_t _pq_pool_mem = 1 << 26;
-   constexpr static size_t _sorter_mem = 1 << 30;
+   constexpr static size_t _sorter_mem = 1 << 27;
 
    EdgeVector & _edges;
    SwapVector & _swaps;
