@@ -152,15 +152,31 @@ struct TuplePrint<Stream, Tuple, 1> {
 //! Requires that there exists a ostream::operator<< overload for all
 //! types in the tuple
 template <typename ...Args>
-inline std::ostream &operator<<(std::ostream &os, std::tuple<Args...> t) {
+inline std::ostream& operator<<(std::ostream& os, const std::tuple<Args...> & t) {
    // we first buffer the output to avoid race-conditions in a multi-threaded enviroment
    std::ostringstream oss;
 
    // use helper to print the tuple into the string buffer
-   using Tuple = decltype(t);
+   using Tuple = typename std::decay<decltype(t)>::type;
    oss << "(";
    TuplePrint<decltype(oss), Tuple, std::tuple_size<Tuple>::value>::print(oss, t);
    oss << ")";
+
+   // copy text into output stream (thread-safe, hence no race-conditions)
+   os << oss.str();
+   return os;
+}
+
+//! @brief Print tuples (required to avoid STXXL_MSG related issues)
+//! Requires that there exists a ostream::operator<< overload for all
+//! types in the tuple
+template <typename T1, typename T2>
+inline std::ostream& operator<<(std::ostream& os, const std::pair<T1, T2> & t) {
+   // we first buffer the output to avoid race-conditions in a multi-threaded enviroment
+   std::ostringstream oss;
+
+   // use helper to print the tuple into the string buffer
+   oss << "(" << t.first << ", " << t.second << ")";
 
    // copy text into output stream (thread-safe, hence no race-conditions)
    os << oss.str();
@@ -173,14 +189,26 @@ struct TupleSortable {
 
 #define DECL_LEX_COMPARE(name, ...) \
    auto to_tuple() -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
-   const auto to_tuple() const -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
+   const auto to_tuple() const -> decltype(std::make_tuple(__VA_ARGS__)) {return std::make_tuple(__VA_ARGS__);} \
    bool operator< (const name& o) const {return to_tuple() <  o.to_tuple(); } \
    bool operator> (const name& o) const {return to_tuple() >  o.to_tuple(); } \
    bool operator<=(const name& o) const {return to_tuple() <= o.to_tuple(); } \
    bool operator>=(const name& o) const {return to_tuple() >= o.to_tuple(); } \
    bool operator==(const name& o) const {return to_tuple() == o.to_tuple(); } \
    bool operator!=(const name& o) const {return to_tuple() != o.to_tuple(); } \
-   void streamify(std::ostream &os) {os << #name << to_tuple();}
+
+#define DECL_LEX_COMPARE_OS(name, ...) \
+   DECL_LEX_COMPARE(name, __VA_ARGS__) \
+   }; \
+   inline std::ostream& operator<<(std::ostream &os, const name & t) {\
+       std::ostringstream oss; \
+       const auto & tu = t.to_tuple();\
+       using Tuple = typename std::decay<decltype(tu)>::type; \
+       oss << "" #name "[";\
+       TuplePrint<decltype(oss), Tuple, std::tuple_size<Tuple>::value>::print(oss, tu);\
+       oss << "]";\
+       os << oss.str();\
+       return os;\
 
 
 inline std::ostream &operator<<(std::ostream &os, TupleSortable t) {
