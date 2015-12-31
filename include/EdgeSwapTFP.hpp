@@ -161,12 +161,6 @@ namespace EdgeSwapTFP {
       void _perform_swaps();
       void _apply_updates();
 
-// stats
-      stxxl::stats_data _stats;
-
-      void _start_stats();
-      void _report_stats(const std::string &prefix);
-
    public:
       EdgeSwapTFP() = delete;
 

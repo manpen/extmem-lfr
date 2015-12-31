@@ -453,50 +453,19 @@ namespace EdgeSwapTFP {
       stxxl::stream::materialize(edge_sorter, _edges.begin());
    }
 
-
-   template<class EdgeVector, class SwapVector, bool compute_stats>
-   void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::_start_stats() {
-      if (!compute_stats) return;
-      _stats = stxxl::stats_data(*stxxl::stats::get_instance());
-   }
-
-   template<class EdgeVector, class SwapVector, bool compute_stats>
-   void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::_report_stats(const std::string &prefix) {
-      if (!compute_stats) return;
-
-      auto start = _stats;
-      _start_stats();
-      std::ostringstream ss;
-      ss << (_stats - start);
-
-      std::string str = ss.str();
-      std::string replace = "\n" + prefix;
-      str = prefix + str;
-
-      size_t pos = prefix.size();
-      while (1) {
-         pos = str.find("\n", pos);
-         if (pos == std::string::npos) break;
-         str.replace(pos, 1, replace);
-         pos += replace.length();
-      }
-
-      std::cout << str << std::endl;
-   }
-
    template<class EdgeVector, class SwapVector, bool compute_stats>
    void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::run() {
-      _start_stats();
+      _start_stats(compute_stats);
       _compute_dependency_chain();
-      _report_stats("_compute_dependency_chain: ");
+      _report_stats("_compute_dependency_chain: ", compute_stats);
       _compute_conflicts();
-      _report_stats("_compute_conflicts: ");
+      _report_stats("_compute_conflicts: ", compute_stats);
       _process_existence_requests();
-      _report_stats("_process_existence_requests: ");
+      _report_stats("_process_existence_requests: ", compute_stats);
       _perform_swaps();
-      _report_stats("_perform_swaps: ");
+      _report_stats("_perform_swaps: ", compute_stats);
       _apply_updates();
-      _report_stats("_apply_updates: ");
+      _report_stats("_apply_updates: ", compute_stats);
    }
 
    template class EdgeSwapTFP<stxxl::vector<edge_t>, stxxl::vector<SwapDescriptor>, false>;
