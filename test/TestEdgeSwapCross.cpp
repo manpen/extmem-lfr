@@ -71,7 +71,7 @@ namespace {
 
    using TestEdgeSwapCrossImplementations = ::testing::Types <
       EdgeSwapInternalSwaps<EdgeVector, SwapVector>,
-      EdgeSwapTFP<EdgeVector, SwapVector>
+      EdgeSwapTFP::EdgeSwapTFP<EdgeVector, SwapVector>
    >;
 
    TYPED_TEST_CASE(TestEdgeSwapCross, TestEdgeSwapCrossImplementations);

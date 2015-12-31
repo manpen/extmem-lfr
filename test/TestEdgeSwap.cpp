@@ -23,7 +23,7 @@ namespace {
 
    using TestEdgeSwapImplementations = ::testing::Types <
       EdgeSwapInternalSwaps<EdgeVector, SwapVector>,
-      EdgeSwapTFP<EdgeVector, SwapVector>,
+      EdgeSwapTFP::EdgeSwapTFP<EdgeVector, SwapVector>,
       EdgeSwapFullyInternal<EdgeVector, SwapVector>
    >;
 
@@ -110,7 +110,7 @@ namespace {
    }
 
    TYPED_TEST(TestEdgeSwap, conflicts) {
-      bool debug_this_test = false;
+      bool debug_this_test = true;
       using EdgeSwapAlgo = TypeParam;
 
       EdgeVector edge_list;

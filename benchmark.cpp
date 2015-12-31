@@ -179,7 +179,7 @@ struct RunConfig {
             result_vector_type medges(swapEdges);
             STXXL_VERBOSE0("Start TFP");
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapTFP<decltype(medges), decltype(swaps)> TFPSwaps(medges, swaps);
+            EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps)> TFPSwaps(medges, swaps);
             TFPSwaps.run();
             STXXL_VERBOSE0("Completed TFP" << (stxxl::stats_data(*stats) - stat_start));
         }

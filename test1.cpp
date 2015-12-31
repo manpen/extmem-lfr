@@ -186,7 +186,7 @@ void benchmark(RunConfig & config) {
 
         if (config.swapTFP) {
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapTFP<decltype(swapEdges), decltype(swaps)> TFPSwaps(swapEdges, swaps);
+            EdgeSwapTFP::EdgeSwapTFP<decltype(swapEdges), decltype(swaps)> TFPSwaps(swapEdges, swaps);
             TFPSwaps.run();
             std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
