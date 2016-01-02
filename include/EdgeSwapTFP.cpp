@@ -1,5 +1,9 @@
 #include <EdgeSwapTFP.hpp>
 
+#include <algorithm>
+#include <stx/btree_map>
+
+
 namespace EdgeSwapTFP {
     template<class EdgeVector, class SwapVector, bool compute_stats>
     void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::_compute_dependency_chain() {
@@ -101,8 +105,7 @@ namespace EdgeSwapTFP {
        swapid_t sid = 0;
 
        uint_t duplicates_dropped = 0;
-       using state_size_t = std::pair<uint_t, uint_t>;
-       stx::btree_map<state_size_t, uint_t> state_sizes;
+       stx::btree_map<uint_t, uint_t> state_sizes;
 
        for (typename SwapVector::bufreader_type reader(_swaps); !reader.empty(); ++reader, ++sid) {
           auto &swap = *reader;
@@ -169,9 +172,7 @@ namespace EdgeSwapTFP {
 #endif
 
           if (compute_stats) {
-             state_size_t ss(edges[0].size(), edges[1].size());
-             if (ss.first < ss.second) std::swap(ss.first, ss.second);
-             state_sizes[ss]++;
+             state_sizes[edges[0].size() +edges[1].size()]++;
           }
 
           // compute "cartesian" product between possible edges to determine all possible new edges
@@ -210,7 +211,7 @@ namespace EdgeSwapTFP {
        if (compute_stats) {
           std::cout << "Dropped " << duplicates_dropped << " duplicates in edge-state information in _compute_conflicts()" << std::endl;
           for (const auto &it : state_sizes) {
-             std::cout << it.first.first << " " << it.first.second << " " << (it.first.first + it.first.second) << " " << it.second << " #STATE-SIZE" <<
+             std::cout << it.first << " " << it.second << " #STATE-SIZE" <<
              std::endl;
           }
        }

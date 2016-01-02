@@ -2,6 +2,9 @@
 #include <Swaps.h>
 #include <defs.h>
 
+#include <sstream>
+#include <string>
+
 class EdgeSwapBase {
 protected:
     bool _display_debug;

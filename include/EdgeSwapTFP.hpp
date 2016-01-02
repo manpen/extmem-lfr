@@ -1,8 +1,5 @@
 #pragma once
 
-#include <map>
-#include <algorithm>
-
 #include <stxxl/vector>
 #include <stxxl/priority_queue>
 #include <stxxl/sorter>
@@ -13,11 +10,6 @@
 #include "TupleHelper.h"
 
 #include "EdgeSwapBase.h"
-
-#include <stx/btree_map>
-
-#include <sstream>
-#include <string>
 
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
