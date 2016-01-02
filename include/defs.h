@@ -29,8 +29,28 @@ using int_t = std::int64_t;
 using uint_t = std::uint64_t;
 
 using node_t = int_t; ///< Type for every node id used in this project
-using edge_t = std::pair<node_t, node_t>; ///<Type for every (un)directed edge
 using edgeid_t = int_t; ///< Type used to address edges
+
+//!Type for every (un)directed edge
+struct edge_t : public std::pair<node_t, node_t> {
+    edge_t() : std::pair<node_t, node_t>() {}
+    edge_t(const std::pair<node_t, node_t> & edge) : std::pair<node_t, node_t>(edge) {}
+    edge_t(const node_t v1, const node_t & v2) : std::pair<node_t, node_t>() {
+        first = v1;
+        second = v2;
+    }
+
+    //! Enforces first<=second
+    void normalize() {
+        if (first > second)
+            std::swap(first, second);
+    }
+
+    //! Returns true if edge represents a self-loop
+    bool is_loop() const {
+        return first == second;
+    }
+};
 
 struct EdgeComparator {
     bool operator()(const edge_t &a, const edge_t &b) const {return a < b;}
