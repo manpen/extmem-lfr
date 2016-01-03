@@ -60,7 +60,7 @@ struct SwapResult {
    bool loop;
 
    //! use a self-loop to indicate, that the information is invalid
-   std::pair<node_t, node_t> edges[2];
+   edge_t edges[2];
 
    //! Indicates that the edge(s) stored in vertices prevented the swap.
    //! Field may only be asserted in case the corresponding edge is valid (no self-loop)
@@ -72,12 +72,8 @@ struct SwapResult {
     * otherwise the edges are arranged s.t. v0 <= v3
     */
    void normalize() {
-      for(unsigned int i=0; i < 2; i++) {
-         if (edges[i].second < edges[i].first)
-            std::swap(edges[i].second, edges[i].first);
-
-         assert(!conflictDetected[i] || valid[i]);
-      }
+      edges[0].normalize();
+      edges[0].normalize();
 
       if (edges[1] > edges[0]) {
          std::swap(edges[0], edges[1]);
