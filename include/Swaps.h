@@ -40,6 +40,12 @@ public:
      * direction == true : (v2, v3) and (v1, v4)
      */
     bool direction() const {return _direction;}
+
+    //! Equal if all member values match
+    bool operator==(const SwapDescriptor & o) const {
+        return std::tie(_edges[0], _edges[1], _direction) ==
+               std::tie(o._edges[0], o._edges[1], o._direction);
+    }
 };
 
 inline std::ostream &operator<<(std::ostream &os, SwapDescriptor const &m) {
