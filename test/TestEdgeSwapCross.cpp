@@ -37,7 +37,7 @@ namespace {
          DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
          HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
 
-         stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), 128*IntScale::Mi);
+         stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edgeSorter(GenericComparator<edge_t>::Ascending(), 128*IntScale::Mi);
          while (!hhgenerator.empty()) {
              if (hhgenerator->first < hhgenerator->second) {
                  edgeSorter.push(edge_t {hhgenerator->first, hhgenerator->second});

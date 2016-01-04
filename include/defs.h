@@ -35,10 +35,7 @@ using edgeid_t = int_t; ///< Type used to address edges
 struct edge_t : public std::pair<node_t, node_t> {
     edge_t() : std::pair<node_t, node_t>() {}
     edge_t(const std::pair<node_t, node_t> & edge) : std::pair<node_t, node_t>(edge) {}
-    edge_t(const node_t v1, const node_t & v2) : std::pair<node_t, node_t>() {
-        first = v1;
-        second = v2;
-    }
+    edge_t(const node_t & v1, const node_t & v2) : std::pair<node_t, node_t>(v1, v2) {}
 
     //! Enforces first<=second
     void normalize() {
@@ -52,11 +49,14 @@ struct edge_t : public std::pair<node_t, node_t> {
     }
 };
 
-struct EdgeComparator {
-    bool operator()(const edge_t &a, const edge_t &b) const {return a < b;}
-    edge_t min_value() const {return std::make_pair(std::numeric_limits<node_t>::min(), std::numeric_limits<node_t>::min());}
-    edge_t max_value() const {return std::make_pair(std::numeric_limits<node_t>::max(), std::numeric_limits<node_t>::max());}
-};
+namespace std {
+    template <>
+    class numeric_limits<edge_t> {
+    public:
+        static edge_t min() { return {numeric_limits<node_t>::min(), numeric_limits<node_t>::min()}; }
+        static edge_t max() { return {numeric_limits<node_t>::max(), numeric_limits<node_t>::max()}; }
+    };
+}
 
 inline std::ostream &operator<<(std::ostream &os, const edge_t & t) {
    os << "edge(" << t.first << "," << t.second << ")";

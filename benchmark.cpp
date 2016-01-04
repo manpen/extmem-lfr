@@ -121,7 +121,7 @@ void benchmark(RunConfig & config) {
     result_vector_type swapEdges(edges.size());
     {
         result_vector_type::bufreader_type edgeReader(edges);
-        stxxl::sorter<edge_t, EdgeComparator> edgeSorter(EdgeComparator(), SORTER_MEM);
+        stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
         while (!edgeReader.empty()) {
             if (edgeReader->first < edgeReader->second) {
                 edgeSorter.push(edge_t {edgeReader->first, edgeReader->second});
@@ -153,7 +153,6 @@ void benchmark(RunConfig & config) {
 
     // generate largest swap vector
     stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps_orig(config.sweep_max);
-    typename decltype(swaps_orig)::bufreader_type swaps_orig_reader(swaps_orig);
     {
         SwapGenerator swapGen(config.sweep_max, edges.size());
         auto endit =  stxxl::stream::materialize(swapGen, swaps_orig.begin());
@@ -162,10 +161,6 @@ void benchmark(RunConfig & config) {
         STXXL_VERBOSE("Swaps generated");
     }
 
-    stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps;
-    typename decltype(swaps)::bufwriter_type swaps_writer(swaps);
-
-
     unsigned int iter = 1;
     for(uint_t num_swaps = config.sweep_min; 
         num_swaps <= config.sweep_max; 
@@ -173,13 +168,8 @@ void benchmark(RunConfig & config) {
     ) {
         STXXL_VERBOSE0("Begin iteration " << iter++ << " with |num_swaps|=" << num_swaps);
 
-        uint_t num_new_swaps = num_swaps - swaps.size();
+        stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps(swaps_orig);
         swaps.resize(num_swaps);
-        for(; num_new_swaps; --num_new_swaps) {
-            swaps_writer << *swaps_orig_reader;
-            ++swaps_orig_reader;
-        }
-        swaps_writer.finish();
 
         STXXL_VERBOSE0("Swap vector updated");
 
@@ -196,7 +186,7 @@ void benchmark(RunConfig & config) {
             result_vector_type medges(swapEdges);
             STXXL_VERBOSE0("Start TFP");
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps)> TFPSwaps(medges, swaps);
+            EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps), false> TFPSwaps(medges, swaps);
             TFPSwaps.run();
             STXXL_VERBOSE0("Completed TFP" << (stxxl::stats_data(*stats) - stat_start));
         }
