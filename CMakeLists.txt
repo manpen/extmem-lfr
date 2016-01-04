@@ -28,6 +28,13 @@ include_directories(libs/stx-btree/include/)
 
 include_directories(include/)
 
+
+macro(remove_cxx_flag flag)
+    string(REPLACE "${flag}" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+endmacro()
+
+remove_cxx_flag("-O3")
+
 # enable warnings (always good)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 
@@ -35,8 +42,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -DSTXXL_VERBOSE_LEVEL=0")
 
 set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   -DSTXXL_VERBOSE_LEVEL=1 -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")      
-
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 # Include STXXL
 message(STATUS "STXXL_CXX_FLAGS: ${STXXL_CXX_FLAGS}")
@@ -72,6 +78,8 @@ target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
 add_executable(pa_benchmark benchmark.cpp)
 target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
 
+add_executable(pa_ttest ttest.cpp)
+target_link_libraries(pa_ttest ${STXXL_LIBRARIES})
 
 add_subdirectory(test)
 

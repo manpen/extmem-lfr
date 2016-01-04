@@ -17,6 +17,7 @@
  */
 #pragma once
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <tuple>
 #include <type_traits>
