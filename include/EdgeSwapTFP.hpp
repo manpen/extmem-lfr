@@ -102,6 +102,8 @@ namespace EdgeSwapTFP {
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
+        constexpr static bool _deduplicate_before_insert = true;
+
         EdgeVector &_edges;
         SwapVector &_swaps;
 
@@ -109,15 +111,12 @@ namespace EdgeSwapTFP {
 
 // dependency chain
         // we need to use a desc-comparator since the pq puts the largest element on top
-        using DependencyChainEdgeComparator = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
-        using DependencyChainEdgePQ = typename
-        stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparator, _pq_mem, 1 << 20>::result;
+        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
+        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
         using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
-        stxxl::read_write_pool<DependencyChainEdgePQBlock> _depchain_edge_pool;
-        stxxl::read_write_pool<DependencyChainEdgePQBlock> _edge_state_pool;
-
-        DependencyChainEdgePQ _depchain_edge_pq;
-        DependencyChainEdgePQ _edge_state_pq;
+        using DependencyChainEdgeComparatorSorter = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Ascending;
+        using DependencyChainEdgeSorter = stxxl::sorter<DependencyChainEdgeMsg, DependencyChainEdgeComparatorSorter>;
+        DependencyChainEdgeSorter _depchain_edge_sorter;
 
         using DependencyChainSuccessorComparator = typename GenericComparatorStruct<DependencyChainSuccessorMsg>::Ascending;
         using DependencyChainSuccessorSorter = stxxl::sorter<DependencyChainSuccessorMsg, DependencyChainSuccessorComparator>;
@@ -166,10 +165,7 @@ namespace EdgeSwapTFP {
               _edges(edges),
               _swaps(swaps),
 
-              _depchain_edge_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size, _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size),
-              _edge_state_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size, _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size),
-              _depchain_edge_pq(_depchain_edge_pool),
-              _edge_state_pq(_edge_state_pool),
+              _depchain_edge_sorter(DependencyChainEdgeComparatorSorter(), _sorter_mem),
               _depchain_successor_sorter(DependencyChainSuccessorComparator{}, _sorter_mem),
               _existence_request_sorter(ExistenceRequestComparator{}, _sorter_mem),
               _existence_info_pool(_pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size, _pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size),
