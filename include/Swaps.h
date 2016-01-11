@@ -34,6 +34,9 @@ public:
     //! Constant array of two edge ids; the first ed
     const edgeid_t* edges() const {return _edges;}
 
+    //! Array of two edge ids
+    edgeid_t* edges() {return _edges;}
+
     /**
      * Indicate swap direction:  <br />
      * direction == false: (v1, v3) and (v2, v4)<br />
