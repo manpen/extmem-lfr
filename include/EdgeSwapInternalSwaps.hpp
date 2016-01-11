@@ -355,7 +355,7 @@ protected:
     };
 
 
-    void loadSwapsWithEdgesAndSuccessors(typename swap_vector::bufreader_type &swapReader) {
+    void updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typename swap_vector::bufreader_type &swapReader) {
         // stores load requests with information who requested the edge
         struct edge_swap_t {
             edgeid_t eid;
@@ -369,12 +369,18 @@ protected:
         std::vector<edge_swap_t> edgeLoadRequests;
         edgeLoadRequests.reserve(_num_swaps_per_iteration * 2);
 
+        // copy old edge ids for writing back
+        std::vector<edgeid_t> old_edge_ids;
+        old_edge_ids.swap(_edge_ids_in_current_swaps);
+        _edge_ids_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
+
+        // copy updated edges for writing back
+        std::vector<edge_t> updated_edges;
+        updated_edges.swap(_edges_in_current_swaps);
+        _edges_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
+
         _current_swaps.clear();
         _current_swaps.reserve(_num_swaps_per_iteration);
-        _edge_ids_in_current_swaps.clear();
-        _edge_ids_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
-        _edges_in_current_swaps.clear();
-        _edges_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
         _swap_successors.clear();
 
         for (int_t i = 0; i < _num_swaps_per_iteration && !swapReader.empty(); ++i, ++swapReader) {
@@ -390,14 +396,46 @@ protected:
 
         { // load edges from EM. Generates successor information and swap_edges information (for the first edge in the chain).
             int_t int_eid = 0;
+            edge_vector output_vector;
+            output_vector.reserve(_edges.size());
 
             typename edge_vector::bufreader_type edge_reader(_edges);
+            typename edge_vector::bufwriter_type writer(output_vector);
             auto request_it = edgeLoadRequests.begin();
 
-            for (int_t id = 0; !edge_reader.empty() && request_it != edgeLoadRequests.end(); ++edge_reader, ++id) {
-                if (request_it->eid == id) {
+            auto old_e = old_edge_ids.begin();
+            auto new_e = updated_edges.begin();
+
+            int_t read_id = 0;
+            edge_t cur_e;
+
+            for (int_t id = 0; !edge_reader.empty() || new_e != updated_edges.end(); ++id) {
+                // Skip old edges
+                while (old_e != old_edge_ids.end() && *old_e == read_id) {
+                    ++edge_reader;
+                    ++read_id;
+                    ++old_e;
+                }
+
+                // merge update edges and read edges
+                if (new_e != updated_edges.end() && (edge_reader.empty() || *new_e < *edge_reader)) {
+                    cur_e = *new_e;
+                    writer << cur_e;
+                    ++new_e;
+                }  else {
+                    if (edge_reader.empty()) { // due to the previous while loop both could be empty now
+                        break; // abort the loop as we do not have any edges to process anymore.
+                    }
+
+                    cur_e = *edge_reader;
+                    writer << cur_e;
+                    ++read_id;
+                    ++edge_reader;
+                }
+
+                if (request_it != edgeLoadRequests.end() && request_it->eid == id) {
                     _edge_ids_in_current_swaps.push_back(request_it->eid);
-                    _edges_in_current_swaps.push_back(*edge_reader);
+                    _edges_in_current_swaps.push_back(cur_e);
                     assert(int_eid == _edges_in_current_swaps.size() - 1);
 
                     // set edge id to internal edge id
@@ -419,44 +457,13 @@ protected:
                     ++int_eid;
                 }
             }
+
+            writer.finish();
+            _edges.swap(output_vector);
         }
 
         std::sort(_swap_successors.begin(), _swap_successors.end()); // sort successor information
     };
-
-    void updateEdges() {
-        // write result back into edge vector. Inserts all new edges, deletes all old edge ids.
-        edge_vector output_vector;
-        output_vector.reserve(_edges.size());
-        typename edge_vector::bufwriter_type writer(output_vector);
-        typename edge_vector::bufreader_type edge_reader(_edges);
-
-        auto old_e = _edge_ids_in_current_swaps.begin();
-        auto new_e = _edges_in_current_swaps.begin();
-
-        int_t read_id = 0;
-
-        while (!edge_reader.empty() || new_e != _edges_in_current_swaps.end()) {
-            // Skip elements that were already read
-            while (old_e != _edge_ids_in_current_swaps.end() && *old_e == read_id) {
-                ++edge_reader;
-                ++read_id;
-                ++old_e;
-            }
-
-            if (new_e != _edges_in_current_swaps.end() && (edge_reader.empty() || *new_e < *edge_reader)) {
-                writer << *new_e;
-                ++new_e;
-            }  else if (!edge_reader.empty()) { // due to the previous while loop both could be empty now
-                writer << *edge_reader;
-                ++read_id;
-                ++edge_reader;
-            }
-        }
-
-        writer.finish();
-        _edges.swap(output_vector);
-    }
 
 public:
     EdgeSwapInternalSwaps() = delete;
@@ -477,9 +484,9 @@ public:
         typename swap_vector::bufreader_type reader(_swaps);
         typename debug_vector::bufwriter_type debug_vector_writer(_results);
 
-        while (!reader.empty()) {
-            loadSwapsWithEdgesAndSuccessors(reader);
+        updateEdgesAndLoadSwapsWithEdgesAndSuccessors(reader);
 
+        while (!_current_swaps.empty()) {
             std::cout << "Identified " << _swap_successors.size() << " duplications of edge ids which need to be handled later." << std::endl;
 
             simulateSwapsAndGenerateEdgeExistenceQuery();
@@ -498,8 +505,8 @@ public:
             std::cout << "Capacity of internal edge existence PQ: " << _edge_existence_pq.capacity() << std::endl;
 
             // update edge vector
-            updateEdges();
-            std::cout << "Finished swap phase and writing back" << std::endl;
+            updateEdgesAndLoadSwapsWithEdgesAndSuccessors(reader);
+            std::cout << "Finished swap phase, writing back and loading edges" << std::endl;
         }
 
 
