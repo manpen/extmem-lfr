@@ -136,7 +136,11 @@ public:
                 edge_t e;
                 int_t sid;
                 bool forward_only; // if this requests is only for generating the correct forwaring information but no existence information is needed
-                DECL_LEX_COMPARE(edge_existence_request_t, e, sid, forward_only);
+                DECL_TO_TUPLE(e, sid, forward_only);
+                const auto to_compare_tuple() const -> decltype(std::make_tuple(e, sid, forward_only)) {
+                    return std::make_tuple(e, std::numeric_limits<int_t>::max() - sid, forward_only);
+                }
+                bool operator< (const edge_existence_request_t& o) const {return to_compare_tuple() <  o.to_compare_tuple(); }
             };
 
             stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> querySorter(typename GenericComparatorStruct<edge_existence_request_t>::Ascending(), SORTER_MEM); // Query of possible conflict edges. This may be large (too large...)
@@ -253,36 +257,38 @@ public:
                 if (edgeReader.empty() || *edgeReader >= querySorter->e) { // found edge or went past it (does not exist)
                     // first request for the edge - give existence info if edge exists
                     auto lastQuery = *querySorter;
-
-                    if (!querySorter->forward_only) {
-                        if (edgeReader.empty() || *edgeReader > querySorter->e) { // edge reader went past the query - edge does not exist!
-                            #ifndef NDEBUG
-                            edge_existence_pq.push_back(edge_existence_answer_t {querySorter->sid, querySorter->e, false});
-                            #endif
-                            //std::cout << uniqueQuery->first << ", " << uniqueQuery->second << " does not exist" << std::endl;
-                        } else if (*edgeReader == querySorter->e) {
-                            #ifdef NDEBUG
-                            edge_existence_pq.push_back(edge_existence_answer_t {querySorter->sid, querySorter->e});
-                            #else
-                            edge_existence_pq.push_back(edge_existence_answer_t {querySorter->sid, querySorter->e, true});
-                            #endif
-                            //std::cout << edgeReader->first << ", " << edgeReader->second << " exists" << std::endl;
-                        }
-                    }
+                    bool edgeExists = (!edgeReader.empty() && *edgeReader == querySorter->e);
 
                     // found requested edge - advance reader
                     if (!edgeReader.empty() && *edgeReader == querySorter->e) {
                         ++edgeReader;
                     }
-                    ++querySorter;
 
+                    // iterate over all queries with the same edge sorted by sid in decreasing order
+
+                    bool foundTargetEdge = false; // if we already found a swap where the edge is a target
                     while (!querySorter.empty() && querySorter->e == lastQuery.e) {
-                        // skip duplicates
-                        if (querySorter->sid != lastQuery.sid) {
-                            edge_existence_successors.push(edge_existence_successor_t {lastQuery.sid, lastQuery.e, querySorter->sid});
-                            lastQuery = *querySorter;
+                        // skip duplicates and first result
+                        if (querySorter->sid != lastQuery.sid && foundTargetEdge) {
+                            // We only need existence information for targets but when it is a source edge it might be deleted,
+                            // therefore store successor information whenever an edge occurs as target after the current swap
+                            edge_existence_successors.push(edge_existence_successor_t {querySorter->sid, lastQuery.e, lastQuery.sid});
                         }
+
+                        lastQuery = *querySorter;
+                        foundTargetEdge = (foundTargetEdge || ! querySorter->forward_only);
                         ++querySorter;
+                    }
+
+                    // If the edge is target edge for any swap, we need to store its current status for the first swap the edge is part of
+                    if (foundTargetEdge) {
+                        #ifndef NDEBUG
+                        edge_existence_pq.push_back(edge_existence_answer_t {lastQuery.sid, lastQuery.e, edgeExists});
+                        #else
+                        if (edgeExists) {
+                            edge_existence_pq.push_back(edge_existence_answer_t {lastQuery.sid, lastQuery.e});
+                        }
+                        #endif
                     }
                 } else { // query edge might be after the current edge, advance edge reader to check
                     ++edgeReader;
