@@ -47,11 +47,17 @@ public:
 
         std::vector<swap_descriptor> currentSwaps;
         currentSwaps.reserve(_num_swaps_per_iteration);
+        std::vector<edgeid_t> edgeIdsInCurrentSwaps;
+        edgeIdsInCurrentSwaps.reserve(_num_swaps_per_iteration*2);
+        std::vector<edge_t> edgesInCurrentSwaps;
+        edgesInCurrentSwaps.reserve(_num_swaps_per_iteration*2);
 
         typename debug_vector::bufwriter_type debug_vector_writer(_results);
 
         while (!reader.empty()) {
             currentSwaps.clear();
+            edgeIdsInCurrentSwaps.clear();
+            edgesInCurrentSwaps.clear();
 
             // stores load requests with information who requested the edge
             struct edge_swap_t {
@@ -94,29 +100,39 @@ public:
                 DECL_LEX_COMPARE(swap_successor_t, from_sid, from_spos);
             };
 
-            std::vector<swap_edge_t> swap_edges;
-            swap_edges.reserve(currentSwaps.size() * 2); // maximum size, is actually smaller (a bit) because for duplicate edge ids only the first swap gets the information.
             std::vector<swap_successor_t> swap_successors;
 
 
             { // load edges from EM. Generates successor information and swap_edges information (for the first edge in the chain).
                 int_t id = 0;
+                int_t int_eid = 0;
 
                 typename edge_vector::bufreader_type edge_reader(_edges);
                 while (!edge_reader.empty()) {
                     if (swapSorter.empty()) break;
 
                     if (swapSorter->eid == id) {
-                        swap_edges.push_back(swap_edge_t {swapSorter->sid, swapSorter->spos, *edge_reader});
+                        edgeIdsInCurrentSwaps.push_back(swapSorter->eid);
+                        edgesInCurrentSwaps.push_back(*edge_reader);
+                        assert(int_eid == edgesInCurrentSwaps.size() - 1);
+
+                        // set edge id to internal edge id
+                        currentSwaps[swapSorter->sid].edges()[swapSorter->spos] = int_eid;
+
                         auto lastSwap = *swapSorter;
                         ++swapSorter;
 
                         // further requests for the same swap - store successor information
                         while (!swapSorter.empty() && swapSorter->eid == id) {
+                            // set edge id to internal edge id
+                            currentSwaps[swapSorter->sid].edges()[swapSorter->spos] = int_eid;
+
                             swap_successors.push_back(swap_successor_t {lastSwap.sid, lastSwap.spos, swapSorter->sid, swapSorter->spos});
                             lastSwap = *swapSorter;
                             ++swapSorter;
                         }
+
+                        ++int_eid;
                     }
 
                     ++edge_reader;
@@ -125,10 +141,8 @@ public:
             }
 
             std::sort(swap_successors.begin(), swap_successors.end()); // sort successor information - we only need this read-only from now on
-            std::make_heap(swap_edges.begin(), swap_edges.end(), std::greater<swap_edge_t>()); // make heap from swap_edges, we need to use this for sending edges to other swaps
 
-            auto try_swap_edges = swap_edges; // copy heap, this is for finding out all possible conflict edges
-
+            std::vector<swap_edge_t> try_swap_edges;
 
             std::cout << "Identified " << swap_successors.size() << " duplications of edge ids which need to be handled later." << std::endl;
 
@@ -165,7 +179,15 @@ public:
                         ++succ_it;
                     }
 
-                    assert(!try_swap_edges.empty() && try_swap_edges.front().sid == sid);
+                    // no longer true as original edges are not stored there...
+                    //assert(!try_swap_edges.empty() && try_swap_edges.front().sid == sid);
+
+                    // Load original edges from edgesInCurrentSwaps.
+                    // Note that we do not need to send them to successors as they can load them in the same way.
+                    current_edges[0].push_back(edgesInCurrentSwaps[s_it->edges()[0]]);
+                    querySorter.push(edge_existence_request_t {current_edges[0].front(), sid, true});
+                    current_edges[1].push_back(edgesInCurrentSwaps[s_it->edges()[1]]);
+                    querySorter.push(edge_existence_request_t {current_edges[1].front(), sid, true});
 
                     // load all edges for the current swap from the PQ
                     while (!try_swap_edges.empty() && try_swap_edges.front().sid == sid) {
@@ -223,6 +245,8 @@ public:
 
                     assert(try_swap_edges.empty() || try_swap_edges.front().sid >= sid);
                 }
+
+                std::cout << "Capacity of current edges is " << current_edges[0].capacity() << " and " << current_edges[1].capacity() << std::endl;
             }
 
             assert(try_swap_edges.empty());
@@ -303,17 +327,8 @@ public:
 
             std::cout << "Doing swaps" << std::endl;
 
-            std::vector<edgeid_t> deletions; // store old, deleted edge ids
-            deletions.reserve(swap_edges.size());
-            std::vector<edge_t> insertions; // store new edges (without ids)
-            deletions.reserve(swap_edges.size());
-
             // do swaps
             {
-                // uses swap_edges PQ for list of edges of each swap (already create above)
-                // each swap sends edges to its successor(s) in swap_successors
-                // the last one in the chain then records the final result
-                auto succ_it = swap_successors.begin();
                 auto edge_existence_succ_it = edge_existence_successors.begin();
                 std::vector<edge_t> current_existence;
 #ifndef NDEBUG
@@ -322,22 +337,12 @@ public:
                 for (auto s_it = currentSwaps.begin(); s_it != currentSwaps.end(); ++s_it) {
                     const auto& eids = s_it->edges();
                     const auto sid = (s_it - currentSwaps.begin());
-                    edge_t s_edges[2];
+                    edge_t s_edges[2] = {edgesInCurrentSwaps[eids[0]], edgesInCurrentSwaps[eids[1]]};
                     edge_t t_edges[2];
                     current_existence.clear();
 #ifndef NDEBUG
                     current_missing.clear();
 #endif
-
-                    for (unsigned char spos = 0; spos < 2; ++spos) {
-                        assert(swap_edges.front().sid == sid);
-                        assert(swap_edges.front().spos == spos);
-                        s_edges[spos] = swap_edges.front().e;
-
-                        std::pop_heap(swap_edges.begin(), swap_edges.end(), std::greater<swap_edge_t>());
-                        swap_edges.pop_back();
-                    }
-
 
                     SwapResult result;
 
@@ -395,6 +400,9 @@ public:
                     if (!result.performed) {
                         t_edges[0] = s_edges[0];
                         t_edges[1] = s_edges[1];
+                    } else {
+                        edgesInCurrentSwaps[eids[0]] = t_edges[0];
+                        edgesInCurrentSwaps[eids[1]] = t_edges[1];
                     }
 
                     while (edge_existence_succ_it != edge_existence_successors.end() && edge_existence_succ_it->from_sid == sid) {
@@ -432,18 +440,6 @@ public:
 
                         ++edge_existence_succ_it;
                     }
-
-                    for (unsigned char spos = 0; spos < 2; ++spos) {
-                        if (succ_it != swap_successors.end() && succ_it->from_sid == sid && succ_it->from_spos == spos) {
-                            swap_edges.push_back(swap_edge_t {succ_it->to_sid, succ_it->to_spos, t_edges[spos]});
-                            std::push_heap(swap_edges.begin(), swap_edges.end(), std::greater<swap_edge_t>());
-                            ++succ_it;
-                        } else { // if (result.performed) { // if we knew we are not a successor, we could skip this here!
-                            // no successor - final edge for eid!
-                            deletions.push_back(eids[spos]);
-                            insertions.push_back(t_edges[spos]);
-                        }
-                    }
                 }
             }
 
@@ -454,23 +450,22 @@ public:
                 typename edge_vector::bufwriter_type writer(output_vector);
                 typename edge_vector::bufreader_type edge_reader(_edges);
 
-                std::sort(insertions.begin(), insertions.end());
-                std::sort(deletions.begin(), deletions.end());
+                std::sort(edgesInCurrentSwaps.begin(), edgesInCurrentSwaps.end());
 
-                auto old_e = deletions.begin();
-                auto new_e = insertions.begin();
+                auto old_e = edgeIdsInCurrentSwaps.begin();
+                auto new_e = edgesInCurrentSwaps.begin();
 
                 int_t read_id = 0;
 
-                while (!edge_reader.empty() || new_e != insertions.end()) {
+                while (!edge_reader.empty() || new_e != edgesInCurrentSwaps.end()) {
                     // Skip elements that were already read
-                    while (old_e != deletions.end() && *old_e == read_id) {
+                    while (old_e != edgeIdsInCurrentSwaps.end() && *old_e == read_id) {
                         ++edge_reader;
                         ++read_id;
                         ++old_e;
                     }
 
-                    if (new_e != insertions.end() && (edge_reader.empty() || *new_e < *edge_reader)) {
+                    if (new_e != edgesInCurrentSwaps.end() && (edge_reader.empty() || *new_e < *edge_reader)) {
                         writer << *new_e;
                         ++new_e;
                     }  else if (!edge_reader.empty()) { // due to the previous while loop both could be empty now
