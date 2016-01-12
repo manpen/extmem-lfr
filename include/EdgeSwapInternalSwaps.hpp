@@ -444,16 +444,26 @@ public:
         typename swap_vector::bufreader_type reader(_swaps);
         typename debug_vector::bufwriter_type debug_vector_writer(_results);
 
+        bool show_stats = true;
+
+        _start_stats(show_stats);
+
         updateEdgesAndLoadSwapsWithEdgesAndSuccessors(reader);
+
+        _report_stats("load swaps", show_stats);
 
         while (!_current_swaps.empty()) {
             // std::cout << "Identified " << _swap_successors.size() << " duplications of edge ids which need to be handled later." << std::endl;
 
             simulateSwapsAndGenerateEdgeExistenceQuery();
 
+            _report_stats("swap simulation", show_stats);
+
             std::cout << "Requesting " << _query_sorter.size() << " (possibly non-unique) possible conflict edges" << std::endl;
 
             loadEdgeExistenceInformation();
+
+            _report_stats("load existence information", show_stats);
 
             std::cout << "Loaded " << _edge_existence_pq.size() << " existence values" << std::endl;
             std::cout << "Values might be forwarded " << _edge_existence_successors.size() << " times" << std::endl;
@@ -462,10 +472,15 @@ public:
 
             // do swaps
             performSwaps(debug_vector_writer);
+
+            _report_stats("perform swaps", show_stats);
+
             std::cout << "Capacity of internal edge existence PQ: " << _edge_existence_pq.capacity() << std::endl;
 
             // update edge vector
             updateEdgesAndLoadSwapsWithEdgesAndSuccessors(reader);
+
+            _report_stats("write back and load next swaps", show_stats);
             std::cout << "Finished swap phase, writing back and loading edges" << std::endl;
         }
 
