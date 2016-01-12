@@ -79,7 +79,7 @@ struct SwapResult {
      */
     void normalize() {
         edges[0].normalize();
-        edges[0].normalize();
+        edges[1].normalize();
 
         if (edges[1] > edges[0]) {
             std::swap(edges[0], edges[1]);
