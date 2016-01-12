@@ -85,7 +85,7 @@ public:
       Ascending() {}
 
       bool operator()(const T &a, const T &b) const {
-         return a.to_tuple() < b.to_tuple();
+         return a < b;
       }
 
       T min_value() const {
@@ -109,7 +109,7 @@ public:
       Descending() {}
 
       bool operator()(const T &a, const T &b) const {
-         return b.to_tuple() < a.to_tuple();
+         return b < a;
       }
 
       T min_value() const {
@@ -188,9 +188,11 @@ struct TupleSortable {
    virtual void streamify(std::ostream &) {}
 };
 
-#define DECL_LEX_COMPARE(name, ...) \
+#define DECL_TO_TUPLE(...) \
    auto to_tuple() -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
-   const auto to_tuple() const -> decltype(std::make_tuple(__VA_ARGS__)) {return std::make_tuple(__VA_ARGS__);} \
+   const auto to_tuple() const -> decltype(std::make_tuple(__VA_ARGS__)) {return std::make_tuple(__VA_ARGS__);}
+#define DECL_LEX_COMPARE(name, ...) \
+   DECL_TO_TUPLE(__VA_ARGS__) \
    bool operator< (const name& o) const {return to_tuple() <  o.to_tuple(); } \
    bool operator> (const name& o) const {return to_tuple() >  o.to_tuple(); } \
    bool operator<=(const name& o) const {return to_tuple() <= o.to_tuple(); } \
