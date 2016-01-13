@@ -39,10 +39,9 @@ protected:
         int_t sid;
         bool forward_only; // if this requests is only for generating the correct forwaring information but no existence information is needed
         DECL_TO_TUPLE(e, sid, forward_only);
-        const auto to_compare_tuple() const -> decltype(std::make_tuple(e, sid, forward_only)) {
-            return std::make_tuple(e, std::numeric_limits<int_t>::max() - sid, forward_only);
+        bool operator< (const edge_existence_request_t& o) const {
+            return (e < o.e || (e == o.e && (sid > o.sid || (sid == o.sid && forward_only < o.forward_only))));
         }
-        bool operator< (const edge_existence_request_t& o) const {return to_compare_tuple() <  o.to_compare_tuple(); }
     };
 
     stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> _query_sorter; // Query of possible conflict edges. This may be large (too large...)
