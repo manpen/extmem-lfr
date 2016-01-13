@@ -92,7 +92,8 @@ protected:
                     current_edges[spos].clear();
                     new_edges[spos].clear();
                     if (! possibleEdges[eids[spos]].empty()) {
-                        current_edges[spos].swap(possibleEdges[eids[spos]]);
+                        // remove the vector from possibleEdges and thus free it
+                        current_edges[spos] = std::move(possibleEdges[eids[spos]]);
                     }
 
                     current_edges[spos].push_back(_edges_in_current_swaps[eids[spos]]);
@@ -114,23 +115,29 @@ protected:
                         // record the two conflict edges unless the conflict is trivial
                         if (t[0].first != t[0].second && t[1].first != t[1].second) {
                             for (unsigned char spos = 0; spos < 2; ++spos) {
-                                if (_swap_has_successor[spos][sid]) { // forward the new candidates for our two edge ids to possible successors
-                                    new_edges[spos].push_back(t[spos]);
-                                }
-
-                                // record the query
-                                _query_sorter.push(edge_existence_request_t {t[spos], sid, false});
+                                new_edges[spos].push_back(t[spos]);
                             }
                         }
                     }
                 }
 
                 for (unsigned char spos = 0; spos < 2; ++spos) {
-                    if (_swap_has_successor[spos][sid]) {
-                        current_edges[spos].pop_back(); // remove the added original edge as it will be loaded again anyway!
+                    if (new_edges[spos].size() > 1) { // remove duplicates
                         std::sort(new_edges[spos].begin(), new_edges[spos].end());
                         auto last = std::unique(new_edges[spos].begin(), new_edges[spos].end());
                         new_edges[spos].erase(last, new_edges[spos].end());
+                    }
+
+                    for (const auto &e : new_edges[spos]) {
+                        _query_sorter.push(edge_existence_request_t {e, sid, false});
+                    }
+
+                    if (_swap_has_successor[spos][sid]) {
+                        // reserve enough memory to accomodate all elements
+                        possibleEdges[eids[spos]].clear();
+                        possibleEdges[eids[spos]].reserve(current_edges[spos].size() + new_edges[spos].size());
+
+                        current_edges[spos].pop_back(); // remove the added original edge as it will be loaded again anyway!
                         std::set_union(current_edges[spos].begin(), current_edges[spos].end(),
                                        new_edges[spos].begin(), new_edges[spos].end(),
                                        std::back_inserter(possibleEdges[eids[spos]]));
