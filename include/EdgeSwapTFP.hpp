@@ -41,27 +41,45 @@ namespace EdgeSwapTFP {
     struct ExistenceRequestMsg {
         edge_t edge;
         swapid_t swap_id;
+        bool forward_only;
 
         ExistenceRequestMsg() { }
 
-        ExistenceRequestMsg(const edge_t &edge_, const swapid_t &swap_id_) :
-              edge(edge_), swap_id(swap_id_) { }
+        ExistenceRequestMsg(const edge_t &edge_, const swapid_t &swap_id_, const bool &forward_only_) :
+              edge(edge_), swap_id(swap_id_),  forward_only(forward_only_) { }
 
-        DECL_LEX_COMPARE_OS(ExistenceRequestMsg, edge, swap_id);
+        bool operator< (const ExistenceRequestMsg& o) const {
+            return (edge < o.edge || (edge == o.edge && (swap_id > o.swap_id || (swap_id == o.swap_id && forward_only < o.forward_only))));
+        }
+        DECL_TO_TUPLE(edge, swap_id, forward_only);
+        DECL_TUPLE_OS(ExistenceRequestMsg);
     };
 
     struct ExistenceInfoMsg {
         swapid_t swap_id;
-        swapid_t sender_id;
         edge_t edge;
+        #ifndef NDEBUG
         bool exists;
+        #endif
 
         ExistenceInfoMsg() { }
 
-        ExistenceInfoMsg(const swapid_t &swap_id_, const swapid_t &sender_id_, const edge_t &edge_, const bool &exists_) :
-              swap_id(swap_id_), sender_id(sender_id_), edge(edge_), exists(exists_) { }
+        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_
+#ifndef NDEBUG
+        , const bool &exists_
+#endif
+        ) :
+              swap_id(swap_id_), edge(edge_)
+              #ifndef NDEBUG
+              , exists(exists_)
+              #endif
+              { }
 
-        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, sender_id, edge, exists);
+        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge
+        #ifndef NDEBUG
+        , exists
+        #endif
+        );
     };
 
     struct ExistenceSuccessorMsg {
