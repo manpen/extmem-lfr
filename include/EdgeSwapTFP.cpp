@@ -1,13 +1,12 @@
-#include <EdgeSwapTFP.hpp>
+#include "EdgeSwapTFP.hpp"
 
 #include <algorithm>
+#include <vector>
+
 #include <stx/btree_map>
-
-#include <PQSorterMerger.hpp>
-
 #include <stxxl/priority_queue>
 
-#include <vector>
+#include "PQSorterMerger.hpp"
 
 namespace EdgeSwapTFP {
     template<class EdgeVector, class SwapVector, bool compute_stats>
@@ -168,7 +167,8 @@ namespace EdgeSwapTFP {
 
                     ++depchain_pqsort;
 
-                    if (_deduplicate_before_insert || edges[i].empty() || (msg.edge != edges[i].back())) {
+                    // FIXME deduplication is not full anymore
+                    if (/* _deduplicate_before_insert || */edges[i].empty() || (msg.edge != edges[i].back())) {
                         edges[i].push_back(msg.edge);
                     } else if (compute_stats && !edges[i].empty()) {
                         duplicates_dropped++;
@@ -187,15 +187,15 @@ namespace EdgeSwapTFP {
             assert(depchain_pqsort.empty() || (*depchain_pqsort).swap_id > sid);
 
 
-#ifndef NDEBUG
-            if (_display_debug) {
-                std::cout << "Swap " << sid << " edges[0] = [";
-                for (auto &e : edges[0]) std::cout << e << " ";
-                std::cout << "] edges[1]= [";
-                for (auto &e : edges[0]) std::cout << e << " ";
-                std::cout << "]" << std::endl;
-            }
-#endif
+            #ifndef NDEBUG
+                if (_display_debug) {
+                    std::cout << "Swap " << sid << " edges[0] = [";
+                    for (auto &e : edges[0]) std::cout << e << " ";
+                    std::cout << "] edges[1]= [";
+                    for (auto &e : edges[0]) std::cout << e << " ";
+                    std::cout << "]" << std::endl;
+                }
+            #endif
 
             if (compute_stats) {
                 state_sizes[edges[0].size() +edges[1].size()]++;
@@ -220,7 +220,7 @@ namespace EdgeSwapTFP {
                             }
 
                             // register to receive information on whether this edge exists
-                            _existence_request_sorter.push(ExistenceRequestMsg{new_edge, sid});
+                            _existence_request_sorter.push(ExistenceRequestMsg{new_edge, sid, false});
 
                             DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge << " at " << swap.edges()[i]);
                         }
@@ -230,14 +230,16 @@ namespace EdgeSwapTFP {
 
             for (unsigned int i = 0; i < 2; i++) {
                 for (auto &edge : edges[i]) {
+                    /*
                     if (_deduplicate_before_insert) {
                         insertion_sets[i].push_back(edge);
                     } else {
+                    */ // FIXME these requests need to set the forward_only flag, therefore de-duplication does not fully work anymore that easily...
                         if (successors[i]) {
                             depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], edge});
                         }
-                        _existence_request_sorter.push(ExistenceRequestMsg{edge, sid});
-                    }
+                        _existence_request_sorter.push(ExistenceRequestMsg{edge, sid, true});
+                    //}
                 }
             }
 
@@ -257,7 +259,7 @@ namespace EdgeSwapTFP {
                             depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], edge});
                         }
 
-                        _existence_request_sorter.push(ExistenceRequestMsg{edge, sid});
+                        _existence_request_sorter.push(ExistenceRequestMsg{edge, sid, false});
 
                         last_edge = edge;
                     }
@@ -303,26 +305,33 @@ namespace EdgeSwapTFP {
                 exists = (edge == current_edge);
             }
 
-            // TODO: we can omit the first existence info if the edge does not exists
-            //_existence_info_sorter.push(ExistenceInfoMsg{request.swap_id, 0, current_edge, exists});
-            if (exists)
-                _existence_info_sorter.push({request.swap_id, current_edge});
-
-
             swapid_t last_swap = request.swap_id;
-            for (++_existence_request_sorter; !_existence_request_sorter.empty(); ++_existence_request_sorter) {
+            bool foundTargetEdge = false; // if we already found a swap where the edge is a target
+            for (; !_existence_request_sorter.empty(); ++_existence_request_sorter) {
                 auto &request = *_existence_request_sorter;
                 if (request.edge != current_edge)
                     break;
 
-                if (last_swap == request.swap_id)
-                    continue;
+                if (last_swap != request.swap_id && foundTargetEdge) {
+                    // inform an earlier swap about later swaps that need the new state
+                    assert(last_swap > request.swap_id);
+                    _existence_successor_sorter.push(ExistenceSuccessorMsg{request.swap_id, current_edge, last_swap});
+                }
 
-                // inform an earlier swap about later swaps that need the new state
-                assert(last_swap < request.swap_id);
-                _existence_successor_sorter.push(ExistenceSuccessorMsg{last_swap, current_edge, request.swap_id});
                 last_swap = request.swap_id;
+                foundTargetEdge = (foundTargetEdge || ! request.forward_only);
             }
+
+            if (foundTargetEdge) {
+            #ifdef NDEBUG
+                if (exists) {
+                    _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge});
+                }
+            #else
+                _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists});
+            #endif
+            }
+
         }
 
         _existence_request_sorter.finish_clear();
@@ -362,18 +371,6 @@ namespace EdgeSwapTFP {
 
         swapid_t sid = 0;
 
-        using existence_info_t = std::pair<edge_t, bool>;
-        std::vector<existence_info_t> existence_infos;
-        existence_infos.reserve(1024);
-        auto find_existence_info = [&existence_infos] (const edge_t & edge) {
-           return std::find_if(existence_infos.begin(), existence_infos.end(),
-                [&edge] (const existence_info_t & it) {return it.first == edge;});
-//               std::lower_bound(
-//                 existence_infos.begin(), existence_infos.end(), edge,
-//                 [] (const existence_info_t& pair, const edge_t& v) {return v >= pair.first;}
-//           );
-        };
-
 
         for (typename SwapVector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
             auto &swap = *reader;
@@ -399,54 +396,56 @@ namespace EdgeSwapTFP {
             // compute swapped edges
             std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], swap.direction());
 
-#ifndef NDEBUG
-            if (_display_debug) {
-                std::cout << "State in " << sid << ": ";
-                for (unsigned int i = 0; i < 4; i++) {
-                    std::cout << edges[i] << " ";
-                }
-                std::cout << std::endl;
-            }
-#endif
-
-            // gather all edge states that have been sent to this swap;
-            // due to the PQ the edges are sorted and we can perform a bin-search later on
-            //std::map<edge_t, bool> existence_infos;
-            existence_infos.clear();
-            while(1) {
-                const bool sorter_active = !_existence_info_sorter.empty() && (*_existence_info_sorter).swap_id == sid;
-                const bool pq_active = !existence_info_pq.empty() && existence_info_pq.top().swap_id == sid;
-                if (!sorter_active && !pq_active) break;
-
-                if (!pq_active || (sorter_active && ((*_existence_info_sorter).edge <= existence_info_pq.top().edge))) {
-                    existence_infos.push_back(std::make_pair((*_existence_info_sorter).edge, true));
-                    ++_existence_info_sorter;
-
-                } else {
-                    auto &msg = existence_info_pq.top();
-
-                    if (existence_infos.empty() || existence_infos.back().first != msg.edge) {
-                        existence_infos.push_back(std::make_pair(msg.edge, msg.exists));
-                    } else {
-                        existence_infos.back().second = msg.exists;
+            #ifndef NDEBUG
+                if (_display_debug) {
+                    std::cout << "State in " << sid << ": ";
+                    for (unsigned int i = 0; i < 4; i++) {
+                        std::cout << edges[i] << " ";
                     }
+                    std::cout << std::endl;
+                }
+            #endif
 
-                    existence_info_pq.pop();
+            // gather all edge states that have been sent to this swap
+            std::vector<edge_t> existence_infos;
+            #ifndef NDEBUG
+            std::vector<edge_t> missing_infos;
+            #endif
+            {
+                for (; !existence_info_pq.empty() && existence_info_pq.top().swap_id == sid; existence_info_pq.pop()) {
+                    const auto &msg = existence_info_pq.top();
+
+                    #ifdef NDEBUG
+                        existence_infos.push_back(msg.edge);
+                    #else
+                        if (msg.exists) {
+                            existence_infos.push_back(msg.edge);
+                        } else {
+                            missing_infos.push_back(msg.edge);
+                        }
+                    #endif
                 }
             }
 
-#ifndef NDEBUG
-            if (_display_debug) {
-                for (auto &k : existence_infos)
-                    std::cout << sid << " " << k.first << " " << k.second << std::endl;
-            }
-#endif
+            #ifndef NDEBUG
+                if (_display_debug) {
+                    for (auto &k : existence_infos)
+                        std::cout << sid << " " << k << " exists" << std::endl;
+                    for (auto &k : missing_infos)
+                        std::cout << sid << " " << k << " is missing" << std::endl;
+                }
+            #endif
 
             // check if there's an conflicting edge
             bool conflict_exists[2];
             for (unsigned int i = 0; i < 2; i++) {
-                const auto state = find_existence_info(new_edges[i]);
-                conflict_exists[i] = (state != existence_infos.end()) ? state->second : false;
+                bool exists = std::binary_search(existence_infos.begin(), existence_infos.end(), new_edges[i]);
+                #ifndef NDEBUG
+                    if (!exists) {
+                        assert(std::binary_search(missing_infos.begin(), missing_infos.end(), new_edges[i]));
+                    }
+                #endif
+                conflict_exists[i] = exists;
             }
 
             // can we perform the swap?
@@ -470,17 +469,6 @@ namespace EdgeSwapTFP {
             }
 
             for (unsigned int i = 0; i < 2; i++) {
-                // update temporary structure
-                find_existence_info(edges[i])->second = !perform_swap;
-                if (perform_swap) {
-                    const auto & state = find_existence_info(new_edges[i]);
-                    if (state == existence_infos.end()) {
-                        existence_infos.push_back({new_edges[i], true});
-                    } else {
-                        state->second = true;
-                    }
-                }
-
                 // issue update of edge list
                 if (perform_swap)
                     _edge_update_sorter.push(EdgeUpdateMsg{edgeids[i], sid, new_edges[i]});
@@ -511,11 +499,35 @@ namespace EdgeSwapTFP {
                 assert(succ.swap_id >= sid);
                 if (succ.swap_id > sid) break;
 
-                const auto state = find_existence_info(succ.edge);
-                const bool exists = (state != existence_infos.end()) ? state->second : false;
-
-                existence_info_pq.push(ExistenceInfoMsg{succ.successor, sid, succ.edge, exists});
-                DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << exists << " to " << succ.successor);
+                if ((perform_swap && (succ.edge == new_edges[0] || succ.edge == new_edges[1])) ||
+                    (!perform_swap && (succ.edge == edges[0] || succ.edge == edges[1]))) {
+                    // target edges always exist (or source if no swap has been performed)
+                    #ifdef NDEBUG
+                        existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
+                    #else
+                        existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, true});
+                        DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << true << " to " << succ.successor);
+                    #endif
+                } else if (succ.edge == edges[0] || succ.edge == edges[1]) {
+                    // source edges never exist (if no swap has been performed, this has been handled above)
+                    #ifndef NDEBUG
+                        existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, false});
+                        DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << false << " to " << succ.successor);
+                    #endif
+                } else {
+                    #ifdef NDEBUG
+                        if (std::binary_search(existence_infos.begin(), existence_infos.end(), succ.edge)) {
+                            existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
+                        }
+                    #else
+                    bool exists = std::binary_search(existence_infos.begin(), existence_infos.end(), succ.edge);
+                    existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, exists});
+                    if (!exists) {
+                        assert(std::binary_search(missing_infos.begin(), missing_infos.end(), succ.edge));
+                    }
+                    DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << exists << " to " << succ.successor);
+                    #endif
+                }
             }
         }
 

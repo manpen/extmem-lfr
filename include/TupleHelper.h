@@ -202,6 +202,9 @@ struct TupleSortable {
 
 #define DECL_LEX_COMPARE_OS(name, ...) \
    DECL_LEX_COMPARE(name, __VA_ARGS__) \
+   DECL_TUPLE_OS(name) \
+
+#define DECL_TUPLE_OS(name) \
    }; \
    inline std::ostream& operator<<(std::ostream &os, const name & t) {\
        std::ostringstream oss; \

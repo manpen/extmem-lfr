@@ -28,6 +28,7 @@ struct RunConfig {
     bool swapInternal;
     bool swapTFP;
     stxxl::uint64 swapsPerIteration;
+    stxxl::uint64 swapsPerTFPIteration;
 
     unsigned int randomSeed;
 
@@ -44,6 +45,7 @@ struct RunConfig {
           , gamma(-2.0)
           , swapInternal(false)
           , swapsPerIteration(1024*1024)
+          , swapsPerTFPIteration(0)
           , sweep_min(IntScale::K)
           , sweep_max(IntScale::G)
           , sweep_steps_per_dec(4)
@@ -73,6 +75,7 @@ struct RunConfig {
         cp.add_flag  (CMDLINE_COMP('i', "swap-internal", swapInternal, "Perform edge swaps in internal memory"));
         cp.add_flag  (CMDLINE_COMP('t', "swap-tfp", swapTFP, "Perform edge swaps using TFP"));
         cp.add_bytes (CMDLINE_COMP('p', "swaps-per-iteration", swapsPerIteration, "Number of swaps per iteration"));
+        cp.add_bytes (CMDLINE_COMP('q', "swaps-per-tfp-iteration", swapsPerTFPIteration, "Number of swaps per TFP iteration"));
 
         cp.add_bytes (CMDLINE_COMP('x', "sweep-min", sweep_min, "Min. Number of swaps"));
         cp.add_bytes (CMDLINE_COMP('y', "sweep-max", sweep_max, "Max. Number of swaps"));
@@ -187,7 +190,7 @@ void benchmark(RunConfig & config) {
             STXXL_VERBOSE0("Start TFP");
             auto stat_start = stxxl::stats_data(*stats);
             EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps), false> TFPSwaps(medges, swaps);
-            TFPSwaps.run();
+            TFPSwaps.run(config.swapsPerTFPIteration);
             STXXL_VERBOSE0("Completed TFP" << (stxxl::stats_data(*stats) - stat_start));
         }
     }

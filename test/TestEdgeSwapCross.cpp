@@ -77,7 +77,7 @@ namespace {
    TYPED_TEST_CASE(TestEdgeSwapCross, TestEdgeSwapCrossImplementations);
 
    TYPED_TEST(TestEdgeSwapCross, againstFullyInternal) {
-      bool debug_this_test = false;
+      bool debug_this_test = true;
       using EdgeSwapAlgoUnderTest = TypeParam;
 
       auto edges = this->_generate_hh_graph(1000);
