@@ -5,6 +5,8 @@
 
 #include <PQSorterMerger.hpp>
 
+#include <stxxl/priority_queue>
+
 #include <vector>
 
 namespace EdgeSwapTFP {
@@ -19,7 +21,7 @@ namespace EdgeSwapTFP {
         // at the same place.
         {
             swapid_t sid = 0;
-            for (typename SwapVector::bufreader_type reader(_swaps); !reader.empty(); ++reader, ++sid) {
+            for (typename SwapVector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
                 auto &swap_desc = *reader;
                 edge_swap_sorter.push(edge_swap_msg_t(swap_desc.edges()[0], sid));
                 edge_swap_sorter.push(edge_swap_msg_t(swap_desc.edges()[1], sid));
@@ -105,6 +107,9 @@ namespace EdgeSwapTFP {
     template<class EdgeVector, class SwapVector, bool compute_stats>
     void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::_compute_conflicts() {
         swapid_t sid = 0;
+        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
+        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
+        using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
 
         // use pq in addition to _depchain_edge_sorter to pass messages between swaps
         stxxl::read_write_pool<DependencyChainEdgePQBlock>
@@ -121,7 +126,7 @@ namespace EdgeSwapTFP {
         std::array<std::vector<edge_t>, 2> insertion_sets;
 
         std::vector<edge_t> edges[2];
-        for (typename SwapVector::bufreader_type reader(_swaps); !reader.empty(); ++reader, ++sid) {
+        for (typename SwapVector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
             auto &swap = *reader;
 
             swapid_t successors[2];
@@ -294,13 +299,15 @@ namespace EdgeSwapTFP {
             bool exists = false;
             for (; !edge_reader.empty(); ++edge_reader) {
                 const auto &edge = *edge_reader;
-                if (edge > current_edge)
-                    break;
+                if (edge > current_edge) break;
                 exists = (edge == current_edge);
             }
 
             // TODO: we can omit the first existence info if the edge does not exists
-            _existence_info_pq.push(ExistenceInfoMsg{request.swap_id, 0, current_edge, exists});
+            //_existence_info_sorter.push(ExistenceInfoMsg{request.swap_id, 0, current_edge, exists});
+            if (exists)
+                _existence_info_sorter.push({request.swap_id, current_edge});
+
 
             swapid_t last_swap = request.swap_id;
             for (++_existence_request_sorter; !_existence_request_sorter.empty(); ++_existence_request_sorter) {
@@ -320,6 +327,7 @@ namespace EdgeSwapTFP {
 
         _existence_request_sorter.finish_clear();
         _existence_successor_sorter.sort();
+        _existence_info_sorter.sort();
     }
 
     /*
@@ -332,7 +340,19 @@ namespace EdgeSwapTFP {
         // debug only
         debug_vector::bufwriter_type debug_vector_writer(_result);
 
+        // we need to use a desc-comparator since the pq puts the largest element on top
+        using ExistenceInfoComparator = typename GenericComparatorStruct<ExistenceInfoMsg>::Descending;
+        using ExistenceInfoPQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<ExistenceInfoMsg, ExistenceInfoComparator, _pq_mem, 1 << 20>::result;
+        using ExistenceInfoPQBlock = typename ExistenceInfoPQ::block_type;
+        stxxl::read_write_pool<ExistenceInfoPQBlock> existence_info_pool(_pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size,
+                                                                          _pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size);
+        ExistenceInfoPQ existence_info_pq(existence_info_pool);
+
         // use pq in addition to _depchain_edge_sorter to pass messages between swaps
+        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
+        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
+        using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
+
         stxxl::read_write_pool<DependencyChainEdgePQBlock>
               pq_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size,
                       _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size);
@@ -341,7 +361,21 @@ namespace EdgeSwapTFP {
               edge_state_pqsort(edge_state_pq, _depchain_edge_sorter);
 
         swapid_t sid = 0;
-        for (typename SwapVector::bufreader_type reader(_swaps); !reader.empty(); ++reader, ++sid) {
+
+        using existence_info_t = std::pair<edge_t, bool>;
+        std::vector<existence_info_t> existence_infos;
+        existence_infos.reserve(1024);
+        auto find_existence_info = [&existence_infos] (const edge_t & edge) {
+           return std::find_if(existence_infos.begin(), existence_infos.end(),
+                [&edge] (const existence_info_t & it) {return it.first == edge;});
+//               std::lower_bound(
+//                 existence_infos.begin(), existence_infos.end(), edge,
+//                 [] (const existence_info_t& pair, const edge_t& v) {return v >= pair.first;}
+//           );
+        };
+
+
+        for (typename SwapVector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
             auto &swap = *reader;
 
             const edgeid_t *edgeids = swap.edges();
@@ -375,18 +409,29 @@ namespace EdgeSwapTFP {
             }
 #endif
 
-            // gather all edge states that have been sent to this swap
-            std::map<edge_t, bool> existence_infos;
-            {
-                auto it = existence_infos.end();
-                for (; !_existence_info_pq.empty() && _existence_info_pq.top().swap_id == sid; _existence_info_pq.pop()) {
-                    auto &msg = _existence_info_pq.top();
+            // gather all edge states that have been sent to this swap;
+            // due to the PQ the edges are sorted and we can perform a bin-search later on
+            //std::map<edge_t, bool> existence_infos;
+            existence_infos.clear();
+            while(1) {
+                const bool sorter_active = !_existence_info_sorter.empty() && (*_existence_info_sorter).swap_id == sid;
+                const bool pq_active = !existence_info_pq.empty() && existence_info_pq.top().swap_id == sid;
+                if (!sorter_active && !pq_active) break;
 
-                    if (it == existence_infos.end() || it->first != msg.edge) {
-                        existence_infos.emplace_hint(it, msg.edge, msg.exists);
+                if (!pq_active || (sorter_active && ((*_existence_info_sorter).edge <= existence_info_pq.top().edge))) {
+                    existence_infos.push_back(std::make_pair((*_existence_info_sorter).edge, true));
+                    ++_existence_info_sorter;
+
+                } else {
+                    auto &msg = existence_info_pq.top();
+
+                    if (existence_infos.empty() || existence_infos.back().first != msg.edge) {
+                        existence_infos.push_back(std::make_pair(msg.edge, msg.exists));
                     } else {
-                        it->second = msg.exists;
+                        existence_infos.back().second = msg.exists;
                     }
+
+                    existence_info_pq.pop();
                 }
             }
 
@@ -400,15 +445,12 @@ namespace EdgeSwapTFP {
             // check if there's an conflicting edge
             bool conflict_exists[2];
             for (unsigned int i = 0; i < 2; i++) {
-                auto it = existence_infos.find(new_edges[i]);
-
-                assert(it != existence_infos.end());
-                conflict_exists[i] = (it != existence_infos.end() && it->second);
+                const auto state = find_existence_info(new_edges[i]);
+                conflict_exists[i] = (state != existence_infos.end()) ? state->second : false;
             }
 
             // can we perform the swap?
-            const bool loop = (new_edges[0].first == new_edges[0].second)
-                              || (new_edges[1].first == new_edges[1].second);
+            const bool loop = new_edges[0].is_loop() || new_edges[1].is_loop();
             const bool perform_swap = !(conflict_exists[0] || conflict_exists[1] || loop);
 
             // write out debug message
@@ -417,7 +459,10 @@ namespace EdgeSwapTFP {
                 res.performed = perform_swap;
                 res.loop = loop;
                 std::copy(new_edges, new_edges + 2, res.edges);
-                std::copy(conflict_exists, conflict_exists + 2, res.conflictDetected);
+                for(unsigned int i=0; i < 2; i++) {
+                    res.edges[i] = new_edges[i];
+                    res.conflictDetected[i] = conflict_exists[i];
+                }
                 res.normalize();
 
                 debug_vector_writer << res;
@@ -426,9 +471,14 @@ namespace EdgeSwapTFP {
 
             for (unsigned int i = 0; i < 2; i++) {
                 // update temporary structure
-                existence_infos[edges[i]] = !perform_swap;
+                find_existence_info(edges[i])->second = !perform_swap;
                 if (perform_swap) {
-                    existence_infos[new_edges[i]] = true;
+                    const auto & state = find_existence_info(new_edges[i]);
+                    if (state == existence_infos.end()) {
+                        existence_infos.push_back({new_edges[i], true});
+                    } else {
+                        state->second = true;
+                    }
                 }
 
                 // issue update of edge list
@@ -461,12 +511,11 @@ namespace EdgeSwapTFP {
                 assert(succ.swap_id >= sid);
                 if (succ.swap_id > sid) break;
 
-                const auto &state = existence_infos.find(succ.edge);
-                // TODO: Remains true as long as we sent messages for none existing edges
-                assert(state != existence_infos.end());
+                const auto state = find_existence_info(succ.edge);
+                const bool exists = (state != existence_infos.end()) ? state->second : false;
 
-                _existence_info_pq.push(ExistenceInfoMsg{succ.successor, sid, succ.edge, state->second});
-                DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << state->second << " to " << succ.successor);
+                existence_info_pq.push(ExistenceInfoMsg{succ.successor, sid, succ.edge, exists});
+                DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << exists << " to " << succ.successor);
             }
         }
 
@@ -479,7 +528,8 @@ namespace EdgeSwapTFP {
         assert(_existence_successor_sorter.empty());
         _existence_successor_sorter.finish_clear();
 
-        assert(_existence_info_pq.empty());
+        assert(existence_info_pq.empty());
+        _existence_info_sorter.finish_clear();
 
         _edge_update_sorter.sort();
     }
@@ -521,19 +571,34 @@ namespace EdgeSwapTFP {
     }
 
     template<class EdgeVector, class SwapVector, bool compute_stats>
-    void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::run() {
+    void EdgeSwapTFP<EdgeVector, SwapVector, compute_stats>::run(uint64_t swaps_per_iteration) {
         bool show_stats = true;
-        _start_stats(show_stats);
-        _compute_dependency_chain();
-        _report_stats("_compute_dependency_chain: ", show_stats);
-        _compute_conflicts();
-        _report_stats("_compute_conflicts: ", show_stats);
-        _process_existence_requests();
-        _report_stats("_process_existence_requests: ", show_stats);
-        _perform_swaps();
-        _report_stats("_perform_swaps: ", show_stats);
-        _apply_updates();
-        _report_stats("_apply_updates: ", show_stats);
+
+        _swaps_begin = _swaps.begin();
+        while(_swaps_begin != _swaps.end()) {
+            if (swaps_per_iteration) {
+                _swaps_end = std::min(_swaps.end(), _swaps_begin + swaps_per_iteration);
+            } else {
+                _swaps_end = _swaps.end();
+            }
+
+            _start_stats(show_stats);
+            _compute_dependency_chain();
+            _report_stats("_compute_dependency_chain: ", show_stats);
+            _compute_conflicts();
+            _report_stats("_compute_conflicts: ", show_stats);
+            _process_existence_requests();
+            _report_stats("_process_existence_requests: ", show_stats);
+            _perform_swaps();
+            _report_stats("_perform_swaps: ", show_stats);
+            _apply_updates();
+            _report_stats("_apply_updates: ", show_stats);
+
+            _swaps_begin = _swaps_end;
+
+            if (_swaps_begin != _swaps.end())
+                _reset();
+        }
     }
 
     template class EdgeSwapTFP<stxxl::vector<edge_t>, stxxl::vector<SwapDescriptor>, false>;

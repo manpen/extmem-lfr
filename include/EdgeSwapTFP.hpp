@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stxxl/vector>
-#include <stxxl/priority_queue>
 #include <stxxl/sorter>
 
 #include <defs.h>
@@ -64,6 +63,18 @@ namespace EdgeSwapTFP {
         DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, sender_id, edge, exists);
     };
 
+    struct ExistenceInfoShortMsg {
+        swapid_t swap_id;
+        edge_t edge;
+
+        ExistenceInfoShortMsg() { }
+
+        ExistenceInfoShortMsg(const swapid_t &swap_id_, const edge_t &edge_) :
+              swap_id(swap_id_),edge(edge_) { }
+
+        DECL_LEX_COMPARE_OS(ExistenceInfoShortMsg, swap_id, edge);
+    };
+
     struct ExistenceSuccessorMsg {
         swapid_t swap_id;
         edge_t edge;
@@ -102,18 +113,19 @@ namespace EdgeSwapTFP {
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
-        constexpr static bool _deduplicate_before_insert = true;
+        constexpr static bool _deduplicate_before_insert = false;
 
         EdgeVector &_edges;
         SwapVector &_swaps;
+
+        typename SwapVector::iterator _swaps_begin;
+        typename SwapVector::iterator _swaps_end;
+
 
         debug_vector _result;
 
 // dependency chain
         // we need to use a desc-comparator since the pq puts the largest element on top
-        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
-        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
-        using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
         using DependencyChainEdgeComparatorSorter = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Ascending;
         using DependencyChainEdgeSorter = stxxl::sorter<DependencyChainEdgeMsg, DependencyChainEdgeComparatorSorter>;
         DependencyChainEdgeSorter _depchain_edge_sorter;
@@ -128,13 +140,9 @@ namespace EdgeSwapTFP {
         ExistenceRequestSorter _existence_request_sorter;
 
 // existence information and dependencies
-        // we need to use a desc-comparator since the pq puts the largest element on top
-        using ExistenceInfoComparator = typename GenericComparatorStruct<ExistenceInfoMsg>::Descending;
-        using ExistenceInfoPQ = typename
-        stxxl::PRIORITY_QUEUE_GENERATOR<ExistenceInfoMsg, ExistenceInfoComparator, _pq_mem, 1 << 20>::result;
-        using ExistenceInfoPQBlock = typename ExistenceInfoPQ::block_type;
-        stxxl::read_write_pool<ExistenceInfoPQBlock> _existence_info_pool;
-        ExistenceInfoPQ _existence_info_pq;
+        using ExistenceInfoShortComparator = typename GenericComparatorStruct<ExistenceInfoShortMsg>::Ascending;
+        using ExistenceInfoShortSorter = stxxl::sorter<ExistenceInfoShortMsg, ExistenceInfoShortComparator>;
+        ExistenceInfoShortSorter _existence_info_sorter;
 
         using ExistenceSuccessorComparator = typename GenericComparatorStruct<ExistenceSuccessorMsg>::Ascending;
         using ExistenceSuccessorSorter = stxxl::sorter<ExistenceSuccessorMsg, ExistenceSuccessorComparator>;
@@ -152,6 +160,15 @@ namespace EdgeSwapTFP {
         void _perform_swaps();
         void _apply_updates();
 
+        void _reset() {
+            _depchain_edge_sorter.clear();
+            _depchain_successor_sorter.clear();
+            _existence_request_sorter.clear();
+            _existence_info_sorter.clear();
+            _existence_successor_sorter.clear();
+            _edge_update_sorter.clear();
+        }
+
     public:
         EdgeSwapTFP() = delete;
 
@@ -165,15 +182,14 @@ namespace EdgeSwapTFP {
               _edges(edges),
               _swaps(swaps),
 
-              _depchain_edge_sorter(DependencyChainEdgeComparatorSorter(), _sorter_mem),
+              _depchain_edge_sorter(DependencyChainEdgeComparatorSorter{}, _sorter_mem),
               _depchain_successor_sorter(DependencyChainSuccessorComparator{}, _sorter_mem),
               _existence_request_sorter(ExistenceRequestComparator{}, _sorter_mem),
-              _existence_info_pool(_pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size, _pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size),
-              _existence_info_pq(_existence_info_pool),
+              _existence_info_sorter(ExistenceInfoShortComparator{}, _sorter_mem),
               _existence_successor_sorter(ExistenceSuccessorComparator{}, _sorter_mem),
               _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem) { }
 
-        void run();
+        void run(uint64_t swaps_per_iteration = 0);
 
         //! The i-th entry of this vector corresponds to the i-th
         //! swap provided to the constructor
