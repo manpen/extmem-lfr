@@ -6,6 +6,8 @@
  * In case a large portion of data in a PQ is computed prior to reading access,
  * or if there are multiple passes over a static data sequence, it can be beneficial
  * to use a sorter for this offline data.
+ *
+ * The value type and comparator are derived from the PQ.
  */
 template <class PQ, class Sorter>
 class PQSorterMerger {
