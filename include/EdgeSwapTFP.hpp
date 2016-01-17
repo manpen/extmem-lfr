@@ -143,9 +143,9 @@ namespace EdgeSwapTFP {
         ExistenceRequestSorter _existence_request_sorter;
 
 // existence information and dependencies
-        using ExistenceInfoShortComparator = typename GenericComparatorStruct<ExistenceInfoMsg>::Ascending;
-        using ExistenceInfoShortSorter = stxxl::sorter<ExistenceInfoMsg, ExistenceInfoShortComparator>;
-        ExistenceInfoShortSorter _existence_info_sorter;
+        using ExistenceInfoComparator = typename GenericComparatorStruct<ExistenceInfoMsg>::Ascending;
+        using ExistenceInfoSorter = stxxl::sorter<ExistenceInfoMsg, ExistenceInfoComparator>;
+        ExistenceInfoSorter _existence_info_sorter;
 
         using ExistenceSuccessorComparator = typename GenericComparatorStruct<ExistenceSuccessorMsg>::Ascending;
         using ExistenceSuccessorSorter = stxxl::sorter<ExistenceSuccessorMsg, ExistenceSuccessorComparator>;
@@ -188,7 +188,7 @@ namespace EdgeSwapTFP {
               _depchain_edge_sorter(DependencyChainEdgeComparatorSorter{}, _sorter_mem),
               _depchain_successor_sorter(DependencyChainSuccessorComparator{}, _sorter_mem),
               _existence_request_sorter(ExistenceRequestComparator{}, _sorter_mem),
-              _existence_info_sorter(ExistenceInfoShortComparator{}, _sorter_mem),
+              _existence_info_sorter(ExistenceInfoComparator{}, _sorter_mem),
               _existence_successor_sorter(ExistenceSuccessorComparator{}, _sorter_mem),
               _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem) { }
 
