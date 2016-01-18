@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 /***
  * Merge a STXXL Sorter and Priority Queue
  *
@@ -9,7 +11,7 @@
  *
  * The value type and comparator are derived from the PQ.
  */
-template <class PQ, class Sorter>
+template <class PQ, class Sorter, bool compute_stats = false>
 class PQSorterMerger {
 public:
     using value_type = typename PQ::value_type;
@@ -23,6 +25,9 @@ private:
     enum source_type {SrcPQ, SrcSort};
     source_type _value_src;
     value_type  _value;
+
+    uint64_t _elements_from_pq;
+    uint64_t _elements_from_sorter;
 
     void _fetch() {
         assert(!empty());
@@ -47,7 +52,7 @@ public:
     PQSorterMerger() = delete;
 
     PQSorterMerger(PQ & pq, Sorter & sorter) :
-          _pq(pq), _sorter(sorter)
+          _pq(pq), _sorter(sorter), _elements_from_pq(0), _elements_from_sorter(0)
     {
         if (!empty())
             _fetch();
@@ -75,10 +80,13 @@ public:
     //! @note Call only if sorter is in output mode and empty() == false
     PQSorterMerger& operator++() {
         assert(!empty());
-        if (_value_src == SrcPQ)
+        if (_value_src == SrcPQ) {
             _pq.pop();
-        else
+            if (compute_stats) _elements_from_pq++;
+        } else {
             ++_sorter;
+            if (compute_stats) _elements_from_sorter++;
+        }
 
         if (LIKELY(!empty()))
             _fetch();
@@ -91,5 +99,16 @@ public:
     const value_type & operator*() const {
         assert(!empty());
         return _value;
+    }
+
+    //! If compute_stats=true output statistics to STDOUT
+    void dump_stats() const {
+        if (!compute_stats)
+            return;
+
+        auto elements_tot = _elements_from_pq + _elements_from_sorter;
+        std::cout << "Elements consumed: " << elements_tot
+                  << " from PQ: " << (_elements_from_pq) << " (" << (100.0 * _elements_from_pq / elements_tot) << "%)"
+                     " from Sorter: " << (_elements_from_sorter) << " (" << (100.0 * _elements_from_sorter / elements_tot) << "%)\n";
     }
 };

@@ -115,23 +115,20 @@ namespace EdgeSwapTFP {
               pq_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size,
                       _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size);
         DependencyChainEdgePQ depchain_edge_pq(pq_pool);
-        PQSorterMerger<DependencyChainEdgePQ, DependencyChainEdgeSorter>
+        PQSorterMerger<DependencyChainEdgePQ, DependencyChainEdgeSorter, compute_stats>
               depchain_pqsort(depchain_edge_pq, _depchain_edge_sorter);
 
         // statistics
         uint_t duplicates_dropped = 0;
         stx::btree_map<uint_t, uint_t> state_sizes;
-
-        std::array<std::vector<edge_t>, 2> insertion_sets;
-
         std::vector<edge_t> edges[2];
+
+        uint_t max_elems_in_pq = 0;
+
         for (typename SwapVector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
             auto &swap = *reader;
 
             swapid_t successors[2];
-
-            // we directly insert into the PQ, so we might have to update the merger
-            depchain_pqsort.update();
 
             // fetch messages sent to this edge
             for (unsigned int i = 0; i < 2; i++) {
@@ -211,61 +208,33 @@ namespace EdgeSwapTFP {
                     for (unsigned int i = 0; i < 2; i++) {
                         auto &new_edge = new_edges[i];
 
-                        if (_deduplicate_before_insert) {
-                            insertion_sets[i].push_back(new_edge);
-                        } else {
-                            // send new edge to successor swap
-                            if (successors[i]) {
-                                depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], new_edge});
-                            }
-
-                            // register to receive information on whether this edge exists
-                            _existence_request_sorter.push(ExistenceRequestMsg{new_edge, sid, false});
-
-                            DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge << " at " << swap.edges()[i]);
+                        // send new edge to successor swap
+                        if (successors[i]) {
+                            depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], new_edge});
                         }
+
+                        // register to receive information on whether this edge exists
+                        _existence_request_sorter.push(ExistenceRequestMsg{new_edge, sid, false});
+
+                        DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge << " at " << swap.edges()[i]);
                     }
                 }
             }
 
             for (unsigned int i = 0; i < 2; i++) {
                 for (auto &edge : edges[i]) {
-                    /*
-                    if (_deduplicate_before_insert) {
-                        insertion_sets[i].push_back(edge);
-                    } else {
-                    */ // FIXME these requests need to set the forward_only flag, therefore de-duplication does not fully work anymore that easily...
-                        if (successors[i]) {
-                            depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], edge});
-                        }
-                        _existence_request_sorter.push(ExistenceRequestMsg{edge, sid, true});
-                    //}
+                    if (successors[i]) {
+                        depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], edge});
+                    }
+                    _existence_request_sorter.push(ExistenceRequestMsg{edge, sid, true});
                 }
             }
 
-            if (_deduplicate_before_insert) {
-                for(unsigned int i=0; i < 2; i++) {
-                    auto & is = insertion_sets[i];
-
-                    if (is.size() > 2)
-                        std::sort(is.begin(), is.end());
-
-                    edge_t last_edge(-1, -1);
-                    for(auto & edge : is) {
-                        if (edge == last_edge)
-                            continue;
-
-                        if (successors[i]) {
-                            depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], swap.edges()[i], edge});
-                        }
-
-                        _existence_request_sorter.push(ExistenceRequestMsg{edge, sid, false});
-
-                        last_edge = edge;
-                    }
-
-                    is.clear();
-                }
+            // if we pushed something into the PQ we need to update the merger
+            if (UNLIKELY(successors[0] || successors[1])) {
+                depchain_pqsort.update();
+                if (compute_stats)
+                    max_elems_in_pq = std::max<uint_t>(depchain_edge_pq.size(), max_elems_in_pq);
             }
         }
 
@@ -275,6 +244,8 @@ namespace EdgeSwapTFP {
                 std::cout << it.first << " " << it.second << " #STATE-SIZE" <<
                 std::endl;
             }
+            std::cout << "Max elements in PQ: " << max_elems_in_pq << std::endl;
+            depchain_pqsort.dump_stats();
         }
 
         _existence_request_sorter.sort();
@@ -374,6 +345,10 @@ namespace EdgeSwapTFP {
 
         swapid_t sid = 0;
 
+        std::vector<edge_t> existence_infos;
+        #ifndef NDEBUG
+            std::vector<edge_t> missing_infos;
+        #endif
 
         for (typename SwapVector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
             auto &swap = *reader;
@@ -410,10 +385,6 @@ namespace EdgeSwapTFP {
             #endif
 
             // gather all edge states that have been sent to this swap
-            std::vector<edge_t> existence_infos;
-            #ifndef NDEBUG
-            std::vector<edge_t> missing_infos;
-            #endif
             {
                 existence_info_pqsort.update();
                 for (; !existence_info_pqsort.empty() && (*existence_info_pqsort).swap_id == sid; ++existence_info_pqsort) {
@@ -427,7 +398,6 @@ namespace EdgeSwapTFP {
                         } else {
                             missing_infos.push_back(msg.edge);
                         }
-                        DEBUG_MSG(_display_debug, "Swap " << sid << " edge " << msg.edge << " exists: " << msg.exists);
                     #endif
                 }
             }
@@ -534,6 +504,12 @@ namespace EdgeSwapTFP {
                     #endif
                 }
             }
+
+            existence_infos.clear();
+            #ifndef NDEBUG
+            missing_infos.clear();
+            #endif
+
         }
 
         debug_vector_writer.finish();
@@ -563,25 +539,41 @@ namespace EdgeSwapTFP {
         // the original graph or updated through the _edge_update_sorter)
         stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter(GenericComparator<edge_t>::Ascending(), _sorter_mem);
 
+        STXXL_VERBOSE0("Received " << _edge_update_sorter.size() <<
+                       " updates for " << (_swaps_end - _swaps_begin) << " swaps (" <<
+                       (((double) _edge_update_sorter.size()) /  (_swaps_end - _swaps_begin)) << " updates/swap)"
+        );
+
+        uint_t updates_dropped = 0;
         typename EdgeVector::bufreader_type edge_reader(_edges);
         for (edgeid_t eid = 0; !edge_reader.empty(); ++edge_reader, ++eid) {
             edge_t edge = *edge_reader;
 
+            uint_t drops = 0;
             for (; !_edge_update_sorter.empty(); ++_edge_update_sorter) {
                 auto &update = *_edge_update_sorter;
                 assert(update.edge_id >= eid);
-                if (update.edge_id > eid)
+                if (update.edge_id > eid) {
                     break;
+                }
+
+                if (compute_stats)
+                    drops++;
 
                 DEBUG_MSG(_display_debug, "Got update " << update.to_tuple());
                 edge = update.updated_edge;
             }
+
+            if (compute_stats)
+                updates_dropped += drops - 1;
 
             if (edge.first > edge.second)
                 std::swap(edge.first, edge.second);
 
             edge_sorter.push(edge);
         }
+
+        STXXL_VERBOSE0("Dropped " << updates_dropped << "updates");
 
         edge_sorter.sort();
         stxxl::stream::materialize(edge_sorter, _edges.begin());
