@@ -41,11 +41,13 @@ class EdgeVectorUpdateStream {
     bool _empty;
 
     void _skip_invalid_edges() {
-        while (UNLIKELY(!_edge_valid_stream.empty() && !(*_edge_valid_stream))) {
-            assert(!_edge_reader.empty());
+        while (UNLIKELY(!_edge_reader.empty() && !(*_edge_valid_stream))) {
+            assert(!_edge_valid_stream.empty());
+            //std::cout << "Skip " << (_edges.size() - _edge_valid_stream.size()) << " " << *_edge_reader << std::endl;
             ++_edge_reader;
             ++_edge_valid_stream;
         }
+        assert(_edge_reader.empty() == _edge_valid_stream.empty());
     }
 
 public:
@@ -78,6 +80,20 @@ public:
     EdgeVectorUpdateStream& operator++() {
         assert(!empty());
 
+        /*{
+            std::cout << "UpdateStream vector: ";
+            if (_edge_reader.empty())
+                std::cout << "empty";
+            else
+                std::cout << *_edge_reader << " " << *_edge_valid_stream;
+
+            std::cout << " stream: ";
+            if (_updated_edges.empty())
+                std::cout << "empty";
+            else
+                std::cout << *_updated_edges;
+        } */
+
         if (_edge_reader.empty()) {
             _current = *_updated_edges;
             ++_updated_edges;
@@ -100,6 +116,8 @@ public:
             _current = *_updated_edges;
             ++_updated_edges;
         }
+
+        //std::cout << " current: " << _current << std::endl;
 
         _empty = _edge_reader.empty() && _updated_edges.empty();
         _edge_writer << _current;
