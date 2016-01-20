@@ -119,4 +119,10 @@ public:
         return !_items_stored;
     }
 //! @}
+
+    //! Returns the number of bits currently available
+    //! (if stream were in consume mode)
+    size_t size() const {
+        return _items_stored;
+    }
 };
