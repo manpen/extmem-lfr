@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+enum PQSorterMergerSourceType {SrcPriorityQueue, SrcSorter};
+
+
 /***
  * Merge a STXXL Sorter and Priority Queue
  *
@@ -22,8 +25,7 @@ private:
     Sorter& _sorter;
     Comp _comp;
 
-    enum source_type {SrcPQ, SrcSort};
-    source_type _value_src;
+    PQSorterMergerSourceType _value_src;
     value_type  _value;
 
     uint64_t _elements_from_pq;
@@ -35,16 +37,16 @@ private:
         // in case one source is empty, we cannot safely use the comparator
         if (UNLIKELY(_pq.empty())) {
             _value = *_sorter;
-            _value_src = SrcSort;
+            _value_src = SrcSorter;
         } else if (UNLIKELY(_sorter.empty())) {
             _value = _pq.top();
-            _value_src = SrcPQ;
+            _value_src = SrcPriorityQueue;
         } else if (_comp(_pq.top(), *_sorter)) {
             _value = *_sorter;
-            _value_src = SrcSort;
+            _value_src = SrcSorter;
         } else {
             _value = _pq.top();
-            _value_src = SrcPQ;
+            _value_src = SrcPriorityQueue;
         }
     }
 
@@ -54,8 +56,7 @@ public:
     PQSorterMerger(PQ & pq, Sorter & sorter) :
           _pq(pq), _sorter(sorter), _elements_from_pq(0), _elements_from_sorter(0)
     {
-        if (!empty())
-            _fetch();
+        update();
     }
 
     //! Call in case the PQ/Sorter are changed externally
@@ -80,7 +81,7 @@ public:
     //! @note Call only if sorter is in output mode and empty() == false
     PQSorterMerger& operator++() {
         assert(!empty());
-        if (_value_src == SrcPQ) {
+        if (_value_src == SrcPriorityQueue) {
             _pq.pop();
             if (compute_stats) _elements_from_pq++;
         } else {
@@ -99,6 +100,11 @@ public:
     const value_type & operator*() const {
         assert(!empty());
         return _value;
+    }
+    
+    const PQSorterMergerSourceType & source() const {
+        assert(!empty());
+        return _value_src;
     }
 
     //! If compute_stats=true output statistics to STDOUT
