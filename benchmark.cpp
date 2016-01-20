@@ -189,7 +189,8 @@ void benchmark(RunConfig & config) {
             result_vector_type medges(swapEdges);
             STXXL_VERBOSE0("Start TFP");
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps), false> TFPSwaps(medges, swaps);
+            EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps), false, false> TFPSwaps(medges, swaps);
+            //TFPSwaps.setDisplayDebug(true);
             TFPSwaps.run(config.swapsPerTFPIteration);
             STXXL_VERBOSE0("Completed TFP" << (stxxl::stats_data(*stats) - stat_start));
         }
@@ -206,6 +207,7 @@ int main(int argc, char* argv[]) {
         return -1;
 
     stxxl::srandom_number32(config.randomSeed);
+    stxxl::set_seed(config.randomSeed);
 
     benchmark(config);
     return 0;
