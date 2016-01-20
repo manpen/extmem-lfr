@@ -10,6 +10,7 @@
 #include "TupleHelper.h"
 
 #include "EdgeSwapBase.h"
+#include "BoolStream.hpp"
 
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
@@ -91,19 +92,6 @@ namespace EdgeSwapTFP {
         DECL_LEX_COMPARE_OS(ExistenceSuccessorMsg, swap_id, edge, successor);
     };
 
-    struct EdgeUpdateMsg {
-        edgeid_t edge_id;
-        swapid_t sender;
-        edge_t updated_edge;
-
-        EdgeUpdateMsg() { }
-
-        EdgeUpdateMsg(const edgeid_t &edge_id_, const swapid_t &sender_, const edge_t &updated_edge_) :
-              edge_id(edge_id_), sender(sender_), updated_edge(updated_edge_) { }
-
-        DECL_LEX_COMPARE_OS(EdgeUpdateMsg, edge_id, sender, updated_edge);
-    };
-
     template<class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>, bool compute_stats = false>
     class EdgeSwapTFP : public EdgeSwapBase {
     public:
@@ -124,7 +112,6 @@ namespace EdgeSwapTFP {
         typename SwapVector::iterator _swaps_begin;
         typename SwapVector::iterator _swaps_end;
 
-
         debug_vector _result;
 
 // dependency chain
@@ -136,6 +123,8 @@ namespace EdgeSwapTFP {
         using DependencyChainSuccessorComparator = typename GenericComparatorStruct<DependencyChainSuccessorMsg>::Ascending;
         using DependencyChainSuccessorSorter = stxxl::sorter<DependencyChainSuccessorMsg, DependencyChainSuccessorComparator>;
         DependencyChainSuccessorSorter _depchain_successor_sorter;
+
+        using EdgeIdVector = stxxl::VECTOR_GENERATOR<edgeid_t>::result;
 
 // existence requests
         using ExistenceRequestComparator = typename GenericComparatorStruct<ExistenceRequestMsg>::Ascending;
@@ -152,12 +141,13 @@ namespace EdgeSwapTFP {
         ExistenceSuccessorSorter _existence_successor_sorter;
 
 // edge updates
-        using EdgeUpdateComparator = typename GenericComparatorStruct<EdgeUpdateMsg>::Ascending;
-        using EdgeUpdateSorter = stxxl::sorter<EdgeUpdateMsg, EdgeUpdateComparator>;
+        using EdgeUpdateComparator = typename GenericComparator<edge_t>::Ascending;
+        using EdgeUpdateSorter = stxxl::sorter<edge_t, EdgeUpdateComparator>;
         EdgeUpdateSorter _edge_update_sorter;
 
 // algos
-        void _compute_dependency_chain();
+        template <class EdgeReader>
+        void _compute_dependency_chain(EdgeReader&, BoolStream&);
         void _compute_conflicts();
         void _process_existence_requests();
         void _perform_swaps();
@@ -169,12 +159,10 @@ namespace EdgeSwapTFP {
             _existence_request_sorter.clear();
             _existence_info_sorter.clear();
             _existence_successor_sorter.clear();
-            _edge_update_sorter.clear();
         }
 
     public:
         EdgeSwapTFP() = delete;
-
         EdgeSwapTFP(const EdgeSwapTFP &) = delete;
 
         //! Swaps are performed during constructor.
