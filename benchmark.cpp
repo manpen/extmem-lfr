@@ -180,7 +180,7 @@ void benchmark(RunConfig & config) {
             result_vector_type medges(swapEdges);
             STXXL_VERBOSE0("Start Internal");
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapInternalSwaps<decltype(medges), decltype(swaps)> internalSwaps(medges, swaps, config.swapsPerIteration);
+            EdgeSwapInternalSwaps internalSwaps(medges, swaps, config.swapsPerIteration);
             internalSwaps.run();
             STXXL_VERBOSE0("Completed Internal Swaps" << (stxxl::stats_data(*stats) - stat_start));
         }
@@ -189,7 +189,7 @@ void benchmark(RunConfig & config) {
             result_vector_type medges(swapEdges);
             STXXL_VERBOSE0("Start TFP");
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapTFP::EdgeSwapTFP<decltype(medges), decltype(swaps), false, false> TFPSwaps(medges, swaps);
+            EdgeSwapTFP::EdgeSwapTFP TFPSwaps(medges, swaps);
             //TFPSwaps.setDisplayDebug(true);
             TFPSwaps.run(config.swapsPerTFPIteration);
             STXXL_VERBOSE0("Completed TFP" << (stxxl::stats_data(*stats) - stat_start));

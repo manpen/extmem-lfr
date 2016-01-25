@@ -6,7 +6,20 @@
 #include <string>
 
 class EdgeSwapBase {
+public:
+    using edge_vector = stxxl::vector<edge_t>;
+    using swap_descriptor = SwapDescriptor;
+    using swap_vector = stxxl::vector<swap_descriptor>;
+
+#ifdef EDGE_SWAP_DEBUG_VECTOR
+    using debug_vector = stxxl::vector<SwapResult>;
+#endif
+
 protected:
+#ifdef EDGE_SWAP_DEBUG_VECTOR
+    debug_vector _result;
+#endif
+
     bool _display_debug;
 
     std::pair<edge_t, edge_t> _swap_edges(const edge_t & e0, const edge_t & e1, bool direction) const {
@@ -80,4 +93,11 @@ public:
         _display_debug = v;
     }
 
+#ifdef EDGE_SWAP_DEBUG_VECTOR
+    //! The i-th entry of this vector corresponds to the i-th
+    //! swap provided to the constructor
+    debug_vector &debugVector() {
+        return _result;
+    }
+#endif
 };

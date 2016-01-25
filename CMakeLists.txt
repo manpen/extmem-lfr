@@ -22,9 +22,12 @@ endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 
 
 # add third-party dependencies
+SET(TMP_CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 add_subdirectory(libs/stxxl/)
 add_subdirectory(libs/googletest/googletest)
 include_directories(libs/stx-btree/include/)
+SET(CMAKE_BUILD_TYPE "${TMP_CMAKE_BUILD_TYPE}")
 
 include_directories(include/)
 
@@ -38,10 +41,10 @@ remove_cxx_flag("-O3")
 # enable warnings (always good)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 
-# enable C++14
+# enable C++11
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -DSTXXL_VERBOSE_LEVEL=0")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   -DSTXXL_VERBOSE_LEVEL=1 -O0")
+set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 # Include STXXL
@@ -53,6 +56,8 @@ message(STATUS "STXXL_LIBRARIES: ${STXXL_LIBRARIES}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-depth=1000")
 include_directories(${STXXL_INCLUDE_DIRS})
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DEDGE_SWAP_DEBUG_VECTOR")
 
 # Declare the library
 add_library(libextmemgraphgen STATIC
@@ -78,8 +83,8 @@ target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
 add_executable(pa_benchmark benchmark.cpp)
 target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
 
-add_executable(pa_ttest ttest.cpp)
-target_link_libraries(pa_ttest ${STXXL_LIBRARIES})
+#add_executable(pa_ttest ttest.cpp)
+#target_link_libraries(pa_ttest ${STXXL_LIBRARIES})
 
 add_subdirectory(test)
 

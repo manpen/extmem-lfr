@@ -13,6 +13,7 @@
 #include "EdgeSwapTFP.hpp"
 #include "EdgeSwapFullyInternal.hpp"
 
+#ifdef EDGE_SWAP_DEBUG_VECTOR
 namespace {
    using EdgeVector = stxxl::vector<edge_t>;
    using SwapVector = stxxl::vector<SwapDescriptor>;
@@ -70,8 +71,8 @@ namespace {
    };
 
    using TestEdgeSwapCrossImplementations = ::testing::Types <
-      EdgeSwapInternalSwaps<EdgeVector, SwapVector>,
-      EdgeSwapTFP::EdgeSwapTFP<EdgeVector, SwapVector>
+      EdgeSwapInternalSwaps,
+      EdgeSwapTFP::EdgeSwapTFP
    >;
 
    TYPED_TEST_CASE(TestEdgeSwapCross, TestEdgeSwapCrossImplementations);
@@ -130,3 +131,9 @@ namespace {
       }
    }
 }
+#else
+class TestEdgeSwapCross : public ::testing::Test {};
+TEST_F(TestEdgeSwapCross, warning) {
+   EXPECT_TRUE(false) << "TestEdgeSwapCross tests are disabled since built without -DEDGE_SWAP_DEBUG_VECTOR";
+}
+#endif

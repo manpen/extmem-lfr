@@ -94,27 +94,21 @@ namespace EdgeSwapTFP {
         DECL_LEX_COMPARE_OS(ExistenceSuccessorMsg, swap_id, edge, successor);
     };
 
-    template<class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>, bool compute_stats = false, bool produce_debug_vector=true>
     class EdgeSwapTFP : public EdgeSwapBase {
-    public:
-        using debug_vector = stxxl::vector<SwapResult>;
-        using edge_vector = EdgeVector;
-        using swap_vector = SwapVector;
-
     protected:
         constexpr static size_t _pq_mem = PQ_INT_MEM;
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
+        constexpr static bool compute_stats = false;
+        constexpr static bool produce_debug_vector=true;
         constexpr static bool _async_processing = false;
 
-        EdgeVector &_edges;
-        SwapVector &_swaps;
+        edge_vector &_edges;
+        swap_vector &_swaps;
 
-        typename SwapVector::iterator _swaps_begin;
-        typename SwapVector::iterator _swaps_end;
-
-        debug_vector _result;
+        typename swap_vector::iterator _swaps_begin;
+        typename swap_vector::iterator _swaps_end;
         std::unique_ptr<std::thread> _result_thread;
 
 // swap -> edge
@@ -197,11 +191,5 @@ namespace EdgeSwapTFP {
               _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem) { }
 
         void run(uint64_t swaps_per_iteration = 0);
-
-        //! The i-th entry of this vector corresponds to the i-th
-        //! swap provided to the constructor
-        debug_vector &debugVector() {
-           return _result;
-        }
     };
 }
