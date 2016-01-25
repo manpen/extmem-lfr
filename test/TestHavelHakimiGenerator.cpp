@@ -35,7 +35,7 @@ TEST_F(TestHavelHakimiGenerator, testClique) {
     auto dist = check.getDistribution();
 
     EXPECT_EQ(9999, dist->value);
-    EXPECT_EQ(10000, dist->count);
+    EXPECT_EQ(10000u, dist->count);
 
     ++dist;
     EXPECT_TRUE(dist.empty());
@@ -69,7 +69,7 @@ TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
         ++genDegrees[edge.second];
     }
 
-    std::vector<int_t> genDegreeHistogram(numNodes);
+    std::vector<uint_t> genDegreeHistogram(numNodes);
     for (auto deg : genDegrees) {
         ++genDegreeHistogram[deg];
     }

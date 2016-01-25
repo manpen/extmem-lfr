@@ -343,7 +343,7 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typena
             if (request_it != edgeLoadRequests.end() && request_it->eid == id) {
                 _edge_ids_in_current_swaps.push_back(request_it->eid);
                 _edges_in_current_swaps.push_back(cur_e);
-                assert(int_eid == _edges_in_current_swaps.size() - 1);
+                assert(static_cast<uint_t>(int_eid) == _edges_in_current_swaps.size() - 1);
 
                 // set edge id to internal edge id
                 _current_swaps[request_it->sid].edges()[request_it->spos] = int_eid;

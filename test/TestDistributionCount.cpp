@@ -10,15 +10,15 @@
 
 TEST_F(TestDistributionCount, testSimpleCounting) {
     std::vector<int_t> degrees({1, 1, 1, 2, 2, 3, 4, 5});
-    std::vector<std::pair<int, int> > distribution = {{1, 3}, {2, 2}, {3, 1}, {4, 1}, {5, 1}};
+    std::vector<std::pair<int_t, int_t> > distribution = {{1, 3}, {2, 2}, {3, 1}, {4, 1}, {5, 1}};
 
     auto input = stxxl::stream::streamify(degrees.begin(), degrees.end());
     DistributionCount<decltype(input)> distributionCount(input);
 
     for (auto dist : distribution) {
         ASSERT_FALSE(distributionCount.empty());
-        EXPECT_EQ(dist.first, distributionCount->value);
-        EXPECT_EQ(dist.second, distributionCount->count);
+        EXPECT_EQ(dist.first, static_cast<int_t>(distributionCount->value));
+        EXPECT_EQ(dist.second, static_cast<int_t>(distributionCount->count));
         ++distributionCount;
     }
 
@@ -34,7 +34,7 @@ TEST_F(TestDistributionCount, testPowerlawCounting) {
     stxxl::vector<int_t> degrees(numNodes);
     stxxl::stream::materialize(sequence, degrees.begin());
 
-    std::vector<int_t> degreeHistogram(numNodes);
+    std::vector<uint_t> degreeHistogram(numNodes);
     for (auto deg : degrees) {
         ++degreeHistogram[deg];
     }

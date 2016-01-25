@@ -173,7 +173,7 @@ void benchmark(RunConfig & config) {
         SwapGenerator swapGen(config.numSwaps, m);
         stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps(config.numSwaps);
         auto endIt = stxxl::stream::materialize(swapGen, swaps.begin());
-        if (endIt - swaps.begin() != swaps.size()) {
+        if (endIt - swaps.begin() != static_cast<int_t>(swaps.size())) {
             throw std::runtime_error("Error, the number of generated swaps is not as specified");
         }
 

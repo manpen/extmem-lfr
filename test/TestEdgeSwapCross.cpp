@@ -55,7 +55,8 @@ namespace {
 
          auto endIt = stxxl::stream::materialize(edgeSorter, edges.begin());
          STXXL_UNUSED(endIt);
-         assert(edges.size() == (endIt - edges.begin()));
+
+         assert(static_cast<int_t>(edges.size()) == (endIt - edges.begin()));
 
          return edges;
       }
