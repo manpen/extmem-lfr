@@ -9,7 +9,7 @@
 #include <functional>
 #include "EdgeSwapBase.h"
 #include "GenericComparator.h"
-#include <TupleHelper.h>
+#include "TupleHelper.h"
 #include <algorithm>
 #include <iterator>
 
