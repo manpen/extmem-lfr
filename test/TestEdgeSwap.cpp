@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <stxxl/vector>
-#include "EdgeSwapInternalSwaps.hpp"
-#include "EdgeSwapTFP.hpp"
-#include "EdgeSwapFullyInternal.hpp"
+#include "EdgeSwapInternalSwaps.h"
+#include "EdgeSwapTFP.h"
+#include "EdgeSwapFullyInternal.h"
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
 namespace {

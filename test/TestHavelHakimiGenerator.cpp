@@ -1,14 +1,19 @@
 //
 // Created by michael on 27.07.15.
 //
+#include <gtest/gtest.h>
 
 #include <stxxl/stream>
 #include <stxxl/vector>
-#include "TestHavelHakimiGenerator.h"
 #include <PowerlawDegreeSequence.h>
 #include <DegreeDistributionCheck.h>
 #include <HavelHakimiGenerator.h>
 #include <defs.h>
+
+
+class TestHavelHakimiGenerator : public ::testing::Test {
+};
+
 
 TEST_F(TestHavelHakimiGenerator, testClique) {
     constexpr int_t numNodes = 10000;

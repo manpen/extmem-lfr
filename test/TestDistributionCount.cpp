@@ -2,11 +2,15 @@
 // Created by michael on 27.07.15.
 //
 
-#include "TestDistributionCount.h"
 #include <DistributionCount.h>
 #include <stxxl/stream>
 #include <PowerlawDegreeSequence.h>
 #include <defs.h>
+
+#include <gtest/gtest.h>
+
+class TestDistributionCount : public ::testing::Test {
+};
 
 TEST_F(TestDistributionCount, testSimpleCounting) {
     std::vector<int_t> degrees({1, 1, 1, 2, 2, 3, 4, 5});

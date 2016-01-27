@@ -5,10 +5,12 @@
  * @author Manuel Penschuck
  * @copyright to be decided
  */
+#include <gtest/gtest.h>
 
-#include "TestPowerlawDegreeSequence.h"
 #include <PowerlawDegreeSequence.h>
 #include <defs.h>
+
+class TestPowerlawDegreeSequence : public ::testing::Test {};
 
 /**
  * @brief Checks that Powerlaw Degree Sequence is non-decreasing and OOB

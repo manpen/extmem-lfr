@@ -7,11 +7,11 @@
 #include <DistributionCount.h>
 #include <HavelHakimiGeneratorRLE.h>
 
-#include <SwapGenerator.hpp>
+#include "SwapGenerator.h"
 
-#include "EdgeSwapInternalSwaps.hpp"
-#include "EdgeSwapTFP.hpp"
-#include "EdgeSwapFullyInternal.hpp"
+#include "EdgeSwapInternalSwaps.h"
+#include "EdgeSwapTFP.h"
+#include "EdgeSwapFullyInternal.h"
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
 namespace {

@@ -1,10 +1,13 @@
 //
 // Created by michael on 28.07.15.
 //
+#include <gtest/gtest.h>
 
 #include <stxxl/random>
 #include <stxxl/priority_queue>
-#include "TestPrioritiQueue.h"
+
+namespace {
+class TestPriorityQueue : public ::testing::Test {};
 
 struct myElement {
     stxxl::int64 sortKey;
@@ -16,7 +19,7 @@ inline std::ostream &operator<<(std::ostream &os, myElement const &m) {
     return os << "{sortKey:" << m.sortKey << ", id:" << m.id << "}";
 }
 
-TEST_F(TestPrioritiQueue, testEqualRange) {
+TEST_F(TestPriorityQueue, testEqualRange) {
     stxxl::int64 numElements = 100 * 1000 * 1000;
     stxxl::int64 maxKey = 256;
 
@@ -45,4 +48,5 @@ TEST_F(TestPrioritiQueue, testEqualRange) {
         idCheck[prioQueue.top().id] = true;
         prioQueue.pop();
     }
+}
 }

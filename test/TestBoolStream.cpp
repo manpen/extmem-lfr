@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <random>
-#include <BoolStream.hpp>
+#include "BoolStream.h"
 
 class TestBoolStream : public ::testing::Test {};
 

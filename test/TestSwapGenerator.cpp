@@ -1,5 +1,7 @@
-#include "TestSwapGenerator.h"
-#include <SwapGenerator.hpp>
+#include <gtest/gtest.h>
+#include "SwapGenerator.h"
+
+class TestSwapGenerator : public ::testing::Test {};
 
 TEST_F(TestSwapGenerator, count) {
    for(int64_t num = 0; num < 100; num++) {
