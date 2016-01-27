@@ -1,4 +1,4 @@
-#include "EdgeSwapTFP.hpp"
+#include "EdgeSwapTFP.h"
 
 #include <algorithm>
 #include <array>
@@ -7,8 +7,8 @@
 #include <stx/btree_map>
 #include <stxxl/priority_queue>
 
-#include "PQSorterMerger.hpp"
-#include "EdgeVectorUpdateStream.hpp"
+#include "PQSorterMerger.h"
+#include "EdgeVectorUpdateStream.h"
 
 namespace EdgeSwapTFP {
     void EdgeSwapTFP::_gather_edges() {

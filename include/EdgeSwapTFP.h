@@ -12,7 +12,7 @@
 #include "TupleHelper.h"
 
 #include "EdgeSwapBase.h"
-#include "BoolStream.hpp"
+#include "BoolStream.h"
 
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {

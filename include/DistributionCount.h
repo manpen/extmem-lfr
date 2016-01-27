@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <stxxl/bits/common/types.h>
 
 

@@ -13,9 +13,9 @@
 #include <HavelHakimiGeneratorRLE.h>
 
 #include <DegreeDistributionCheck.h>
-#include <SwapGenerator.hpp>
-#include <EdgeSwapInternalSwaps.hpp>
-#include <EdgeSwapTFP.hpp>
+#include "SwapGenerator.h"
+#include "EdgeSwapInternalSwaps.h"
+#include "EdgeSwapTFP.h"
 
 
 struct RunConfig {
@@ -187,7 +187,7 @@ void benchmark(RunConfig & config) {
         if (config.swapTFP) {
             auto stat_start = stxxl::stats_data(*stats);
             EdgeSwapTFP::EdgeSwapTFP TFPSwaps(swapEdges, swaps);
-            TFPSwaps.run();
+            TFPSwaps.run(config.swapsPerIteration);
             std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
     }
@@ -227,6 +227,7 @@ int main(int argc, char* argv[]) {
         return -1;
 
     stxxl::srandom_number32(config.randomSeed);
+    stxxl::set_seed(config.randomSeed);
 
     benchmark(config);
     return 0;

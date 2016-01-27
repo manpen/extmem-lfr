@@ -13,9 +13,9 @@
 #include <HavelHakimiGeneratorRLE.h>
 
 #include <DegreeDistributionCheck.h>
-#include <SwapGenerator.hpp>
-#include <EdgeSwapInternalSwaps.hpp>
-#include <EdgeSwapTFP.hpp>
+#include "SwapGenerator.h"
+#include "EdgeSwapInternalSwaps.h"
+#include "EdgeSwapTFP.h"
 
 
 struct RunConfig {

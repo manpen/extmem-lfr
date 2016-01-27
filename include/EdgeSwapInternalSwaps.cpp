@@ -1,4 +1,4 @@
-#include <EdgeSwapInternalSwaps.hpp>
+#include "EdgeSwapInternalSwaps.h"
 
 void EdgeSwapInternalSwaps::simulateSwapsAndGenerateEdgeExistenceQuery() {
     // stores for a swap and the position in the swap (0,1) the edge
