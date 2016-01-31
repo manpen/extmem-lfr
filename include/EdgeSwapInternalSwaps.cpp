@@ -1,5 +1,12 @@
 #include "EdgeSwapInternalSwaps.h"
 
+#if 1
+    #include <parallel/algorithm>
+    #define SEQPAR __gnu_parallel
+#else
+    #define SEQPAR std
+#endif
+
 void EdgeSwapInternalSwaps::simulateSwapsAndGenerateEdgeExistenceQuery() {
     // stores for a swap and the position in the swap (0,1) the edge
     struct swap_edge_t {
@@ -133,7 +140,7 @@ void EdgeSwapInternalSwaps::loadEdgeExistenceInformation() {
     }
 
     _query_sorter.clear();
-    std::sort(_edge_existence_successors.begin(), _edge_existence_successors.end());
+    SEQPAR::sort(_edge_existence_successors.begin(), _edge_existence_successors.end());
     std::make_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
 }
 
@@ -279,7 +286,7 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typena
     // copy updated edges for writing back
     std::vector<edge_t> updated_edges;
     updated_edges.swap(_edges_in_current_swaps);
-    std::sort(updated_edges.begin(), updated_edges.end());
+    SEQPAR::sort(updated_edges.begin(), updated_edges.end());
     _edges_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
 
     _current_swaps.clear();
@@ -298,7 +305,7 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typena
 
 
     std::cout << "Requesting " << edgeLoadRequests.size() << " non-unique edges for internal swaps" << std::endl;
-    std::sort(edgeLoadRequests.begin(), edgeLoadRequests.end());
+    SEQPAR::sort(edgeLoadRequests.begin(), edgeLoadRequests.end());
 
 
     { // load edges from EM. Generates successor information and swap_edges information (for the first edge in the chain).
