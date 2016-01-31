@@ -13,8 +13,8 @@
 
 #include <DegreeDistributionCheck.h>
 #include "SwapGenerator.h"
-#include "EdgeSwapInternalSwaps.h"
-#include "EdgeSwapTFP.h"
+#include <EdgeSwaps/EdgeSwapInternalSwaps.h>
+#include <EdgeSwaps/EdgeSwapTFP.h>
 
 
 struct RunConfig {
