@@ -29,7 +29,9 @@ using int_t = std::int64_t;
 using uint_t = std::uint64_t;
 
 using node_t = int_t; ///< Type for every node id used in this project
+using degree_t = int_t; ///< Type for node degrees
 using edgeid_t = int_t; ///< Type used to address edges
+using community_t = int32_t; ///< Type used to address communities
 
 //!Type for every (un)directed edge
 struct edge_t : public std::pair<node_t, node_t> {
