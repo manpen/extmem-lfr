@@ -63,9 +63,9 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DEDGE_SWAP_DEBUG_VECTOR")
 add_library(libextmemgraphgen STATIC
     include/RandomStream.cpp
     include/PowerlawDegreeSequence.cpp
-    include/EdgeVectorCache.cpp
-    include/EdgeSwapInternalSwaps.cpp
-    include/EdgeSwapTFP.cpp
+        include/EdgeSwaps/EdgeVectorCache.cpp
+        include/EdgeSwaps/EdgeSwapInternalSwaps.cpp
+        include/EdgeSwaps/EdgeSwapTFP.cpp
         include/HavelHakimi/HavelHakimiGenerator.cpp
         include/HavelHakimi/HavelHakimiGeneratorRLE.cpp
 )
