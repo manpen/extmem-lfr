@@ -7,7 +7,7 @@
 #include <stxxl/vector>
 #include <PowerlawDegreeSequence.h>
 #include <DegreeDistributionCheck.h>
-#include <HavelHakimiGenerator.h>
+#include <HavelHakimi/HavelHakimiGenerator.h>
 #include <defs.h>
 
 

@@ -5,7 +5,7 @@
 
 #include <PowerlawDegreeSequence.h>
 #include <DistributionCount.h>
-#include <HavelHakimiGeneratorRLE.h>
+#include <HavelHakimi/HavelHakimiGeneratorRLE.h>
 
 #include "SwapGenerator.h"
 

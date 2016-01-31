@@ -1,4 +1,4 @@
-#include <HavelHakimiGeneratorRLE.h>
+#include "HavelHakimiGeneratorRLE.h"
 #include <PowerlawDegreeSequence.h>
 #include <DistributionCount.h>
 
