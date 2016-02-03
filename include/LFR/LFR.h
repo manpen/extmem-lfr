@@ -7,6 +7,7 @@
 #include <SyncWorker.h>
 #include <PowerlawDegreeSequence.h>
 #include <stxxl/sorter>
+#include <stxxl/vector>
 
 //#define LFR_TESTING
 
