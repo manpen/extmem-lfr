@@ -190,7 +190,7 @@ struct TupleSortable {
 
 #define DECL_TO_TUPLE(...) \
    auto to_tuple() -> decltype(std::tie(__VA_ARGS__)) {return std::tie(__VA_ARGS__);} \
-   const auto to_tuple() const -> decltype(std::make_tuple(__VA_ARGS__)) {return std::make_tuple(__VA_ARGS__);}
+   auto to_tuple() const -> const decltype(std::make_tuple(__VA_ARGS__)) {return std::make_tuple(__VA_ARGS__);}
 #define DECL_LEX_COMPARE(name, ...) \
    DECL_TO_TUPLE(__VA_ARGS__) \
    bool operator< (const name& o) const {return to_tuple() <  o.to_tuple(); } \
