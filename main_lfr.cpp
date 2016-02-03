@@ -40,14 +40,14 @@ public:
     PowerlawDegreeSequence::Parameters community_distribution_param;
 
     RunConfig() :
-        number_of_nodes      (1000000),
-        number_of_communities(  10000),
+        number_of_nodes      (100000),
+        number_of_communities( 10000),
         node_min_degree(10),
         node_max_degree(number_of_nodes/10),
         max_degree_within_community(node_max_degree),
         node_gamma(-2.0),
-        community_min_members(    100),
-        community_max_members(1000000),
+        community_min_members(  25),
+        community_max_members(1000),
         community_gamma(-2.0),
         mixing(0.5)
     {

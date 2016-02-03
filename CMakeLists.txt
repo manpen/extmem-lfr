@@ -87,8 +87,8 @@ target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
 add_executable(pa_benchmark benchmark.cpp)
 target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
 
-#add_executable(pa_ttest ttest.cpp)
-#target_link_libraries(pa_ttest ${STXXL_LIBRARIES})
+add_executable(pa_lfr main_lfr.cpp)
+target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
 
 add_subdirectory(test)
 
@@ -103,3 +103,5 @@ if(DOXYGEN_FOUND)
         COMMENT "Generating API documentation with Doxygen" VERBATIM
     )
 endif(DOXYGEN_FOUND)
+
+include(CMakeLocal.cmake)
