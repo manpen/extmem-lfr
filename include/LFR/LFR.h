@@ -115,6 +115,8 @@ protected:
      * of community k */
     stxxl::vector<CommunityAssignment> _community_assignments;
 
+    stxxl::vector<edge_t> _edges;
+
     /// Get community size based on _community_cumulative_sizes
     node_t _community_size(community_t com) const {
         assert(size_t(com+1) < _community_cumulative_sizes.size());
@@ -124,6 +126,7 @@ protected:
     void _compute_node_distributions();
     void _compute_community_size();
     void _compute_community_assignments();
+    void _generate_community_graphs();
 
 public:
     LFR(const NodeDegreeDistribution::Parameters & node_degree_dist,
