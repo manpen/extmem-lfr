@@ -4,6 +4,8 @@
 #include <SwapGenerator.h>
 #include <stxxl/vector>
 #include <stxxl/sorter>
+#include <IMGraph.h>
+#include <EdgeSwaps/IMEdgeSwap.h>
 
 namespace LFR {
     void LFR::_generate_community_graphs() {
@@ -30,40 +32,58 @@ namespace LFR {
             auto node_deg_stream = stxxl::stream::streamify(node_degrees.begin(), node_degrees.end());
             DistributionCount<decltype(node_deg_stream)> dcount(node_deg_stream);
             HavelHakimiGeneratorRLE<decltype(dcount)> gen(dcount);
-            stxxl::vector<edge_t> intra_edges(gen.maxEdges());
 
-            while (!gen.empty()) {
-                if (gen->first < gen->second) {
-                    intra_edgeSorter.push(edge_t {gen->first, gen->second});
-                } else {
-                    intra_edgeSorter.push(edge_t {gen->second, gen->first});
+            if (gen.maxEdges() < 1 * IntScale::M) { // TODO: make limit configurable!
+                IMGraph graph;
+                while (!gen.empty()) {
+                    graph.addEdge(*gen);
+                    ++gen;
                 }
 
-                ++gen;
-            }
+                graph.sort();
 
-            intra_edgeSorter.sort();
-            auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
-            intra_edgeSorter.clear();
+                IMEdgeSwap swapAlgo(graph, graph.numEdges() * 10);
+                swapAlgo.run();
 
-            intra_edges.resize(endIt - intra_edges.begin());
+                for (auto it = graph.getEdges(); !it.empty(); ++it) {
+                    edgeSorter.push(*it);
+                }
+            } else {
+                stxxl::vector<edge_t> intra_edges(gen.maxEdges());
 
-            // Generate swaps
-            uint_t numSwaps = 10*intra_edges.size();
-            SwapGenerator swapGen(numSwaps, intra_edges.size());
-            stxxl::vector<SwapDescriptor> swaps(numSwaps);
-            stxxl::stream::materialize(swapGen, swaps.begin());
+                while (!gen.empty()) {
+                    if (gen->first < gen->second) {
+                        intra_edgeSorter.push(edge_t {gen->first, gen->second});
+                    } else {
+                        intra_edgeSorter.push(edge_t {gen->second, gen->first});
+                    }
 
-            // perform swaps
-            EdgeSwapInternalSwaps swapAlgo(intra_edges, swaps, intra_edges.size()/3);
-            swapAlgo.run();
+                    ++gen;
+                }
 
-            decltype(intra_edges)::bufreader_type edge_reader(intra_edges);
-            while (!edge_reader.empty()) {
-                edge_t e = {node_ids[edge_reader->first], node_ids[edge_reader->second]};
-                e.normalize();
-                edgeSorter.push(e);
-                ++edge_reader;
+                intra_edgeSorter.sort();
+                auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
+                intra_edgeSorter.clear();
+
+                intra_edges.resize(endIt - intra_edges.begin());
+
+                // Generate swaps
+                uint_t numSwaps = 10*intra_edges.size();
+                SwapGenerator swapGen(numSwaps, intra_edges.size());
+                stxxl::vector<SwapDescriptor> swaps(numSwaps);
+                stxxl::stream::materialize(swapGen, swaps.begin());
+
+                // perform swaps
+                EdgeSwapInternalSwaps swapAlgo(intra_edges, swaps, intra_edges.size()/3);
+                swapAlgo.run();
+
+                decltype(intra_edges)::bufreader_type edge_reader(intra_edges);
+                while (!edge_reader.empty()) {
+                    edge_t e = {node_ids[edge_reader->first], node_ids[edge_reader->second]};
+                    e.normalize();
+                    edgeSorter.push(e);
+                    ++edge_reader;
+                }
             }
         }
 
