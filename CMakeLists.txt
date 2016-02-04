@@ -90,6 +90,8 @@ target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
 add_executable(pa_lfr main_lfr.cpp)
 target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
 
+include(CMakeLocal.cmake)
+
 add_subdirectory(test)
 
 # Doxygen
@@ -104,4 +106,3 @@ if(DOXYGEN_FOUND)
     )
 endif(DOXYGEN_FOUND)
 
-include(CMakeLocal.cmake)

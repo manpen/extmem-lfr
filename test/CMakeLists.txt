@@ -1,8 +1,10 @@
 enable_testing()
 
-message(STATUS "gtest_SOURCE_DIR: ${gtest_SOURCE_DIR}")
-
 file(GLOB SRCS *.cpp)
+if(LOCAL_TEST_RESTRICTION)
+    message("WARNING GOING TO BUILD RESTRICTED TEST-CASES DUE DO CMakeLocal.cmake")
+    SET(SRCS ${LOCAL_TEST_RESTRICTION})
+endif()
 add_executable(testextmemgraphgen ${SRCS})
 
 include_directories(${gtest_SOURCE_DIR} ${gtest_SOURCE_DIR}/include)
