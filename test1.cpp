@@ -16,6 +16,7 @@
 #include "SwapGenerator.h"
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/IMEdgeSwap.h>
 
 
 
@@ -189,6 +190,21 @@ void benchmark(RunConfig & config) {
             auto stat_start = stxxl::stats_data(*stats);
             EdgeSwapTFP::EdgeSwapTFP TFPSwaps(swapEdges, swaps);
             TFPSwaps.run(config.swapsPerIteration);
+            std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
+        }
+
+        {
+            std::cout << "Starting IM Swaps" << std::endl;
+            auto stat_start = stxxl::stats_data(*stats);
+            IMGraph graph;
+            decltype(edges)::bufreader_type edge_reader(edges);
+            while (!edge_reader.empty()) {
+                graph.addEdge(*edge_reader);
+                ++edge_reader;
+            }
+            graph.sort();
+            IMEdgeSwap imSwaps(graph, config.numSwaps);
+            imSwaps.run();
             std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
     }
