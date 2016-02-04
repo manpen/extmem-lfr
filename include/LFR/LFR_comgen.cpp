@@ -1,6 +1,7 @@
 #include "LFR.h"
 #include <HavelHakimi/HavelHakimiGeneratorRLE.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
+#include <DistributionCount.h>
 #include <SwapGenerator.h>
 #include <stxxl/vector>
 #include <stxxl/sorter>
@@ -34,15 +35,19 @@ namespace LFR {
             HavelHakimiGeneratorRLE<decltype(dcount)> gen(dcount);
 
             if (gen.maxEdges() < 1 * IntScale::M) { // TODO: make limit configurable!
-                IMGraph graph;
+                IMGraph graph(node_degrees);
                 while (!gen.empty()) {
                     graph.addEdge(*gen);
                     ++gen;
                 }
 
-                graph.sort();
+                // Generate swaps
+                uint_t numSwaps = 10*graph.numEdges();
+                SwapGenerator swapGen(numSwaps, graph.numEdges());
+                stxxl::vector<SwapDescriptor> swaps(numSwaps);
+                stxxl::stream::materialize(swapGen, swaps.begin());
 
-                IMEdgeSwap swapAlgo(graph, graph.numEdges() * 10);
+                IMEdgeSwap swapAlgo(graph, swaps);
                 swapAlgo.run();
 
                 for (auto it = graph.getEdges(); !it.empty(); ++it) {

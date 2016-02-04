@@ -4,46 +4,65 @@
 #include <defs.h>
 #include <parallel/algorithm>
 #include <stxxl/random>
+#include <EdgeSwaps/EdgeSwapBase.h>
 
-class IMGraph {
+class IMGraph : private EdgeSwapBase {
 private:
     class IMEdgeStream {
     private:
-        const std::vector<edge_t> &_edges;
-        std::vector<edge_t>::const_iterator _it;
+        const IMGraph &_graph;
+        node_t u;
+        size_t pos;
+        edge_t cur;
+
+        void findNext() {
+            for (; pos < _graph._tail.size(); ++pos) {
+                while (pos == _graph._last_tail[u]) {
+                    ++u;
+                    pos = _graph._first_tail[u];
+                }
+
+                if (u <= _graph._tail[pos]) {
+                    cur = {u, _graph._tail[pos]};
+                    return;
+                }
+            }
+        }
     public:
-        IMEdgeStream(const std::vector<edge_t> &edges) : _edges(edges), _it(_edges.begin()) {
-            for (; _it != _edges.end() && _it->first > _it->second; ++_it) ;
+        IMEdgeStream(const IMGraph &graph) : _graph(graph), u(0), pos(0) {
+            findNext();
         };
 
 
         const edge_t & operator * () const {
-            return *_it;
+            return cur;
         };
 
         const edge_t * operator -> () const {
-            return &*_it;
+            return &cur;
         };
 
         IMEdgeStream & operator++ () {
-            for (++_it; _it != _edges.end() && _it->first > _it->second; ++_it) ;
+            ++pos;
+            findNext();
             return *this;
         }
 
         bool empty() const {
-            return _it == _edges.end();
+            return pos == _graph._tail.size();
         };
 
     };
-    std::vector<edge_t> _edges;
-    std::vector<edgeid_t> _first_edge;
-    bool _is_sorted;
+    std::vector<node_t> _tail;
+    std::vector<edgeid_t> _first_tail;
+    std::vector<edgeid_t> _last_tail;
+    std::vector<std::pair<edgeid_t, edgeid_t>> _edge_index;
     stxxl::random_number64 _random_integer;
 public:
     /**
      * Constructs a new internal memory graph.
      */
-    IMGraph();
+    IMGraph(const std::vector<degree_t> &degreeSequence);
 
     /**
      * Adds a new edge to the graph.
@@ -53,15 +72,13 @@ public:
      * @param e The edge to add
      */
     void addEdge(edge_t e) {
-        _edges.emplace_back(e);
-        _edges.push_back(edge_t {e.second, e.first});
-        _is_sorted = false;
+        assert(_last_tail[e.first] < _first_tail[e.first+1] && _last_tail[e.second] < _first_tail[e.second+1]);
+        _tail[_last_tail[e.first]] = e.second;
+        _tail[_last_tail[e.second]] = e.first;
+        _edge_index.emplace_back(_last_tail[e.first], _last_tail[e.second]);
+        ++_last_tail[e.first];
+        ++_last_tail[e.second];
     }
-
-    /**
-     * Sort the edge such that swaps can be performed.
-     */
-    void sort();
 
     /**
      * Get a random edge id.
@@ -69,7 +86,7 @@ public:
      * @return A random edge id
      */
     edgeid_t randomEdge() const {
-        return _random_integer(_edges.size());
+        return _random_integer(_edge_index.size());
     }
 
     /**
@@ -79,7 +96,8 @@ public:
      * @return The requested edge
      */
     edge_t getEdge(edgeid_t eid) const {
-        return _edges[eid];
+        auto &idx = _edge_index[eid];
+        return {_tail[idx.second], _tail[idx.first]};
     }
 
     /**
@@ -88,7 +106,7 @@ public:
      * @return The number of edges.
      */
     int_t numEdges() const {
-        return _edges.size() / 2;
+        return _edge_index.size();
     }
 
     /**
@@ -98,7 +116,7 @@ public:
      * @param eid1 The id of the second swap candidate
      * @return If the swap was successfull, i.e. did not create any conflict.
      */
-    bool swapEdges(edgeid_t eid0, edgeid_t eid1);
+    SwapResult swapEdges(const edgeid_t eid0, const edgeid_t eid1, bool direction);
 
     /**
      * Get a stream of normalized edges. The edges are unsorted.

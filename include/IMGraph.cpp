@@ -1,71 +1,82 @@
 #include <IMGraph.h>
+#include <tuple>
 
-IMGraph::IMGraph() : _is_sorted(false) {};
-
-
-void IMGraph::sort() {
-    if (_edges.empty()) {
-        _is_sorted = true;
-        return;
+IMGraph::IMGraph(const std::vector<degree_t> &degreeSequence) : _first_tail(degreeSequence.size() + 1), _last_tail(degreeSequence.size() + 1) {
+    int_t sum = 0;
+    for (size_t i = 0; i < degreeSequence.size(); ++i) {
+        _first_tail[i] = sum;
+        _last_tail[i] = sum;
+        sum += degreeSequence[i];
     }
+    _first_tail[degreeSequence.size()] = sum;
+    _last_tail[degreeSequence.size()] = sum;
+    _tail.resize(sum);
+};
 
-    __gnu_parallel::sort(_edges.begin(), _edges.end());
+SwapResult IMGraph::swapEdges(const edgeid_t eid0, const edgeid_t eid1, bool direction) {
+    const auto idx0 = _edge_index[eid0];
+    const auto idx1 = _edge_index[eid1];
+    SwapResult result;
 
-    _first_edge.clear();
-    _first_edge.resize(_edges.back().first + 2);
-    node_t u = -1;
-    for (edgeid_t eid = 0; eid < static_cast<edgeid_t>(_edges.size()); ++eid) {
-        if (_edges[eid].first != u) {
-            u = _edges[eid].first;
-            _first_edge[u] = eid;
-        }
-    }
-    _first_edge.back() = _edges.size();
+    edge_t e[2] = {{_tail[idx0.second], _tail[idx0.first]}, {_tail[idx1.second], _tail[idx0.first]}};
+    edge_t t[2];
+    std::tie(t[0], t[1]) = _swap_edges(e[0], e[1], direction);
 
-    _is_sorted = true;
-}
-
-bool IMGraph::swapEdges(edgeid_t eid0, edgeid_t eid1) {
-    assert(_is_sorted);
-    edge_t e[2] = {_edges[eid0], _edges[eid1]};
-    edge_t t[2] = {{e[0].first, e[1].second}, {e[1].first, e[0].second}};
+    result.edges[0] = t[0];
+    result.edges[1] = t[1];
 
     // check for conflict: loop
-    if (t[0].first == t[0].second || t[1].first == t[1].second) return false;
-    if (t[0].second == t[1].second) return true; // swap would be a no-op!
-
-    // find index of reverse edge and possible conflict edge
-    edge_t tr[2] = {{t[0].second, t[0].first}, {t[1].second, t[1].first}};
-    edge_t er[2] = {{e[1].second, e[1].first}, {e[0].second, e[0].first}};
-    edgeid_t eid_r[2] = {-1, -1};
-
-    for (unsigned char pos = 0; pos < 2; ++pos) {
-        node_t src = tr[pos].first;
-        assert(src == er[pos].first);
-        for (edgeid_t i = _first_edge[src]; i < _first_edge[src+1]; ++i) {
-            if (_edges[i].second == er[pos].second) {
-                eid_r[pos] = i;
-            }
-
-            if (_edges[i].second == tr[pos].second) {
-                return false;
+    if (t[0].first == t[0].second || t[1].first == t[1].second) {
+        result.loop = true;
+    } else { // check for conflict edges
+        for (unsigned char pos = 0; pos < 2; ++pos) {
+            node_t src = t[pos].first;
+            for (edgeid_t i = _first_tail[src]; i < _first_tail[src+1]; ++i) {
+                if (_tail[i] == t[pos].second) {
+                    result.conflictDetected[pos] = true;
+                }
             }
         }
     }
 
-    assert(eid_r[0] != -1 && eid_r[1] != -1);
+    result.performed = !result.loop && !(result.conflictDetected[0] || result.conflictDetected[1]);
 
-    _edges[eid0] = t[0];
-    _edges[eid1] = t[1];
+    if (result.performed) {
+        // FIXME: ugly. Better ideas?
+        auto oldPos = [&e, &idx0, &idx1](node_t v) {
+            if (v == e[0].first) {
+                return idx0.first;
+            } else if (v == e[0].second) {
+                return idx0.second;
+            } else if (v == e[1].first) {
+                return idx1.first;
+            } else {
+                return idx1.second;
+            }
+        };
 
-    _edges[eid_r[0]] = tr[0];
-    _edges[eid_r[1]] = tr[1];
+        auto p = oldPos(t[0].first); // position, where t[0].second is written = opposite position where t[0].first was written
+        _tail[p] = t[0].second;
+        _edge_index[eid0].first = p;
 
-    return true;
+        p = oldPos(t[0].second);
+        _tail[p] = t[0].first;
+        _edge_index[eid0].second = p;
+
+        p = oldPos(t[1].first);
+        _tail[p] = t[1].second;
+        _edge_index[eid1].first = p;
+
+        p = oldPos(t[1].second);
+        _tail[p] = t[1].first;
+        _edge_index[eid1].second = p;
+    }
+
+    return result;
 }
 
 IMGraph::IMEdgeStream IMGraph::getEdges() const {
-    return IMEdgeStream(_edges);
+    return IMEdgeStream(*this);
 }
 
 
