@@ -83,6 +83,7 @@ namespace LFR {
         _compute_node_distributions();
         _compute_community_size();
         _compute_community_assignments();
+        _generate_community_graphs();
     }
 
 }

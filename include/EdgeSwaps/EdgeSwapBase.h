@@ -4,6 +4,7 @@
 
 #include <sstream>
 #include <string>
+#include <stxxl/vector>
 
 class EdgeSwapBase {
 public:
