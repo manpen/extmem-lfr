@@ -60,7 +60,10 @@ namespace LFR {
 
             decltype(intra_edges)::bufreader_type edge_reader(intra_edges);
             while (!edge_reader.empty()) {
-                edgeSorter.push(*edge_reader);
+                edge_t e = {node_ids[edge_reader->first], node_ids[edge_reader->second]};
+                e.normalize();
+                edgeSorter.push(e);
+                ++edge_reader;
             }
         }
 
