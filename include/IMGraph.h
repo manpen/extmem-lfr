@@ -48,16 +48,14 @@ public:
     /**
      * Adds a new edge to the graph.
      *
-     * The edges must be ordered in ascending order by source node.
+     * The caller must ensure that the edge does not exist yet. The edge is added in both directions.
      *
      * @param e The edge to add
      */
     void addEdge(edge_t e) {
         _edges.emplace_back(e);
-        if (_first_edge.size() <= e.first) {
-            _first_edge.resize(e.first + 1, _edges.size() - 1);
-        }
-        _first_edge.back() = _edges.size();
+        _edges.push_back(edge_t {e.second, e.first});
+        _is_sorted = false;
     }
 
     /**

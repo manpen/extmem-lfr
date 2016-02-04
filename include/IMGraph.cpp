@@ -1,8 +1,6 @@
 #include <IMGraph.h>
 
-IMGraph::IMGraph() : _is_sorted(false) {
-    _first_edge.push_back(0);
-};
+IMGraph::IMGraph() : _is_sorted(false) {};
 
 
 void IMGraph::sort() {
