@@ -18,7 +18,7 @@ SwapResult IMGraph::swapEdges(const edgeid_t eid0, const edgeid_t eid1, bool dir
     const auto idx1 = _edge_index[eid1];
     SwapResult result;
 
-    edge_t e[2] = {{_tail[idx0.second], _tail[idx0.first]}, {_tail[idx1.second], _tail[idx0.first]}};
+    edge_t e[2] = {{_tail[idx0.second], _tail[idx0.first]}, {_tail[idx1.second], _tail[idx1.first]}};
     edge_t t[2];
     std::tie(t[0], t[1]) = _swap_edges(e[0], e[1], direction);
 
@@ -29,6 +29,9 @@ SwapResult IMGraph::swapEdges(const edgeid_t eid0, const edgeid_t eid1, bool dir
     if (t[0].first == t[0].second || t[1].first == t[1].second) {
         result.loop = true;
     } else { // check for conflict edges
+        result.loop = false;
+        result.conflictDetected[0] = false;
+        result.conflictDetected[1] = false;
         for (unsigned char pos = 0; pos < 2; ++pos) {
             node_t src = t[pos].first;
             for (edgeid_t i = _first_tail[src]; i < _first_tail[src+1]; ++i) {
@@ -71,6 +74,8 @@ SwapResult IMGraph::swapEdges(const edgeid_t eid0, const edgeid_t eid1, bool dir
         _tail[p] = t[1].first;
         _edge_index[eid1].second = p;
     }
+
+    result.normalize();
 
     return result;
 }
