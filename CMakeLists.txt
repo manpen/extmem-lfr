@@ -68,6 +68,7 @@ add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/EdgeVectorCache.cpp
     include/EdgeSwaps/EdgeSwapInternalSwaps.cpp
     include/EdgeSwaps/EdgeSwapTFP.cpp
+    include/EdgeSwaps/IMEdgeSwap.cpp
     include/HavelHakimi/HavelHakimiGenerator.cpp
     include/HavelHakimi/HavelHakimiGeneratorRLE.cpp
     include/LFR/LFR.cpp

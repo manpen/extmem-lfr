@@ -3,6 +3,7 @@
 #include <IMGraph.h>
 #include <stxxl/vector>
 #include <stxxl/sort>
+#include <GenericComparator.h>
 
 class IMGraphWrapper {
 private:
