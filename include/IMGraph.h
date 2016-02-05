@@ -17,7 +17,7 @@ private:
 
         void findNext() {
             for (; pos < _graph._head.size(); ++pos) {
-                while (pos == _graph._last_head[u]) {
+                while (pos == static_cast<size_t>(_graph._last_head[u])) {
                     ++u;
                     pos = _graph._first_head[u];
                 }
