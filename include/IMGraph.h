@@ -16,14 +16,14 @@ private:
         edge_t cur;
 
         void findNext() {
-            for (; pos < _graph._tail.size(); ++pos) {
-                while (pos == _graph._last_tail[u]) {
+            for (; pos < _graph._head.size(); ++pos) {
+                while (pos == _graph._last_head[u]) {
                     ++u;
-                    pos = _graph._first_tail[u];
+                    pos = _graph._first_head[u];
                 }
 
-                if (u <= _graph._tail[pos]) {
-                    cur = {u, _graph._tail[pos]};
+                if (u <= _graph._head[pos]) {
+                    cur = {u, _graph._head[pos]};
                     return;
                 }
             }
@@ -49,13 +49,13 @@ private:
         }
 
         bool empty() const {
-            return pos == _graph._tail.size();
+            return pos == _graph._head.size();
         };
 
     };
-    std::vector<node_t> _tail;
-    std::vector<edgeid_t> _first_tail;
-    std::vector<edgeid_t> _last_tail;
+    std::vector<node_t> _head;
+    std::vector<edgeid_t> _first_head;
+    std::vector<edgeid_t> _last_head;
     std::vector<std::pair<edgeid_t, edgeid_t>> _edge_index;
     stxxl::random_number64 _random_integer;
 public:
@@ -72,12 +72,12 @@ public:
      * @param e The edge to add
      */
     void addEdge(edge_t e) {
-        assert(_last_tail[e.first] < _first_tail[e.first+1] && _last_tail[e.second] < _first_tail[e.second+1]);
-        _tail[_last_tail[e.first]] = e.second;
-        _tail[_last_tail[e.second]] = e.first;
-        _edge_index.emplace_back(_last_tail[e.first], _last_tail[e.second]);
-        ++_last_tail[e.first];
-        ++_last_tail[e.second];
+        assert(_last_head[e.first] < _first_head[e.first+1] && _last_head[e.second] < _first_head[e.second+1]);
+        _head[_last_head[e.first]] = e.second;
+        _head[_last_head[e.second]] = e.first;
+        _edge_index.emplace_back(_last_head[e.first], _last_head[e.second]);
+        ++_last_head[e.first];
+        ++_last_head[e.second];
     }
 
     /**
@@ -97,7 +97,7 @@ public:
      */
     edge_t getEdge(edgeid_t eid) const {
         auto &idx = _edge_index[eid];
-        return {_tail[idx.second], _tail[idx.first]};
+        return {_head[idx.second], _head[idx.first]};
     }
 
     /**
