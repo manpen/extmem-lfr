@@ -521,7 +521,7 @@ namespace EdgeSwapTFP {
                 }
                 res.normalize();
 
-#ifdef EDGE_SWAP_DEBUG_INFO
+#ifdef EDGE_SWAP_DEBUG_VECTOR
                 debug_vector_writer << res;
 #endif
                 DEBUG_MSG(_display_debug, "Swap " << sid << " " << res);
