@@ -8,6 +8,7 @@
 #pragma once
 #include <defs.h>
 #include <cassert>
+#include <tuple>
 
 using swapid_t = int64_t;
 

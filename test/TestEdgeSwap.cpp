@@ -4,6 +4,7 @@
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
 #include <EdgeSwaps/EdgeSwapFullyInternal.h>
+#include <EdgeSwaps/IMEdgeSwap.h>
 
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
@@ -26,7 +27,8 @@ namespace {
    using TestEdgeSwapImplementations = ::testing::Types <
       EdgeSwapInternalSwaps,
       EdgeSwapTFP::EdgeSwapTFP,
-      EdgeSwapFullyInternal<EdgeVector, SwapVector>
+      EdgeSwapFullyInternal<EdgeVector, SwapVector>,
+      IMEdgeSwap
    >;
 
    TYPED_TEST_CASE(TestEdgeSwap, TestEdgeSwapImplementations);

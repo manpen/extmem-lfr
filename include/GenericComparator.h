@@ -18,6 +18,9 @@
  */
 #pragma once
 
+#include <limits>
+#include <utility>
+
 /**
  * @brief Generic comparator to be used in conjunction with STXXL's sorting.
  * @warning The template type T has be supported by the std::numeric_limits trait
@@ -35,8 +38,8 @@ struct GenericComparator{
    struct Descending {
       Descending() {}
       bool operator() (const T& a, const T& b) const {return a > b;}
-      T min_value() const {return std::numeric_limits<T>::min();}
-      T max_value() const {return std::numeric_limits<T>::max();}
+      T min_value() const {return std::numeric_limits<T>::max();}
+      T max_value() const {return std::numeric_limits<T>::min();}
    };
 };
 

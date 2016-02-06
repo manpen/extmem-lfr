@@ -16,6 +16,7 @@
 #include "SwapGenerator.h"
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/IMEdgeSwap.h>
 
 
 
@@ -31,6 +32,7 @@ struct RunConfig {
     bool internalMem;
     bool swapInternal;
     bool swapTFP;
+    bool swapIM;
     stxxl::uint64 swapsPerIteration;
     stxxl::uint64 numSwaps;
 
@@ -46,6 +48,8 @@ struct RunConfig {
         , showResDegrees(false)
         , internalMem(false)
         , swapInternal(false)
+        , swapTFP(false)
+        , swapIM(false)
         , swapsPerIteration(1024*1024)
         , numSwaps(numNodes)
     {
@@ -78,6 +82,7 @@ struct RunConfig {
 
         cp.add_flag  (CMDLINE_COMP('m', "swap-internal", swapInternal, "Perform edge swaps in internal memory"));
         cp.add_flag  (CMDLINE_COMP('e', "swap-tfp", swapTFP, "Perform edge swaps using TFP"));
+        cp.add_flag  (CMDLINE_COMP('f', "swap-fully-internal", swapIM, "Perform edge swaps using only internal memory"));
         cp.add_bytes  (CMDLINE_COMP('p', "swaps-per-iteration", swapsPerIteration, "Number of swaps per iteration"));
         cp.add_bytes  (CMDLINE_COMP('z', "num-swaps", numSwaps,   "Number of random swaps"));
 
@@ -149,7 +154,7 @@ void benchmark(RunConfig & config) {
         }            
     }
 
-    if (config.swapInternal || config.swapTFP) {
+    if (config.swapInternal || config.swapTFP || config.swapIM) {
         int_t m = edges.size();
 
         result_vector_type swapEdges(m);
@@ -189,6 +194,13 @@ void benchmark(RunConfig & config) {
             auto stat_start = stxxl::stats_data(*stats);
             EdgeSwapTFP::EdgeSwapTFP TFPSwaps(swapEdges, swaps);
             TFPSwaps.run(config.swapsPerIteration);
+            std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
+        }
+
+        if (config.swapIM) {
+            auto stat_start = stxxl::stats_data(*stats);
+            IMEdgeSwap IMSwaps(swapEdges, swaps);
+            IMSwaps.run();
             std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
     }
