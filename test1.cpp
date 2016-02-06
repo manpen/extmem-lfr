@@ -6,7 +6,7 @@
 #include <stack>
 #include <stxxl/vector>
 
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 #include <HavelHakimi/HavelHakimiGenerator.h>
 
 #include <DistributionCount.h>
@@ -107,11 +107,11 @@ void materialize(Generator& gen, Vector & edges, stxxl::stats * stats, stxxl::st
 void benchmark(RunConfig & config) {
     stxxl::stats * stats = stxxl::stats::get_instance();
     stxxl::stats_data stats_begin(*stats);
-    
-    PowerlawDegreeSequence degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
+
+    MonotonicPowerlawRandomStream<> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
 
     if (config.showInitDegrees) {
-        DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
+        DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
         
         for(; !dcount.empty(); ++dcount) {
             auto block = *dcount;
@@ -126,8 +126,8 @@ void benchmark(RunConfig & config) {
     result_vector_type edges;
     
     if (config.rle) {
-        DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
-        HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
+        DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
+        HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<>>> hhgenerator(dcount);
         materialize(hhgenerator, edges, stats, stats_begin);
         
     } else {

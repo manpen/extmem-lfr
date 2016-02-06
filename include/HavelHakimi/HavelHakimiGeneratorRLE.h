@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "defs.h"
@@ -7,8 +6,9 @@
 #include <stxxl/priority_queue>
 #include <stxxl/stack>
 #include <utility>
-#include <PowerlawDegreeSequence.h>
 #include <DistributionCount.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
+
 
 template <typename InputStream>
 class HavelHakimiGeneratorRLE {
@@ -230,4 +230,4 @@ public:
     };
 };
 
-extern template class HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>>;
+extern template class HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<>>>;

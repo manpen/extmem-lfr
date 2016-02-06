@@ -4,10 +4,10 @@
 
 #include <DistributionCount.h>
 #include <stxxl/stream>
-#include <PowerlawDegreeSequence.h>
 #include <defs.h>
-
 #include <gtest/gtest.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
+
 
 class TestDistributionCount : public ::testing::Test {
 };
@@ -32,7 +32,7 @@ TEST_F(TestDistributionCount, testSimpleCounting) {
 TEST_F(TestDistributionCount, testPowerlawCounting) {
     stxxl::set_seed(42);
     constexpr int_t numNodes = 10*1000*1000;
-    PowerlawDegreeSequence sequence(2, 100000-1, -2, numNodes);
+    MonotonicPowerlawRandomStream<false> sequence(2, 100000-1, -2, numNodes);
 
     // store degree sequence
     stxxl::vector<int_t> degrees(numNodes);

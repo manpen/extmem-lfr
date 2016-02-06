@@ -3,7 +3,7 @@
 #include <stxxl/vector>
 #include <stxxl/stream>
 
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 #include <DistributionCount.h>
 #include <HavelHakimi/HavelHakimiGeneratorRLE.h>
 
@@ -34,10 +34,10 @@ namespace {
       EdgeVector _generate_hh_graph(int_t number_of_nodes) const {
          EdgeVector edges;
 
-         PowerlawDegreeSequence degreeSequence(1, number_of_nodes / 3, -2.0, number_of_nodes);
+         MonotonicPowerlawRandomStream<> degreeSequence(1, number_of_nodes / 3, -2.0, number_of_nodes);
 
-         DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
-         HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
+         DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
+         HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<>>> hhgenerator(dcount);
 
          stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edgeSorter(GenericComparator<edge_t>::Ascending(), 128*IntScale::Mi);
          while (!hhgenerator.empty()) {

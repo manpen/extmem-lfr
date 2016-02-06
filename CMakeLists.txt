@@ -63,8 +63,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DEDGE_SWAP_DEBUG_VECTOR")
 
 file(GLOB LFR_SRCS include/LFR/LFR_*.cpp)
 add_library(libextmemgraphgen STATIC
-    include/RandomStream.cpp
-    include/PowerlawDegreeSequence.cpp
     include/EdgeSwaps/EdgeVectorCache.cpp
     include/EdgeSwaps/EdgeSwapInternalSwaps.cpp
     include/EdgeSwaps/EdgeSwapTFP.cpp

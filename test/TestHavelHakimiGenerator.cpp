@@ -5,7 +5,7 @@
 
 #include <stxxl/stream>
 #include <stxxl/vector>
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 #include <DegreeDistributionCheck.h>
 #include <HavelHakimi/HavelHakimiGenerator.h>
 #include <defs.h>
@@ -49,7 +49,7 @@ TEST_F(TestHavelHakimiGenerator, testClique) {
 TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
     stxxl::srandom_number32(42);
     constexpr int_t numNodes = 10 * IntScale::Mi;
-    PowerlawDegreeSequence sequence(2, 100000, -2, numNodes);
+    MonotonicPowerlawRandomStream<> sequence(2, 100000, -2, numNodes);
 
     // store degree sequence
     stxxl::vector<int_t> degrees(numNodes);

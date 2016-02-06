@@ -6,7 +6,7 @@
 #include <stack>
 #include <stxxl/vector>
 
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 
 #include <DistributionCount.h>
 #include <HavelHakimi/HavelHakimiGeneratorRLE.h>
@@ -108,13 +108,13 @@ void benchmark(RunConfig & config) {
     stxxl::stats * stats = stxxl::stats::get_instance();
     stxxl::stats_data stats_begin(*stats);
 
-    PowerlawDegreeSequence degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
+    MonotonicPowerlawRandomStream<> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
 
     // create edge list
     using result_vector_type = stxxl::VECTOR_GENERATOR<edge_t>::result;
     result_vector_type edges;
-    DistributionCount<PowerlawDegreeSequence> dcount(degreeSequence);
-    HavelHakimiGeneratorRLE<DistributionCount<PowerlawDegreeSequence>> hhgenerator(dcount);
+    DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
+    HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<>>> hhgenerator(dcount);
     materialize(hhgenerator, edges, stats, stats_begin);
 
     STXXL_VERBOSE0("Edge list generated");

@@ -4,7 +4,7 @@
 #include <stxxl/cmdline>
 
 #include <defs.h>
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 #include <LFR/LFR.h>
 
 class RunConfig {
@@ -36,8 +36,8 @@ public:
     double mixing;
     unsigned int randomSeed;
 
-    PowerlawDegreeSequence::Parameters node_distribution_param;
-    PowerlawDegreeSequence::Parameters community_distribution_param;
+    MonotonicPowerlawRandomStream<>::Parameters node_distribution_param;
+    MonotonicPowerlawRandomStream<>::Parameters community_distribution_param;
 
     RunConfig() :
         number_of_nodes      (100000),

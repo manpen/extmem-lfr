@@ -7,7 +7,7 @@
  */
 #include <gtest/gtest.h>
 
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 #include <defs.h>
 
 class TestPowerlawDegreeSequence : public ::testing::Test {};
@@ -22,12 +22,12 @@ TEST_F(TestPowerlawDegreeSequence, testNonDecreasing) {
     // repeat test 10 times -- each time with a different input size and different seed
     for(unsigned int i = 1; i <= 10; i++) {
         const int_t numNodes = IntScale::Mi * i;
-        const int_t minDeg = 2;
-        const int_t maxDeg = numNodes / 4;
+        const degree_t minDeg = 2;
+        const degree_t maxDeg = numNodes / 4;
+
+        MonotonicPowerlawRandomStream<true> sequence(minDeg, maxDeg, -2, numNodes);
         
-        PowerlawDegreeSequence sequence(minDeg, maxDeg, -2, numNodes);
-        
-        int_t last_value = std::numeric_limits<int_t>::min();
+        degree_t last_value = std::numeric_limits<degree_t>::min();
         
         // check every element of stream
         int_t numCounted = 0;

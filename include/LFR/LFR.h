@@ -5,7 +5,7 @@
 
 #include <thread>
 #include <SyncWorker.h>
-#include <PowerlawDegreeSequence.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 #include <stxxl/sorter>
 #include <stxxl/vector>
 
@@ -84,8 +84,8 @@ struct CommunityAssignment {
 
 class LFR {
 public:
-    using NodeDegreeDistribution = PowerlawDegreeSequence;
-    using CommunityDistribution = PowerlawDegreeSequence;
+    using NodeDegreeDistribution = MonotonicPowerlawRandomStream<>;
+    using CommunityDistribution = MonotonicPowerlawRandomStream<>;
 
 
 protected:
