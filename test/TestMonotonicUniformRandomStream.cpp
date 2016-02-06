@@ -20,6 +20,10 @@ TEST_P(TestMonotonicUniformRandomStream, basicProperties) {
         } else {
             ASSERT_GE(last_rv, *rs); // monotony
         }
+
+        ASSERT_LE(*rs, 1.0);
+        ASSERT_GE(*rs, 0.0);
+
         sum += *rs;
     }
 
