@@ -1,6 +1,6 @@
 enable_testing()
 
-file(GLOB SRCS *.cpp)
+file(GLOB SRCS Test*.cpp)
 if(LOCAL_TEST_RESTRICTION)
     message("WARNING GOING TO BUILD RESTRICTED TEST-CASES DUE DO CMakeLocal.cmake")
     SET(SRCS ${LOCAL_TEST_RESTRICTION})
@@ -15,4 +15,8 @@ target_link_libraries(testextmemgraphgen
     ${STXXL_LIBRARIES}
 )
 
+add_executable(testrandom main_random.cpp)
+target_link_libraries(testrandom ${STXXL_LIBRARIES})
+
 add_test(TestsInExtMemGraphGen testextmemgraphgen)
+add_test(TestsRandom testrandom)
