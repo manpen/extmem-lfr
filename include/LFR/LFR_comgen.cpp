@@ -51,7 +51,9 @@ namespace LFR {
                 swapAlgo.run();
 
                 for (auto it = graph.getEdges(); !it.empty(); ++it) {
-                    edgeSorter.push(*it);
+                    edge_t e = {node_ids[it->first], node_ids[it->second]};
+                    e.normalize();
+                    edgeSorter.push(e);
                 }
             } else {
                 stxxl::vector<edge_t> intra_edges(gen.maxEdges());
