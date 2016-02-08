@@ -144,11 +144,7 @@ void EdgeSwapInternalSwaps::loadEdgeExistenceInformation() {
     std::make_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
 }
 
-void EdgeSwapInternalSwaps::performSwaps(
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-    typename debug_vector::bufwriter_type &debug_vector_writer
-#endif
-) {
+void EdgeSwapInternalSwaps::performSwaps() {
     auto edge_existence_succ_it = _edge_existence_successors.begin();
     std::vector<edge_t> current_existence;
 #ifndef NDEBUG
@@ -210,7 +206,7 @@ void EdgeSwapInternalSwaps::performSwaps(
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
             result.normalize();
-            debug_vector_writer << result;
+            _debug_vector_writer << result;
 #endif
         }
 
@@ -264,11 +260,11 @@ void EdgeSwapInternalSwaps::performSwaps(
     }
 };
 
-void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typename swap_vector::bufreader_type &swapReader) {
+void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
     // stores load requests with information who requested the edge
     struct edge_swap_t {
         edgeid_t eid;
-        int_t sid;
+        uint_t sid;
         unsigned char spos;
 
         DECL_LEX_COMPARE(edge_swap_t, eid, sid, spos);
@@ -289,20 +285,16 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typena
     SEQPAR::sort(updated_edges.begin(), updated_edges.end());
     _edges_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
 
-    _current_swaps.clear();
-    _current_swaps.reserve(_num_swaps_per_iteration);
-
     _swap_has_successor[0].clear();
     _swap_has_successor[0].resize(_num_swaps_per_iteration);
     _swap_has_successor[1].clear();
     _swap_has_successor[1].resize(_num_swaps_per_iteration);
 
-    for (int_t i = 0; i < _num_swaps_per_iteration && !swapReader.empty(); ++i, ++swapReader) {
-        _current_swaps.emplace_back(*swapReader);
-        edgeLoadRequests.push_back(edge_swap_t {swapReader->edges()[0], i, 0});
-        edgeLoadRequests.push_back(edge_swap_t {swapReader->edges()[1], i, 1});
+    for (uint_t i = 0; i < _current_swaps.size(); ++i) {
+        const auto & swap = _current_swaps[i];
+        edgeLoadRequests.push_back(edge_swap_t {swap.edges()[0], i, 0});
+        edgeLoadRequests.push_back(edge_swap_t {swap.edges()[1], i, 1});
     }
-
 
     std::cout << "Requesting " << edgeLoadRequests.size() << " non-unique edges for internal swaps" << std::endl;
     SEQPAR::sort(edgeLoadRequests.begin(), edgeLoadRequests.end());
@@ -376,57 +368,45 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors(typena
     }
 };
 
-void EdgeSwapInternalSwaps::run() {
-    typename swap_vector::bufreader_type reader(_swaps);
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-    typename debug_vector::bufwriter_type debug_vector_writer(_result);
-#endif
 
+
+void EdgeSwapInternalSwaps::process_buffer() {
     bool show_stats = true;
+
+    if (_current_swaps.empty())
+        return;
 
     _start_stats(show_stats);
 
-    updateEdgesAndLoadSwapsWithEdgesAndSuccessors(reader);
+    updateEdgesAndLoadSwapsWithEdgesAndSuccessors();
 
     _report_stats("load swaps", show_stats);
 
-    while (!_current_swaps.empty()) {
-        // std::cout << "Identified " << _swap_successors.size() << " duplications of edge ids which need to be handled later." << std::endl;
+    simulateSwapsAndGenerateEdgeExistenceQuery();
 
-        simulateSwapsAndGenerateEdgeExistenceQuery();
+    _report_stats("swap simulation", show_stats);
 
-        _report_stats("swap simulation", show_stats);
+    std::cout << "Requesting " << _query_sorter.size() << " (possibly non-unique) possible conflict edges" << std::endl;
 
-        std::cout << "Requesting " << _query_sorter.size() << " (possibly non-unique) possible conflict edges" << std::endl;
+    loadEdgeExistenceInformation();
 
-        loadEdgeExistenceInformation();
+    _report_stats("load existence information", show_stats);
 
-        _report_stats("load existence information", show_stats);
+    std::cout << "Loaded " << _edge_existence_pq.size() << " existence values" << std::endl;
+    std::cout << "Values might be forwarded " << _edge_existence_successors.size() << " times" << std::endl;
 
-        std::cout << "Loaded " << _edge_existence_pq.size() << " existence values" << std::endl;
-        std::cout << "Values might be forwarded " << _edge_existence_successors.size() << " times" << std::endl;
+    std::cout << "Doing swaps" << std::endl;
 
-        std::cout << "Doing swaps" << std::endl;
+    // do swaps
+    performSwaps();
 
-        // do swaps
-        performSwaps(
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-            debug_vector_writer
-#endif
-        );
+    _report_stats("perform swaps", show_stats);
 
-        _report_stats("perform swaps", show_stats);
+    std::cout << "Capacity of internal edge existence PQ: " << _edge_existence_pq.capacity() << std::endl;
 
-        std::cout << "Capacity of internal edge existence PQ: " << _edge_existence_pq.capacity() << std::endl;
+    _report_stats("write back and load next swaps", show_stats);
+    std::cout << "Finished swap phase, writing back and loading edges" << std::endl;
 
-        // update edge vector
-        updateEdgesAndLoadSwapsWithEdgesAndSuccessors(reader);
-
-        _report_stats("write back and load next swaps", show_stats);
-        std::cout << "Finished swap phase, writing back and loading edges" << std::endl;
-    }
-
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-    debug_vector_writer.finish();
-#endif
+    _current_swaps.clear();
+    _current_swaps.reserve(_num_swaps_per_iteration);
 }

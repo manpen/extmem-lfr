@@ -15,6 +15,7 @@
 #include "SwapGenerator.h"
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
+#include <Utils/AsyncStream.h>
 
 
 struct RunConfig {
@@ -153,45 +154,29 @@ void benchmark(RunConfig & config) {
         STXXL_VERBOSE0("Edge list truncated to " << config.numEdges);
     }
 
-    // generate largest swap vector
-    stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps_orig(config.sweep_max);
-    {
-        SwapGenerator swapGen(config.sweep_max, edges.size());
-        auto endit =  stxxl::stream::materialize(swapGen, swaps_orig.begin());
-        STXXL_UNUSED(endit);
-        assert(static_cast<uint_t>(endit - swaps_orig.begin()) == config.sweep_max);
-        STXXL_VERBOSE("Swaps generated");
-    }
-
     unsigned int iter = 1;
-    for(uint_t num_swaps = config.sweep_min; 
+    SwapGenerator swapGen(config.sweep_max, edges.size());
+    for(uint_t num_swaps = config.sweep_min;
         num_swaps <= config.sweep_max; 
         num_swaps = static_cast<uint_t>(num_swaps * pow(10.0, 1.0 / config.sweep_steps_per_dec))
     ) {
         STXXL_VERBOSE0("Begin iteration " << iter++ << " with |num_swaps|=" << num_swaps);
 
-        stxxl::VECTOR_GENERATOR<SwapDescriptor>::result swaps(swaps_orig);
-        swaps.resize(num_swaps);
-
         STXXL_VERBOSE0("Swap vector updated");
-
         if (config.swapInternal) {
             result_vector_type medges(swapEdges);
             STXXL_VERBOSE0("Start Internal");
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapInternalSwaps internalSwaps(medges, swaps, config.swapsPerIteration);
+
+            EdgeSwapInternalSwaps internalSwaps(medges, config.swapsPerIteration);
+            SwapGenerator mySwapGen(swapGen);
+            AsyncStream<SwapGenerator>  astream(mySwapGen, true, config.swapsPerIteration, 2);
+
+            for(; !mySwapGen.empty(); astream.nextBuffer())
+                internalSwaps.swap_buffer(astream.readBuffer());
+
             internalSwaps.run();
             STXXL_VERBOSE0("Completed Internal Swaps" << (stxxl::stats_data(*stats) - stat_start));
-        }
-
-        if (config.swapTFP) {
-            result_vector_type medges(swapEdges);
-            STXXL_VERBOSE0("Start TFP");
-            auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapTFP::EdgeSwapTFP TFPSwaps(medges, swaps);
-            //TFPSwaps.setDisplayDebug(true);
-            TFPSwaps.run(config.swapsPerTFPIteration);
-            STXXL_VERBOSE0("Completed TFP" << (stxxl::stats_data(*stats) - stat_start));
         }
     }
 }

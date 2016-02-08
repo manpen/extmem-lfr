@@ -82,7 +82,7 @@ namespace {
    TYPED_TEST_CASE(TestEdgeSwapCross, TestEdgeSwapCrossImplementations);
 
    TYPED_TEST(TestEdgeSwapCross, againstFullyInternal) {
-      bool debug_this_test = true;
+      bool debug_this_test = false;
       using EdgeSwapAlgoUnderTest = TypeParam;
 
       auto edges = this->_generate_hh_graph(1000);
@@ -99,6 +99,11 @@ namespace {
       EdgeSwapAlgoUnderTest es_test(edges, swaps);
       es_test.setDisplayDebug(debug_this_test);
       es_ref.run();
+
+      if (EdgeSwapTrait<EdgeSwapAlgoUnderTest>::pushableSwaps()) {
+         for (auto &s : swaps)
+            es_test.push(s);
+      }
       es_test.run();
 
       auto & res_ref = es_ref.debugVector();

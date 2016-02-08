@@ -51,6 +51,12 @@ namespace {
 
       EdgeSwapAlgo algo(edge_list, swap_list);
       algo.setDisplayDebug(debug_this_test);
+
+      if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
+         for (auto &s : swap_list)
+            algo.push(s);
+      }
+
       algo.run();
 
       this->_print_list(edge_list, debug_this_test);
@@ -95,6 +101,12 @@ namespace {
 
       EdgeSwapAlgo algo(edge_list, swap_list);
       algo.setDisplayDebug(debug_this_test);
+
+      if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
+         for (auto &s : swap_list)
+            algo.push(s);
+      }
+
       algo.run();
 
       this->_print_list(edge_list, debug_this_test);
@@ -132,6 +144,13 @@ namespace {
 
       EdgeSwapAlgo algo(edge_list, swap_list);
       algo.setDisplayDebug(debug_this_test);
+
+      if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
+         for (auto &s : swap_list)
+            algo.push(s);
+      }
+
+
       algo.run();
 
       this->_print_list(edge_list, debug_this_test);
@@ -163,6 +182,11 @@ namespace {
 
        EdgeSwapAlgo algo(edge_list, swap_list);
        algo.setDisplayDebug(debug_this_test);
+
+       if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
+         for (auto &s : swap_list)
+            algo.push(s);
+       }
        algo.run();
 
        this->_print_list(edge_list, debug_this_test);

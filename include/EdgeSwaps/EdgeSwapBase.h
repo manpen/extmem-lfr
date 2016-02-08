@@ -94,6 +94,9 @@ public:
         _display_debug = v;
     }
 
+    void push(const swap_descriptor &) {abort();}
+    void swap_buffer(std::vector<swap_descriptor> &) {abort();}
+
 #ifdef EDGE_SWAP_DEBUG_VECTOR
     //! The i-th entry of this vector corresponds to the i-th
     //! swap provided to the constructor
@@ -102,3 +105,11 @@ public:
     }
 #endif
 };
+
+template <class T>
+struct EdgeSwapTrait {
+    static bool swapVector() {return true;}
+    static bool pushableSwaps() {return false;}
+    static bool pushableSwapBuffers() {return false;}
+};
+
