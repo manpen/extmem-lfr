@@ -16,7 +16,7 @@ namespace LFR {
         stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
         stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
 
-        for (community_t i = 0; i < static_cast<community_t>(_community_cumulative_sizes.size()); ++i) {
+        for (community_t i = 0; i < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++i) {
             node_t com_size = _community_cumulative_sizes[i+1] - _community_cumulative_sizes[i];
             // FIXME: implement this with EM vectors for large communities!
             node_ids.clear();
