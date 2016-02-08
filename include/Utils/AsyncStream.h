@@ -10,10 +10,12 @@
 
 template <typename StreamIn, typename T = typename StreamIn::value_type>
 class AsyncStream {
+public:
     using BufferType = std::vector<T>;
-    constexpr static unsigned int buffer_size = (1<<20) / sizeof(T);
 
+protected:
     std::vector<BufferType> _buffers;
+    const size_t _buffer_size;
     std::condition_variable _buffer_cv;
     std::mutex _buffer_mutex;
 
@@ -37,13 +39,12 @@ class AsyncStream {
     }
 
     void _producer_copy_to_buffers() {
-        _buffers.resize(buffer_size);
-
         while(1) {
             // fill buffer
             auto & buffer = _buffers[_producing_buffer_index];
-            buffer.reserve(buffer_size);
-            for(unsigned int i=0; i<buffer_size && !_producing_stream.empty(); ++i, ++_producing_stream) {
+            buffer.clear();
+            buffer.reserve(_buffer_size);
+            for(unsigned int i=0; i<_buffer_size && !_producing_stream.empty(); ++i, ++_producing_stream) {
                 buffer.push_back(*_producing_stream);
             }
 
@@ -87,11 +88,14 @@ class AsyncStream {
             return (_consume_buffer_index != _producing_buffer_index) || _producing_done;
         });
 
-        _consume_empty = (_consume_buffer_index == _producing_buffer_index);
         _consume_acquired = true;
 
         _consume_read_iterator = _buffers[_consume_buffer_index].begin();
         _consume_end_iterator  = _buffers[_consume_buffer_index].end();
+
+        _consume_empty =
+            (_consume_buffer_index == _producing_buffer_index) ||
+            _buffers[_consume_buffer_index].empty();
 
         _buffer_cv.notify_one();
     }
@@ -106,8 +110,12 @@ public:
      *                      a STXXL conform streaming interface. Slow!
      * @param number_of_buffers  Must be >2
      */
-    AsyncStream(StreamIn & stream, bool auto_acquire = true, unsigned int number_of_buffers = 3)
+    AsyncStream(StreamIn & stream,
+                bool auto_acquire = true,
+                unsigned int elements_in_buffer = (1<<20) / sizeof(T),
+                unsigned int number_of_buffers = 3)
         : _buffers(number_of_buffers)
+        , _buffer_size(elements_in_buffer)
 
         , _producing_stream(stream)
         , _producing_buffer_index(0)
@@ -166,5 +174,17 @@ public:
         }
 
         return *this;
+    }
+
+
+    BufferType & readBuffer() {
+        if (UNLIKELY(!_consume_acquired))
+            _consume_acquire_buffer();
+
+        return _buffers[_consume_buffer_index];
+    }
+
+    void nextBuffer() {
+        _consume_acquire_buffer();
     }
 };
