@@ -150,7 +150,7 @@ private:
             _prioQueue.pop();
 
             // we remove the first node from the block, so the block's index and size have to be adapted
-            _current_node = block.index--;
+            _current_node = --block.index;
             block.count--;
             
             _current_node_degree = block.value;
@@ -178,7 +178,7 @@ private:
             }
         }
         
-        _current_edge = {_current_node, _current_partner_node--};
+        _current_edge = {_current_node, --_current_partner_node};
         _current_node_degree--;
         _current_partner_block_nodes_left--;
         _edge_id++;
