@@ -90,5 +90,5 @@ public:
 
 template <typename T>
 inline std::ostream &operator<<(std::ostream &os, DistributionBlockDescriptor<T> const &m) {
-    return os << "{value: " << m.value << ", degree:" << m.count << ", index: " << m.index << "}";
+    return os << "{value: " << m.value << ", count:" << m.count << ", index: " << m.index << "}";
 }
