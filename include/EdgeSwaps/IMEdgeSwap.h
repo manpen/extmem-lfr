@@ -8,13 +8,35 @@ class IMEdgeSwap : public EdgeSwapBase {
 private:
     IMGraphWrapper *_graph_wrapper;
     IMGraph &_graph;
-    const swap_vector& _swaps;
+#ifdef EDGE_SWAP_DEBUG_VECTOR
+    typename debug_vector::bufwriter_type _debug_vector_writer;
+#endif
 public:
-    IMEdgeSwap(IMGraph &graph, const stxxl::vector<SwapDescriptor>& swaps);
+    IMEdgeSwap(IMGraph &graph, const stxxl::vector<SwapDescriptor>&);
+    IMEdgeSwap(IMGraph &graph);
 
-    IMEdgeSwap(stxxl::vector<edge_t> &edges, const stxxl::vector<SwapDescriptor>& swaps);
+    /**
+     * Initializes the IM edge swap implementation with the given edge vector that is converted into an internal memory graph.
+     *
+     * @param edges The given edge vector
+     * @param swaps IGNORED, use push() instead
+     */
+    IMEdgeSwap(stxxl::vector<edge_t> &edges, const stxxl::vector<SwapDescriptor>&);
+
+    IMEdgeSwap(stxxl::vector<edge_t> &edges);
 
     ~IMEdgeSwap();
 
+    //! Executes a single swap
+    void push(const swap_descriptor& swap);
+
+    //! Writes out changes into edge vector if given in constructor, otherwise does nothing.
     void run();
+};
+
+template <>
+struct EdgeSwapTrait<IMEdgeSwap> {
+    static bool swapVector() {return false;}
+    static bool pushableSwaps() {return true;}
+    static bool pushableSwapBuffers() {return false;}
 };
