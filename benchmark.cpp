@@ -172,7 +172,7 @@ void benchmark(RunConfig & config) {
             SwapGenerator mySwapGen(swapGen);
             AsyncStream<SwapGenerator>  astream(mySwapGen, true, config.swapsPerIteration, 2);
 
-            for(; !mySwapGen.empty(); astream.nextBuffer())
+            for(; !astream.empty(); astream.nextBuffer())
                 internalSwaps.swap_buffer(astream.readBuffer());
 
             internalSwaps.run();
