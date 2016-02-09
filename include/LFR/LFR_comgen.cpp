@@ -32,6 +32,8 @@ namespace LFR {
                 ++assignment_reader;
             }
 
+            if (com_size < 2) continue; // no edges to create
+
             auto node_deg_stream = stxxl::stream::streamify(node_degrees.begin(), node_degrees.end());
             DistributionCount<decltype(node_deg_stream)> dcount(node_deg_stream);
             HavelHakimiGeneratorRLE<decltype(dcount)> gen(dcount);
@@ -43,15 +45,17 @@ namespace LFR {
                     ++gen;
                 }
 
-                // Generate swaps
-                uint_t numSwaps = 10*graph.numEdges();
+                if (graph.numEdges() > 1) {
+                    // Generate swaps
+                    uint_t numSwaps = 10*graph.numEdges();
 
-                IMEdgeSwap swapAlgo(graph);
-                for (SwapGenerator swapGen(numSwaps, graph.numEdges()); !swapGen.empty(); ++swapGen) {
-                    swapAlgo.push(*swapGen);
+                    IMEdgeSwap swapAlgo(graph);
+                    for (SwapGenerator swapGen(numSwaps, graph.numEdges()); !swapGen.empty(); ++swapGen) {
+                        swapAlgo.push(*swapGen);
+                    }
+
+                    swapAlgo.run();
                 }
-
-                swapAlgo.run();
 
                 for (auto it = graph.getEdges(); !it.empty(); ++it) {
                     edge_t e = {node_ids[it->first], node_ids[it->second]};
