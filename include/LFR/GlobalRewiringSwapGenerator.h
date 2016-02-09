@@ -18,7 +18,17 @@ public:
         edgeid_t eid;
         community_t tail_community;
 
-        DECL_LEX_COMPARE(EdgeCommunity, head, eid)
+        DECL_LEX_COMPARE(EdgeCommunity, head, eid, tail_community)
+    };
+
+    struct EdgeCommunityPQComparator {
+        bool operator() (const EdgeCommunity &a, const EdgeCommunity &b) const {
+            return a > b;
+        };
+
+        EdgeCommunity min_value() const {
+            return {std::numeric_limits<node_t>::max(), std::numeric_limits<edgeid_t>::max(), std::numeric_limits<community_t>::max()};
+        };
     };
 private:
     stxxl::sorter<NodeCommunity, GenericComparatorStruct<NodeCommunity>::Ascending> _node_community_sorter;

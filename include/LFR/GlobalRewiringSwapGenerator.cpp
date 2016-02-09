@@ -21,9 +21,8 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
     edgeid_t eid = 0;
 
     std::vector<community_t> currentCommunities;
-    node_t u = 0;
 
-    using EdgeCommunityPQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<EdgeCommunity, GenericComparatorStruct<EdgeCommunity>::Ascending, PQ_INT_MEM, 1 << 20>::result;
+    using EdgeCommunityPQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<EdgeCommunity, EdgeCommunityPQComparator, PQ_INT_MEM, 1 << 20>::result;
     using EdgeCommunityPQBlock = typename EdgeCommunityPQ::block_type;
 
     // use pq in addition to _depchain_edge_sorter to pass messages between swaps
@@ -33,12 +32,13 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
     EdgeCommunityPQ edge_community_pq(pq_pool);
 
 
-    while (!_node_community_sorter.empty()) {
+    // for each node
+    for (node_t u = 0; !_node_community_sorter.empty(); ++u) {
         currentCommunities.clear();
-        // for each node
         // read all communities from sorter
         while (!_node_community_sorter.empty() && _node_community_sorter->node == u) {
             currentCommunities.push_back(_node_community_sorter->community);
+            ++_node_community_sorter;
         }
 
         // iterate over edges in currentEdges that start with that node
@@ -80,9 +80,9 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
                 }
             }
         }
-
-        ++u;
     }
+
+    _node_community_sorter.rewind();
 
     result_writer.finish();
 
