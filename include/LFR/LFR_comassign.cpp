@@ -54,7 +54,7 @@ namespace LFR {
                     }
                 }
 
-                assignments.push(CommunityAssignment(current_buffered_com->first, nid, intraDegree));
+                assignments.push(CommunityAssignment(current_buffered_com->first, intraDegree, nid));
                 --memberships_unsatisfied;
 
                 // remove buffered community if its full
