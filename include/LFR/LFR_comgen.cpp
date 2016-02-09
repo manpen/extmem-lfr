@@ -1,4 +1,5 @@
 #include "LFR.h"
+#include "GlobalRewiringSwapGenerator.h"
 #include <HavelHakimi/HavelHakimiGeneratorRLE.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <DistributionCount.h>
@@ -142,13 +143,34 @@ namespace LFR {
                 swapAlgo.run();
             }
 
+            {
+                GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, external_edges.size());
+                auto swaps = rewiringSwapGenerator.generate(external_edges);
+
+                while (!swaps.empty()) {
+                    STXXL_MSG("Executing global rewiring phase with " << swaps.size() << " swaps.");
+                    decltype(swaps)::bufreader_type swap_reader(swaps);
+
+                    EdgeSwapInternalSwaps swapAlgo(external_edges, external_edges.size()/3);
+                    AsyncStream<decltype(swap_reader)>  astream(swap_reader, true, external_edges.size()/3, 2);
+
+                    for(; !astream.empty(); astream.nextBuffer())
+                        swapAlgo.swap_buffer(astream.readBuffer());
+
+                    swapAlgo.run();
+
+                    swaps = rewiringSwapGenerator.generate(external_edges);
+                }
+            }
+
+
             decltype(external_edges)::bufreader_type ext_edge_reader(external_edges);
             edge_t curEdge = {-1, -1};
             decltype(_edges)::bufwriter_type edge_writer(_edges);
 
-            // FIXME this simply discards duplicates, add rewiring!
             while (!ext_edge_reader.empty() || !edgeSorter.empty()) {
                 if (ext_edge_reader.empty() || (!edgeSorter.empty() && *edgeSorter <= *ext_edge_reader)) {
+                    // FIXME this simply discards duplicates, add rewiring!
                     if (curEdge != *edgeSorter) {
                         curEdge = *edgeSorter;
                         edge_writer << curEdge;
@@ -159,7 +181,9 @@ namespace LFR {
                     if (curEdge != *ext_edge_reader) {
                         curEdge = *ext_edge_reader;
                         edge_writer << curEdge;
-                    }
+                    } else {
+                        assert(false && "Global edges should have been rewired to not to conflict with any internal edge!");
+                    };
 
                     ++ext_edge_reader;
                 }
