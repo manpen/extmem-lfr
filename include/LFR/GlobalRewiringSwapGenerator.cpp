@@ -65,12 +65,14 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
 
                 if (edge_community_pq.top().tail_community == com) {
                     // generate swap with random partner
-                    SwapDescriptor swap = {edge_community_pq.top().eid, static_cast<edgeid_t>(_random_integer(_num_edges)), _random_flag(2)};
-                    while (swap.edges()[0] == swap.edges()[1]) {
-                        swap.edges()[1] = _random_integer(_num_edges);
+                    edgeid_t eid0 = edge_community_pq.top().eid;
+                    edgeid_t eid1 = _random_integer(_num_edges);
+
+                    while (eid0 == eid1) {
+                        eid1 = _random_integer(_num_edges);
                     }
 
-                    result_writer << swap;
+                    result_writer << SwapDescriptor {eid0, eid1, _random_flag(2)};
 
                     while (!edge_community_pq.empty() && edge_community_pq.top().eid == curEdge) {
                         edge_community_pq.pop();
