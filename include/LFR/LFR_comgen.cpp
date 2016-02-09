@@ -7,6 +7,7 @@
 #include <stxxl/sorter>
 #include <IMGraph.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
+#include <Utils/AsyncStream.h>
 
 namespace LFR {
     void LFR::_generate_community_graphs() {
@@ -43,11 +44,12 @@ namespace LFR {
 
                 // Generate swaps
                 uint_t numSwaps = 10*graph.numEdges();
-                SwapGenerator swapGen(numSwaps, graph.numEdges());
-                stxxl::vector<SwapDescriptor> swaps(numSwaps);
-                stxxl::stream::materialize(swapGen, swaps.begin());
 
-                IMEdgeSwap swapAlgo(graph, swaps);
+                IMEdgeSwap swapAlgo(graph);
+                for (SwapGenerator swapGen(numSwaps, graph.numEdges()); !swapGen.empty(); ++swapGen) {
+                    swapAlgo.push(*swapGen);
+                }
+
                 swapAlgo.run();
 
                 for (auto it = graph.getEdges(); !it.empty(); ++it) {
@@ -126,14 +128,19 @@ namespace LFR {
 
             external_edges.resize(endIt - external_edges.begin());
 
-            // Generate swaps
-            uint_t numSwaps = 10*external_edges.size();
-            SwapGenerator swapGen(numSwaps, external_edges.size());
-            stxxl::vector<SwapDescriptor> swaps(numSwaps);
-            stxxl::stream::materialize(swapGen, swaps.begin());
-            // perform swaps
-            EdgeSwapInternalSwaps swapAlgo(external_edges, swaps, external_edges.size()/3);
-            swapAlgo.run();
+            {
+                // Generate swaps
+                uint_t numSwaps = 10*external_edges.size();
+                SwapGenerator swapGen(numSwaps, external_edges.size());
+
+                // perform swaps
+                EdgeSwapInternalSwaps swapAlgo(external_edges, external_edges.size()/3);
+                AsyncStream<SwapGenerator>  astream(swapGen, true, external_edges.size()/3, 2);
+
+                for(; !astream.empty(); astream.nextBuffer())
+                    swapAlgo.swap_buffer(astream.readBuffer());
+                swapAlgo.run();
+            }
 
             decltype(external_edges)::bufreader_type ext_edge_reader(external_edges);
             edge_t curEdge = {-1, -1};
