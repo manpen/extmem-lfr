@@ -23,7 +23,6 @@ protected:
     StreamIn &  _producing_stream;
     uint32_t _producing_buffer_index;
     bool _producing_done;
-    bool _producing_buffer_avail;
     // consumer port
     uint32_t _consume_buffer_index;
 
@@ -31,6 +30,7 @@ protected:
     typename BufferType::const_iterator _consume_end_iterator;
     bool _consume_acquired;
     bool _consume_empty;
+    bool _consume_empty_when_consumed;
     bool _consume_done;
 
     std::thread _producing_thread;
@@ -81,7 +81,7 @@ protected:
 
         if (_consume_acquired) {
             // underfull buffers are only allowed, if the input stream ended
-            if (_buffers[_consume_buffer_index].size() < _buffer_size) {
+            if (_consume_empty_when_consumed) {
                 _consume_empty = true;
                 _consume_done = true;
                 return;
@@ -106,6 +106,8 @@ protected:
         _consume_end_iterator  = _buffers[_consume_buffer_index].end();
 
         _consume_empty = _buffers[_consume_buffer_index].empty();
+        _consume_empty_when_consumed = _buffers[_consume_buffer_index].size() < _buffer_size;
+
 
         _buffer_cv.notify_one();
     }
@@ -130,11 +132,11 @@ public:
         , _producing_stream(stream)
         , _producing_buffer_index(0)
         , _producing_done(false)
-        , _producing_buffer_avail(false)
 
         , _consume_buffer_index(0)
         , _consume_acquired(false)
         , _consume_empty(false)
+        , _consume_empty_when_consumed(false)
         , _consume_done(false)
 
         , _producing_thread(_producer_main, this)
