@@ -107,6 +107,7 @@ namespace LFR {
         edgeSorter.sort();
 
         {
+            // TODO if we assume that the maximum degree fits in RAM, the distribution counting could be done using bucket sort in IM.
             stxxl::sorter<degree_t, GenericComparator<degree_t>::Descending> extDegree(GenericComparator<degree_t>::Descending(), SORTER_MEM);
             _node_sorter.rewind();
             while (!_node_sorter.empty()) {
