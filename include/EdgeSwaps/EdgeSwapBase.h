@@ -24,6 +24,13 @@ protected:
     bool _display_debug;
 
     std::pair<edge_t, edge_t> _swap_edges(const edge_t & e0, const edge_t & e1, bool direction) const {
+        /* Equivalent to
+        edge_t t0(e0), t1(e1);
+        if (!direction) std::swap(t0.first, t0.second);
+        std::swap(t0.first, t1.first);
+        t0.normalize();
+        t1.normalize();
+        */
         edge_t t0, t1;
         if (direction) {
             if (e0.second < e1.first) {
