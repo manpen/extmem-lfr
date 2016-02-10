@@ -2,7 +2,7 @@
 #include <stxxl/priority_queue>
 
 GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LFR::CommunityAssignment > &communityAssignment, edgeid_t numEdges)
-    : _node_community_sorter(GenericComparatorStruct<NodeCommunity>::Ascending(), SORTER_MEM), _num_edges(numEdges) {
+    : _node_community_sorter(GenericComparatorStruct<NodeCommunity>::Ascending(), SORTER_MEM), _edge_community_sorter(GenericComparatorStruct<EdgeCommunity>::Ascending(), SORTER_MEM), _num_edges(numEdges) {
 
     stxxl::vector<LFR::CommunityAssignment>::bufreader_type communityReader(communityAssignment);
 
@@ -22,15 +22,7 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
 
     std::vector<community_t> currentCommunities;
 
-    using EdgeCommunityPQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<EdgeCommunity, EdgeCommunityPQComparator, PQ_INT_MEM, 1 << 20>::result;
-    using EdgeCommunityPQBlock = typename EdgeCommunityPQ::block_type;
-
     // use pq in addition to _depchain_edge_sorter to pass messages between swaps
-    stxxl::read_write_pool<EdgeCommunityPQBlock>
-            pq_pool(PQ_POOL_MEM / 2 / EdgeCommunityPQBlock::raw_size,
-                    PQ_POOL_MEM / 2 / EdgeCommunityPQBlock::raw_size);
-    EdgeCommunityPQ edge_community_pq(pq_pool);
-
 
     // for each node
     for (node_t u = 0; !_node_community_sorter.empty(); ++u) {
@@ -45,27 +37,41 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
         while (!edgeReader.empty() && edgeReader->first == u) {
             for (auto com : currentCommunities) {
                 // push reverse edge with community and edge id in PQ
-                edge_community_pq.push(EdgeCommunity {edgeReader->second, eid, com});
+                _edge_community_sorter.push(EdgeCommunity {edgeReader->second, eid, com});
             }
             ++edgeReader;
             ++eid;
         }
 
+    }
+
+    _edge_community_sorter.sort();
+    _node_community_sorter.rewind();
+
+    // for each node
+    for (node_t u = 0; !_node_community_sorter.empty(); ++u) {
+        currentCommunities.clear();
+        // read all communities from sorter
+        while (!_node_community_sorter.empty() && _node_community_sorter->node == u) {
+            currentCommunities.push_back(_node_community_sorter->community);
+            ++_node_community_sorter;
+        }
+
         // read from PQ all edges from current node
-        while (!edge_community_pq.empty() && edge_community_pq.top().head == u) {
+        while (!_edge_community_sorter.empty() && _edge_community_sorter->head == u) {
             // check if any of their annotated communities are also in current edge, if yes: generate swap with random partner
-            edgeid_t curEdge = edge_community_pq.top().eid;
+            edgeid_t curEdge = _edge_community_sorter->eid;
 
             for (auto com : currentCommunities) {
-                while (!edge_community_pq.empty() && edge_community_pq.top().eid == curEdge && edge_community_pq.top().tail_community < com) {
-                    edge_community_pq.pop();
+                while (!_edge_community_sorter.empty() && _edge_community_sorter->eid == curEdge && _edge_community_sorter->tail_community < com) {
+                    ++_edge_community_sorter;
                 }
 
-                if (edge_community_pq.empty() || edge_community_pq.top().eid != curEdge) break;
+                if (_edge_community_sorter.empty() || _edge_community_sorter->eid != curEdge) break;
 
-                if (edge_community_pq.top().tail_community == com) {
+                if (_edge_community_sorter->tail_community == com) {
                     // generate swap with random partner
-                    edgeid_t eid0 = edge_community_pq.top().eid;
+                    edgeid_t eid0 = _edge_community_sorter->eid;
                     edgeid_t eid1 = _random_integer(_num_edges);
 
                     while (eid0 == eid1) {
@@ -74,8 +80,8 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
 
                     result_writer << SwapDescriptor {eid0, eid1, _random_flag(2)};
 
-                    while (!edge_community_pq.empty() && edge_community_pq.top().eid == curEdge) {
-                        edge_community_pq.pop();
+                    while (!_edge_community_sorter.empty() && _edge_community_sorter->eid == curEdge) {
+                        ++_edge_community_sorter;
                     }
 
                     break;
@@ -85,6 +91,7 @@ stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxx
     }
 
     _node_community_sorter.rewind();
+    _edge_community_sorter.clear();
 
     result_writer.finish();
 
