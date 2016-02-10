@@ -1,5 +1,6 @@
 #include "LFR.h"
 #include "GlobalRewiringSwapGenerator.h"
+#include <HavelHakimi/HavelHakimiGenerator.h>
 #include <HavelHakimi/HavelHakimiGeneratorRLE.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <DistributionCount.h>
@@ -35,8 +36,10 @@ namespace LFR {
             if (com_size < 2) continue; // no edges to create
 
             auto node_deg_stream = stxxl::stream::streamify(node_degrees.begin(), node_degrees.end());
-            DistributionCount<decltype(node_deg_stream)> dcount(node_deg_stream);
-            HavelHakimiGeneratorRLE<decltype(dcount)> gen(dcount);
+
+            HavelHakimiPrioQueueInt prio_queue;
+            std::stack<HavelHakimiNodeDegree> stack;
+            HavelHakimiGenerator<HavelHakimiPrioQueueInt, std::stack<HavelHakimiNodeDegree>> gen{prio_queue, stack, node_deg_stream};
 
             if (gen.maxEdges() < 1 * IntScale::M) { // TODO: make limit configurable!
                 IMGraph graph(node_degrees);
