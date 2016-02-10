@@ -275,23 +275,23 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
 
     // load edge endpoints for edges in the swap set
     std::vector<edge_swap_t> edgeLoadRequests;
-    edgeLoadRequests.reserve(_num_swaps_per_iteration * 2);
+    edgeLoadRequests.reserve(_current_swaps.size() * 2);
 
     // copy old edge ids for writing back
     std::vector<edgeid_t> old_edge_ids;
     old_edge_ids.swap(_edge_ids_in_current_swaps);
-    _edge_ids_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
+    _edge_ids_in_current_swaps.reserve(_current_swaps.size() * 2);
 
     // copy updated edges for writing back
     std::vector<edge_t> updated_edges;
     updated_edges.swap(_edges_in_current_swaps);
     SEQPAR::sort(updated_edges.begin(), updated_edges.end());
-    _edges_in_current_swaps.reserve(_num_swaps_per_iteration * 2);
+    _edges_in_current_swaps.reserve(_current_swaps.size() * 2);
 
     _swap_has_successor[0].clear();
-    _swap_has_successor[0].resize(_num_swaps_per_iteration);
+    _swap_has_successor[0].resize(_current_swaps.size());
     _swap_has_successor[1].clear();
-    _swap_has_successor[1].resize(_num_swaps_per_iteration);
+    _swap_has_successor[1].resize(_current_swaps.size());
 
     for (uint_t i = 0; i < _current_swaps.size(); ++i) {
         const auto & swap = _current_swaps[i];
