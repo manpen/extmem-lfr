@@ -30,7 +30,10 @@ public:
     //! Executes a single swap
     void push(const swap_descriptor& swap);
 
-    //! Writes out changes into edge vector if given in constructor, otherwise does nothing.
+    //! Writes out changes into edge vector if given in constructor, otherwise does nothing. Further swaps can still be given aftwards.
+    void flush();
+
+    //! Writes out changes into edge vector if given in constructor; finishes writing the debug vector when enabled.
     void run();
 };
 
