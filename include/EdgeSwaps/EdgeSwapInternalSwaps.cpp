@@ -270,6 +270,9 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
         DECL_LEX_COMPARE(edge_swap_t, eid, sid, spos);
     };
 
+    // if we have no swaps to load and no edges to write back, do nothing (might happen by calling flush several times)
+    if (_current_swaps.empty() && _edge_ids_in_current_swaps.empty()) return;
+
     // load edge endpoints for edges in the swap set
     std::vector<edge_swap_t> edgeLoadRequests;
     edgeLoadRequests.reserve(_num_swaps_per_iteration * 2);
