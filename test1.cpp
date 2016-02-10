@@ -185,7 +185,11 @@ void benchmark(RunConfig & config) {
 
         if (config.swapInternal) {
             auto stat_start = stxxl::stats_data(*stats);
-            EdgeSwapInternalSwaps internalSwaps(swapEdges, swaps, config.swapsPerIteration);
+            EdgeSwapInternalSwaps internalSwaps(swapEdges, config.swapsPerIteration);
+
+            for (decltype(swaps)::bufreader_type swap_reader(swaps); !swap_reader.empty(); ++swap_reader) {
+                internalSwaps.push(*swap_reader);
+            }
             internalSwaps.run();
             std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
@@ -199,7 +203,10 @@ void benchmark(RunConfig & config) {
 
         if (config.swapIM) {
             auto stat_start = stxxl::stats_data(*stats);
-            IMEdgeSwap IMSwaps(swapEdges, swaps);
+            IMEdgeSwap IMSwaps(swapEdges);
+            for (decltype(swaps)::bufreader_type swap_reader(swaps); !swap_reader.empty(); ++swap_reader) {
+                IMSwaps.push(*swap_reader);
+            }
             IMSwaps.run();
             std::cout << (stxxl::stats_data(*stats) - stat_start) << std::endl;
         }
