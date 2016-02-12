@@ -112,15 +112,20 @@ public:
         _current_swaps.swap(buffer);
     }
 
-    //! Processes buffered swaps and writes out changes
-    void run() {
+    //! Processes buffered swaps and writes out changes; further swaps can still be supplied afterwards.
+    void flush() {
         if (!_current_swaps.empty())
             process_buffer();
 
         updateEdgesAndLoadSwapsWithEdgesAndSuccessors();
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-        _debug_vector_writer.finish();
-#endif
+    };
+
+    //! Processes buffered swaps and writes out changes; no more swaps can be supplied afterwards.
+    void run() {
+        flush();
+        #ifdef EDGE_SWAP_DEBUG_VECTOR
+                _debug_vector_writer.finish();
+        #endif
     }
 };
 

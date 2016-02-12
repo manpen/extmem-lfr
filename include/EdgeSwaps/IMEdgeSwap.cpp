@@ -37,10 +37,15 @@ void IMEdgeSwap::push(const EdgeSwapBase::swap_descriptor &swap) {
 
 }
 
-void IMEdgeSwap::run() {
+void IMEdgeSwap::flush() {
     if (_graph_wrapper != 0) {
         _graph_wrapper->updateEdges();
     }
+}
+
+
+void IMEdgeSwap::run() {
+    flush();
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
         _debug_vector_writer.finish();

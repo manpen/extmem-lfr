@@ -1,5 +1,6 @@
 #include "LFR.h"
 #include "GlobalRewiringSwapGenerator.h"
+#include <HavelHakimi/HavelHakimiGenerator.h>
 #include <HavelHakimi/HavelHakimiGeneratorRLE.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <DistributionCount.h>
@@ -35,8 +36,10 @@ namespace LFR {
             if (com_size < 2) continue; // no edges to create
 
             auto node_deg_stream = stxxl::stream::streamify(node_degrees.begin(), node_degrees.end());
-            DistributionCount<decltype(node_deg_stream)> dcount(node_deg_stream);
-            HavelHakimiGeneratorRLE<decltype(dcount)> gen(dcount);
+
+            HavelHakimiPrioQueueInt prio_queue;
+            std::stack<HavelHakimiNodeDegree> stack;
+            HavelHakimiGenerator<HavelHakimiPrioQueueInt, std::stack<HavelHakimiNodeDegree>> gen{prio_queue, stack, node_deg_stream};
 
             if (gen.maxEdges() < 1 * IntScale::M) { // TODO: make limit configurable!
                 IMGraph graph(node_degrees);
@@ -104,6 +107,7 @@ namespace LFR {
         edgeSorter.sort();
 
         {
+            // TODO if we assume that the maximum degree fits in RAM, the distribution counting could be done using bucket sort in IM.
             stxxl::sorter<degree_t, GenericComparator<degree_t>::Descending> extDegree(GenericComparator<degree_t>::Descending(), SORTER_MEM);
             _node_sorter.rewind();
             while (!_node_sorter.empty()) {
@@ -133,18 +137,19 @@ namespace LFR {
 
             external_edges.resize(endIt - external_edges.begin());
 
+            EdgeSwapInternalSwaps swapAlgo(external_edges, external_edges.size()/3);
+
             {
                 // Generate swaps
                 uint_t numSwaps = 10*external_edges.size();
                 SwapGenerator swapGen(numSwaps, external_edges.size());
 
                 // perform swaps
-                EdgeSwapInternalSwaps swapAlgo(external_edges, external_edges.size()/3);
-                AsyncStream<SwapGenerator>  astream(swapGen, true, external_edges.size()/3, 2);
+                AsyncStream<SwapGenerator> astream(swapGen, true, external_edges.size()/3, 2);
 
                 for(; !astream.empty(); astream.nextBuffer())
                     swapAlgo.swap_buffer(astream.readBuffer());
-                swapAlgo.run();
+                swapAlgo.flush();
             }
 
             {
@@ -155,18 +160,18 @@ namespace LFR {
                     STXXL_MSG("Executing global rewiring phase with " << swaps.size() << " swaps.");
                     decltype(swaps)::bufreader_type swap_reader(swaps);
 
-                    EdgeSwapInternalSwaps swapAlgo(external_edges, external_edges.size()/3);
                     AsyncStream<decltype(swap_reader)>  astream(swap_reader, true, external_edges.size()/3, 2);
 
                     for(; !astream.empty(); astream.nextBuffer())
                         swapAlgo.swap_buffer(astream.readBuffer());
 
-                    swapAlgo.run();
+                    swapAlgo.flush();
 
                     swaps = rewiringSwapGenerator.generate(external_edges);
                 }
             }
 
+            swapAlgo.run();
 
             decltype(external_edges)::bufreader_type ext_edge_reader(external_edges);
             edge_t curEdge = {-1, -1};
