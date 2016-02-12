@@ -114,8 +114,9 @@ void benchmark(RunConfig & config) {
     // create edge list
     using result_vector_type = stxxl::VECTOR_GENERATOR<edge_t>::result;
     result_vector_type edges;
-    DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
-    HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<>>> hhgenerator(dcount);
+    AsyncStream<MonotonicPowerlawRandomStream<>> asyncDegree(degreeSequence, true);
+    DistributionCount<decltype(asyncDegree)> dcount(asyncDegree);
+    HavelHakimiGeneratorRLE<decltype(dcount)> hhgenerator(dcount);
     materialize(hhgenerator, edges, stats, stats_begin);
 
     STXXL_VERBOSE0("Edge list generated");
