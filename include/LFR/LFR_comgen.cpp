@@ -137,7 +137,9 @@ namespace LFR {
 
             external_edges.resize(endIt - external_edges.begin());
 
-            EdgeSwapInternalSwaps swapAlgo(external_edges, external_edges.size()/3);
+            int_t swapsPerIteration = external_edges.size()/3;
+
+            EdgeSwapInternalSwaps swapAlgo(external_edges, swapsPerIteration);
 
             {
                 // Generate swaps
@@ -145,7 +147,7 @@ namespace LFR {
                 SwapGenerator swapGen(numSwaps, external_edges.size());
 
                 // perform swaps
-                AsyncStream<SwapGenerator> astream(swapGen, true, external_edges.size()/3, 2);
+                AsyncStream<SwapGenerator> astream(swapGen, true, swapsPerIteration, 2);
 
                 for(; !astream.empty(); astream.nextBuffer())
                     swapAlgo.swap_buffer(astream.readBuffer());
@@ -154,20 +156,26 @@ namespace LFR {
 
             {
                 GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, external_edges.size());
-                auto swaps = rewiringSwapGenerator.generate(external_edges);
+                rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(external_edges));
+                rewiringSwapGenerator.generate();
 
-                while (!swaps.empty()) {
-                    STXXL_MSG("Executing global rewiring phase with " << swaps.size() << " swaps.");
-                    decltype(swaps)::bufreader_type swap_reader(swaps);
+                while (!rewiringSwapGenerator.empty()) {
+                    int_t numSwaps = 0;
+                    // Execute only a single round of swaps, otherwise the supplied edges might not exist anymore!
+                    while (!rewiringSwapGenerator.empty() && numSwaps < swapsPerIteration) {
+                        swapAlgo.push(*rewiringSwapGenerator);
+                        ++numSwaps;
+                        ++rewiringSwapGenerator;
+                    }
 
-                    AsyncStream<decltype(swap_reader)>  astream(swap_reader, true, external_edges.size()/3, 2);
+                    if (numSwaps > 0) {
+                        STXXL_MSG("Executing global rewiring phase with " << numSwaps << " swaps.");
 
-                    for(; !astream.empty(); astream.nextBuffer())
-                        swapAlgo.swap_buffer(astream.readBuffer());
+                        swapAlgo.flush();
 
-                    swapAlgo.flush();
-
-                    swaps = rewiringSwapGenerator.generate(external_edges);
+                        rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(external_edges));
+                        rewiringSwapGenerator.generate();
+                    }
                 }
             }
 

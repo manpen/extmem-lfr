@@ -14,87 +14,59 @@ GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LF
     _node_community_sorter.sort();
 }
 
-stxxl::vector< SwapDescriptor > GlobalRewiringSwapGenerator::generate(const stxxl::vector< edge_t > &currentEdges) {
-    stxxl::vector<SwapDescriptor> result;
-    decltype(result)::bufwriter_type result_writer(result);
-    stxxl::vector<edge_t>::bufreader_type edgeReader(currentEdges);
-    edgeid_t eid = 0;
-
-    std::vector<community_t> currentCommunities;
-
-    // use pq in addition to _depchain_edge_sorter to pass messages between swaps
-
-    // for each node
-    for (node_t u = 0; !_node_community_sorter.empty(); ++u) {
-        currentCommunities.clear();
-        // read all communities from sorter
-        while (!_node_community_sorter.empty() && _node_community_sorter->node == u) {
-            currentCommunities.push_back(_node_community_sorter->community);
-            ++_node_community_sorter;
-        }
-
-        // iterate over edges in currentEdges that start with that node
-        while (!edgeReader.empty() && edgeReader->first == u) {
-            for (auto com : currentCommunities) {
-                // push reverse edge with community and edge id in PQ
-                _edge_community_sorter.push(EdgeCommunity {edgeReader->second, eid, com});
-            }
-            ++edgeReader;
-            ++eid;
-        }
-
-    }
-
+void GlobalRewiringSwapGenerator::generate() {
     _edge_community_sorter.sort();
     _node_community_sorter.rewind();
+    _current_node = 0;
+    _empty = false;
 
-    // for each node
-    for (node_t u = 0; !_node_community_sorter.empty(); ++u) {
-        currentCommunities.clear();
-        // read all communities from sorter
-        while (!_node_community_sorter.empty() && _node_community_sorter->node == u) {
-            currentCommunities.push_back(_node_community_sorter->community);
+    operator++();
+}
+
+GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
+    while (!_edge_community_sorter.empty()) {
+        while (!_node_community_sorter.empty() && _node_community_sorter->node == _current_node) {
+            _current_communities.push_back(_node_community_sorter->community);
             ++_node_community_sorter;
         }
 
-        // read from PQ all edges from current node
-        while (!_edge_community_sorter.empty() && _edge_community_sorter->head == u) {
+        // read from sorter all edges from current node
+        while (!_edge_community_sorter.empty() && _edge_community_sorter->head == _current_node) {
             // check if any of their annotated communities are also in current edge, if yes: generate swap with random partner
-            edgeid_t curEdge = _edge_community_sorter->eid;
+            const node_t curTail = _edge_community_sorter->tail;
+            const node_t curHead = _edge_community_sorter->head;
 
-            for (auto com : currentCommunities) {
-                while (!_edge_community_sorter.empty() && _edge_community_sorter->eid == curEdge && _edge_community_sorter->tail_community < com) {
+            auto edgeComIsCurrentEdge = [&]() {
+                return (_edge_community_sorter->tail == curTail && _edge_community_sorter->head == curHead);
+            };
+
+            for (auto com : _current_communities) {
+                while (!_edge_community_sorter.empty() && edgeComIsCurrentEdge() && _edge_community_sorter->tail_community < com) {
                     ++_edge_community_sorter;
                 }
 
-                if (_edge_community_sorter.empty() || _edge_community_sorter->eid != curEdge) break;
+                if (_edge_community_sorter.empty() || !edgeComIsCurrentEdge()) break;
 
                 if (_edge_community_sorter->tail_community == com) {
                     // generate swap with random partner
-                    edgeid_t eid0 = _edge_community_sorter->eid;
                     edgeid_t eid1 = _random_integer(_num_edges);
 
-                    while (eid0 == eid1) {
-                        eid1 = _random_integer(_num_edges);
-                    }
+                    _swap = SemiLoadedSwapDescriptor {edge_t {_edge_community_sorter->tail, _edge_community_sorter->head}, eid1, _random_flag(2)};
 
-                    result_writer << SwapDescriptor {eid0, eid1, _random_flag(2)};
-
-                    while (!_edge_community_sorter.empty() && _edge_community_sorter->eid == curEdge) {
+                    while (!_edge_community_sorter.empty() && edgeComIsCurrentEdge()) {
                         ++_edge_community_sorter;
                     }
 
-                    break;
+                    return *this;
                 }
             }
         }
+
+        ++_current_node;
+        _current_communities.clear();
     }
 
-    _node_community_sorter.rewind();
-    _edge_community_sorter.clear();
+    _empty = true;
 
-    result_writer.finish();
-
-    return result;
+    return *this;
 }
-
