@@ -37,13 +37,14 @@ public:
     /**
      * Add edges that shall be checked for conflicts by providing an STXXL stream interface to the edges.
      * The edges must be normalized and sorted in ascending order.
-     * If not all swaps have been processed, the remaining problematic edges are merged with the given edges.
+     * When used while the stream of generated swaps is not empty no further swaps can be requested.
+     * @todo Change behavior to: Edges can also be pushed when the stream of generated swaps is not empty. Pushing edges does not affect the state of the swap stream. New swaps will only be available after generate() has been called.
      *
      * @param edgeIterator the iterator of the edges.
      */
     template <typename Iterator>
     void pushEdges(Iterator &&edgeIterator) {
-        // TODO: before using _edge_community_sorter, make sure it is empty by removing and then merging the remaining edges.
+        // FIXME: Make it possible to use pushEdges() while the stream is non-empty, probably by using two _edge_community_sorters and storing the result of _node_community_sorter in a vector.
         _edge_community_sorter.clear();
         _node_community_sorter.rewind();
 

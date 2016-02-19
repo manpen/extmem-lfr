@@ -161,8 +161,10 @@ namespace LFR {
 
                 while (!rewiringSwapGenerator.empty()) {
                     int_t numSwaps = 0;
-                    // Execute only a single round of swaps, otherwise the supplied edges might not exist anymore!
-                    while (!rewiringSwapGenerator.empty() && numSwaps < swapsPerIteration) {
+                    // Execute all generated swaps. Some edges might not exist in the second round anymore.
+                    // Then these edges have been part of a swap already so they might not be a problem anymore.
+                    // If the target edges should still be a problem we will add them again
+                    while (!rewiringSwapGenerator.empty()) {
                         swapAlgo.push(*rewiringSwapGenerator);
                         ++numSwaps;
                         ++rewiringSwapGenerator;
@@ -173,6 +175,7 @@ namespace LFR {
 
                         swapAlgo.flush();
 
+                        // FIXME do not push all edges but instead only push newly created edges.
                         rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(external_edges));
                         rewiringSwapGenerator.generate();
                     }
