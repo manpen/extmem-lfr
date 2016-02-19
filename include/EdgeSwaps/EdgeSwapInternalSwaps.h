@@ -22,6 +22,7 @@ protected:
 
     int_t _num_swaps_per_iteration;
     std::vector<swap_descriptor> _current_swaps;
+    std::vector<SemiLoadedSwapDescriptor> _current_semiloaded_swaps;
     std::vector<edgeid_t> _edge_ids_in_current_swaps;
     std::vector<edge_t> _edges_in_current_swaps;
 
@@ -95,7 +96,14 @@ public:
     //! Push a single swap into buffer; if buffer overflows, all stored swap are processed
     void push(const swap_descriptor& swap) {
         _current_swaps.push_back(swap);
-        if (UNLIKELY(static_cast<int_t>(_current_swaps.size()) >= _num_swaps_per_iteration)) {
+        if (UNLIKELY(static_cast<int_t>(_current_swaps.size() + _current_semiloaded_swaps.size()) >= _num_swaps_per_iteration)) {
+            process_buffer();
+        }
+    }
+
+    void push(const SemiLoadedSwapDescriptor& swap) {
+        _current_semiloaded_swaps.push_back(swap);
+        if (UNLIKELY(static_cast<int_t>(_current_swaps.size() + _current_semiloaded_swaps.size()) >= _num_swaps_per_iteration)) {
             process_buffer();
         }
     }
@@ -105,17 +113,30 @@ public:
     //! @warning If old buffer contains data, it is processed which may be very
     //! in case the buffer is not full yet
     void swap_buffer(std::vector<swap_descriptor> & buffer) {
-        if (!_current_swaps.empty()) {
+        if (!_current_swaps.empty() || !_current_semiloaded_swaps.empty()) {
             process_buffer();
         }
 
         _current_swaps.swap(buffer);
     }
 
+    //! Takes ownership of buffer provided and returns old internal buffer which
+    //! is guranteed to be empty.
+    //! @warning If old buffer contains data, it is processed which may be very
+    //! in case the buffer is not full yet
+    void swap_buffer(std::vector<SemiLoadedSwapDescriptor> & buffer) {
+        if (!_current_swaps.empty() || !_current_semiloaded_swaps.empty()) {
+            process_buffer();
+        }
+
+        _current_semiloaded_swaps.swap(buffer);
+    }
+
     //! Processes buffered swaps and writes out changes; further swaps can still be supplied afterwards.
     void flush() {
-        if (!_current_swaps.empty())
+        if (!_current_swaps.empty() || !_current_semiloaded_swaps.empty()) {
             process_buffer();
+        }
 
         updateEdgesAndLoadSwapsWithEdgesAndSuccessors();
     };

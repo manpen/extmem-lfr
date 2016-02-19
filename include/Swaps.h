@@ -56,6 +56,43 @@ inline std::ostream &operator<<(std::ostream &os, SwapDescriptor const &m) {
     return os << "{swap edges " << m.edges()[0] << " and " << m.edges()[1] << " dir " << m.direction() << "}";
 }
 
+class SemiLoadedSwapDescriptor {
+    edge_t _e;
+    edgeid_t _eid;
+    bool _direction;
+
+public:
+    SemiLoadedSwapDescriptor() : _e(0, 0), _eid(0), _direction(false) {}
+
+    //! Edges must be disjoint, i.e. e1 != e2
+    SemiLoadedSwapDescriptor(edge_t e, edgeid_t eid, bool dir)
+          : _e(e), _eid(eid), _direction(dir)
+    { }
+
+    //! The first, full edge of the swap
+    const edge_t& edge() const {return _e;}
+
+    //! The second edge, where only the id is known
+    const edgeid_t& eid() const {return _eid;}
+
+    /**
+     * Indicate swap direction:  <br />
+     * direction == false: (v1, v3) and (v2, v4)<br />
+     * direction == true : (v2, v3) and (v1, v4)
+     */
+    bool direction() const {return _direction;}
+
+    //! Equal if all member values match
+    bool operator==(const SemiLoadedSwapDescriptor & o) const {
+        return std::tie(_e, _eid, _direction) ==
+               std::tie(o._e, o._eid, o._direction);
+    }
+};
+
+inline std::ostream &operator<<(std::ostream &os, SemiLoadedSwapDescriptor const &m) {
+    return os << "{swap edges " << m.edge() << " and " << m.eid() << " dir " << m.direction() << "}";
+}
+
 /**
  * @brief Results of an attempted swap
  *
