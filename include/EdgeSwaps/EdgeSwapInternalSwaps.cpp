@@ -262,6 +262,12 @@ void EdgeSwapInternalSwaps::performSwaps() {
             ++edge_existence_succ_it;
         }
     }
+
+    SEQPAR::sort(_edges_in_current_swaps.begin(), _edges_in_current_swaps.end());
+
+    if (_updated_edges_callback) {
+        _updated_edges_callback(_edges_in_current_swaps);
+    };
 };
 
 void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
@@ -303,7 +309,6 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
     // copy updated edges for writing back
     std::vector<edge_t> updated_edges;
     updated_edges.swap(_edges_in_current_swaps);
-    SEQPAR::sort(updated_edges.begin(), updated_edges.end());
     _edges_in_current_swaps.reserve(numMaxSwaps * 2);
 
     _swap_has_successor[0].clear();

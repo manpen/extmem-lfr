@@ -12,8 +12,11 @@
 #include "TupleHelper.h"
 #include <algorithm>
 #include <iterator>
+#include <functional>
 
 class EdgeSwapInternalSwaps : public EdgeSwapBase {
+public:
+    using updated_edges_callback_t = std::function<void(const std::vector<edge_t> &)>;
 protected:
     edge_vector & _edges;
 #ifdef EDGE_SWAP_DEBUG_VECTOR
@@ -61,12 +64,13 @@ protected:
 
     std::vector<edge_existence_successor_t> _edge_existence_successors;
 
+    updated_edges_callback_t _updated_edges_callback;
+
     void simulateSwapsAndGenerateEdgeExistenceQuery();
     void loadEdgeExistenceInformation();
     void performSwaps();
     void updateEdgesAndLoadSwapsWithEdgesAndSuccessors();
 
-    void process_buffer();
 
 public:
     EdgeSwapInternalSwaps() = delete;
@@ -92,6 +96,10 @@ public:
     //! @param swaps  IGNORED - use push interface
     EdgeSwapInternalSwaps(edge_vector & edges, swap_vector &, int_t num_swaps_per_iteration = 1000000) :
         EdgeSwapInternalSwaps(edges, num_swaps_per_iteration) {}
+
+    void setUpdatedEdgesCallback(updated_edges_callback_t callback) {
+        _updated_edges_callback = callback;
+    };
 
     //! Push a single swap into buffer; if buffer overflows, all stored swap are processed
     void push(const swap_descriptor& swap) {
@@ -131,6 +139,8 @@ public:
 
         _current_semiloaded_swaps.swap(buffer);
     }
+
+    void process_buffer();
 
     //! Processes buffered swaps and writes out changes; further swaps can still be supplied afterwards.
     void flush() {
