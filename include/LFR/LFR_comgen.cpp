@@ -159,6 +159,10 @@ namespace LFR {
                 rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(external_edges));
                 rewiringSwapGenerator.generate();
 
+                swapAlgo.setUpdatedEdgesCallback([&rewiringSwapGenerator](const std::vector<edge_t> & updatedEdges) {
+                    rewiringSwapGenerator.pushEdges(stxxl::stream::streamify(updatedEdges.begin(), updatedEdges.end()));
+                });
+
                 while (!rewiringSwapGenerator.empty()) {
                     int_t numSwaps = 0;
                     // Execute all generated swaps. Some edges might not exist in the second round anymore.
@@ -173,10 +177,7 @@ namespace LFR {
                     if (numSwaps > 0) {
                         STXXL_MSG("Executing global rewiring phase with " << numSwaps << " swaps.");
 
-                        swapAlgo.flush();
-
-                        // FIXME do not push all edges but instead only push newly created edges.
-                        rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(external_edges));
+                        swapAlgo.process_buffer(); // this triggers the callback and thus pushes new edges in the generator
                         rewiringSwapGenerator.generate();
                     }
                 }
