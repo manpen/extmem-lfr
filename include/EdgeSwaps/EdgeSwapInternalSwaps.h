@@ -47,9 +47,7 @@ protected:
     struct edge_existence_answer_t {
         int_t sid;
         edge_t e;
-#ifndef NDEBUG
-        bool exists;
-#endif
+        int_t numExistences;
         DECL_LEX_COMPARE(edge_existence_answer_t, sid, e);
     };
 

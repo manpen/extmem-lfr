@@ -102,10 +102,11 @@ void EdgeSwapInternalSwaps::loadEdgeExistenceInformation() {
         if (edgeReader.empty() || *edgeReader >= _query_sorter->e) { // found edge or went past it (does not exist)
             // first request for the edge - give existence info if edge exists
             auto lastQuery = *_query_sorter;
-            bool edgeExists = (!edgeReader.empty() && *edgeReader == _query_sorter->e);
+            int_t numFound = 0;
 
             // found requested edge - advance reader
-            if (!edgeReader.empty() && *edgeReader == _query_sorter->e) {
+            while (!edgeReader.empty() && *edgeReader == _query_sorter->e) {
+                ++numFound;
                 ++edgeReader;
             }
 
@@ -128,10 +129,10 @@ void EdgeSwapInternalSwaps::loadEdgeExistenceInformation() {
             // If the edge is target edge for any swap, we need to store its current status for the first swap the edge is part of
             if (foundTargetEdge) {
 #ifndef NDEBUG
-                _edge_existence_pq.push_back(edge_existence_answer_t {lastQuery.sid, lastQuery.e, edgeExists});
+                _edge_existence_pq.push_back(edge_existence_answer_t {lastQuery.sid, lastQuery.e, numFound});
 #else
-                if (edgeExists) {
-                        _edge_existence_pq.push_back(edge_existence_answer_t {lastQuery.sid, lastQuery.e});
+                if (numFound > 0) {
+                        _edge_existence_pq.push_back(edge_existence_answer_t {lastQuery.sid, lastQuery.e, numFound});
                     }
 #endif
             }
@@ -147,10 +148,20 @@ void EdgeSwapInternalSwaps::loadEdgeExistenceInformation() {
 
 void EdgeSwapInternalSwaps::performSwaps() {
     auto edge_existence_succ_it = _edge_existence_successors.begin();
-    std::vector<edge_t> current_existence;
-#ifndef NDEBUG
-    std::vector<edge_t> current_missing;
-#endif
+    std::vector<std::pair<edge_t, int_t>> current_existence;
+
+    auto getNumExistences = [&](edge_t e, bool mustExist = false) -> int_t {
+        auto it = std::partition_point(current_existence.begin(), current_existence.end(), [&](const std::pair<edge_t, int_t>& a) { return a.first < e; });
+        assert(it != current_existence.end() && it->first == e); // only valid if assertions are on...
+
+        if (it != current_existence.end() && it->first == e) {
+            return it->second;
+        } else {
+            if (UNLIKELY(mustExist)) throw std::logic_error("Error, edge existence information missing that should not be missing");
+            return 0;
+        }
+    };
+
     for (auto s_it = _current_swaps.begin(); s_it != _current_swaps.end(); ++s_it) {
         const auto& eids = s_it->edges();
 
@@ -160,9 +171,6 @@ void EdgeSwapInternalSwaps::performSwaps() {
         edge_t s_edges[2] = {_edges_in_current_swaps[eids[0]], _edges_in_current_swaps[eids[1]]};
         edge_t t_edges[2];
         current_existence.clear();
-#ifndef NDEBUG
-        current_missing.clear();
-#endif
 
         SwapResult result;
 
@@ -173,15 +181,8 @@ void EdgeSwapInternalSwaps::performSwaps() {
         assert(_edge_existence_pq.empty() || _edge_existence_pq.front().sid >= sid);
 
         while (!_edge_existence_pq.empty() && _edge_existence_pq.front().sid == sid) {
-#ifdef NDEBUG
-            current_existence.push_back(_edge_existence_pq.front().e);
-#else
-            if (_edge_existence_pq.front().exists) {
-                current_existence.push_back(_edge_existence_pq.front().e);
-            } else {
-                current_missing.push_back(_edge_existence_pq.front().e);
-            }
-#endif
+            current_existence.emplace_back(_edge_existence_pq.front().e, _edge_existence_pq.front().numExistences);
+
             std::pop_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
             _edge_existence_pq.pop_back();
         }
@@ -193,19 +194,9 @@ void EdgeSwapInternalSwaps::performSwaps() {
             result.edges[1] = t_edges[1];
             result.loop = (t_edges[0].first == t_edges[0].second || t_edges[1].first == t_edges[1].second);
 
-            result.conflictDetected[0] = std::binary_search(current_existence.begin(), current_existence.end(), t_edges[0]);
-            result.conflictDetected[1] = std::binary_search(current_existence.begin(), current_existence.end(), t_edges[1]);
-#ifndef NDEBUG
-            if (!result.loop) {
-                if (!result.conflictDetected[0]) {
-                    assert(std::binary_search(current_missing.begin(), current_missing.end(), t_edges[0]));
-                }
+            result.conflictDetected[0] = result.loop ? false : (getNumExistences(t_edges[0]) > 0);
+            result.conflictDetected[1] = result.loop ? false : (getNumExistences(t_edges[1]) > 0);
 
-                if (!result.conflictDetected[1]) {
-                    assert(std::binary_search(current_missing.begin(), current_missing.end(), t_edges[1]));
-                }
-            }
-#endif
             result.performed = !result.loop && !(result.conflictDetected[0] || result.conflictDetected[1]);
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
@@ -218,44 +209,36 @@ void EdgeSwapInternalSwaps::performSwaps() {
 
         //assert(result.loop || ((existsEdge.find(t_edges[0]) != existsEdge.end() && existsEdge.find(t_edges[1]) != existsEdge.end())));
 
-        if (!result.performed) {
-            t_edges[0] = s_edges[0];
-            t_edges[1] = s_edges[1];
-        } else {
+        if (result.performed) {
             _edges_in_current_swaps[eids[0]] = t_edges[0];
             _edges_in_current_swaps[eids[1]] = t_edges[1];
         }
 
         while (edge_existence_succ_it != _edge_existence_successors.end() && edge_existence_succ_it->from_sid == sid) {
-            if (edge_existence_succ_it->e == t_edges[0] || edge_existence_succ_it->e == t_edges[1]) {
-                // target edges always exist (might be source if no swap has been performed)
+            if (result.performed && (edge_existence_succ_it->e == s_edges[0] || edge_existence_succ_it->e == s_edges[1])) {
+                // if the swap was performed, a source edge occurs once less - but it might still exist if it was a multi-edge
+                int_t t = getNumExistences(edge_existence_succ_it->e, true) - 1;
 #ifdef NDEBUG
-                _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e});
-#else
-                _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, true});
+                if (t > 0) { // without debugging, push only if edge still exists
 #endif
-                std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
-            } else if (edge_existence_succ_it->e == s_edges[0] || edge_existence_succ_it->e == s_edges[1]) {
-                // source edges never exist (if no swap has been performed or source = target, this has been handled above)
-#ifndef NDEBUG
-                _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, false});
-                std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
-#endif
-            } else {
+                    _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, t});
+                    std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
 #ifdef NDEBUG
-                if (std::binary_search(current_existence.begin(), current_existence.end(), edge_existence_succ_it->e)) {
-                        _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e});
-                        std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
-                    }
-#else
-                if (std::binary_search(current_existence.begin(), current_existence.end(), edge_existence_succ_it->e)) {
-                    _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, true});
-                } else {
-                    assert(std::binary_search(current_missing.begin(), current_missing.end(), edge_existence_succ_it->e));
-                    _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, false});
                 }
-
+#endif
+            } else if (result.performed && (edge_existence_succ_it->e == t_edges[0] || edge_existence_succ_it->e == t_edges[1])) {
+                // target edges always exist once if the swap was performed as we create no new multi-edges
+                _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, 1});
                 std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+            } else {
+                    int_t t = getNumExistences(edge_existence_succ_it->e);
+#ifdef NDEBUG
+                    if (t > 0) { // without debugging, push only if edge still exists
+#endif
+                        _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, t});
+                        std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
+#ifdef NDEBUG
+                    }
 #endif
             }
 
