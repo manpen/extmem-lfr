@@ -10,42 +10,48 @@ namespace LFR {
         std::default_random_engine generator;
         std::geometric_distribution<int> geo_dist(0.1);
 
-        #ifndef NDEBUG
         uint_t degree_sum = 0;
         uint_t memebership_sum = 0;
-        #endif
 
-        // have fun
-        for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
-            assert(!ndd.empty());
-            auto &degree = *ndd;
+        if (_overlap_method == geometric) {
+            for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
+                assert(!ndd.empty());
+                auto &degree = *ndd;
 
-            // compute membership
-            // FIXME this is just >some< distribution, which one do we really want?
-            community_t memberships;
-            {
-                degree_t internal_degree = static_cast<degree_t>((1.0 - _mixing) * degree);
-                do {
-                    auto r = (1+geo_dist(generator));
-                    memberships = internal_degree / r;
-                } while (
-                    !memberships ||
-                    memberships > 8*_community_distribution_params.numberOfNodes / 10 ||
-                    internal_degree / memberships > _max_degree_within_community
-                );
+                // compute membership
+                community_t memberships;
+                {
+                    degree_t internal_degree = static_cast<degree_t>((1.0 - _mixing) * degree);
+                    do {
+                        auto r = (1 + geo_dist(generator));
+                        memberships = internal_degree / r;
+                    } while (
+                            !memberships ||
+                            memberships > 8 * _community_distribution_params.numberOfNodes / 10 ||
+                            internal_degree / memberships > _overlap_config.geometric.maxDegreeIntraDegree
+                            );
+                }
+
+                _node_sorter.push(NodeDegreeMembership(degree, memberships));
+                degree_sum += degree;
+                memebership_sum += memberships;
             }
+        } else if (_overlap_method == constDegree) {
+            for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
+                assert(!ndd.empty());
+                auto &degree = *ndd;
 
-            _node_sorter.push(NodeDegreeMembership(degree, memberships));
-            #ifndef NDEBUG
-            degree_sum += degree;
-            memebership_sum += memberships;
-            #endif
+                community_t memberships = (i < _overlap_config.constDegree.overlappingNodes)
+                                          ? _overlap_config.constDegree.multiCommunityDegree : 1;
+
+                const NodeDegreeMembership ndm(degree, memberships);
+                assert(ndm.intraCommunityDegree(_mixing, memberships-1));
+                _node_sorter.push(ndm);
+            }
         }
 
         _node_sorter.sort();
-        #ifndef NDEBUG
         std::cout << "Degree sum: " << degree_sum << " Membership sum: " << memebership_sum << "\n";
-        #endif
     }
 
 
