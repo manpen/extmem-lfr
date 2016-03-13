@@ -29,6 +29,9 @@ public:
     stxxl::uint64 max_degree_within_community;
     double node_gamma;
 
+    stxxl::uint64 overlap_degree;
+    stxxl::uint64 overlapping_nodes;
+
     stxxl::uint64 community_min_members;
     stxxl::uint64 community_max_members;
     double community_gamma;
@@ -74,7 +77,6 @@ public:
         cp.add_bytes (CMDLINE_COMP('h', "node-min-degree",   node_min_degree,   "Minumum node degree"));
         cp.add_bytes (CMDLINE_COMP('i', "node-max-degree",   node_max_degree,   "Maximum node degree"));
         cp.add_double(CMDLINE_COMP('j', "node-gamma",        node_gamma,        "Exponent of node degree distribution"));
-        cp.add_bytes (CMDLINE_COMP('k', "max_degree_within_community",   max_degree_within_community,   "Maximum intra-community degree"));
 
         cp.add_bytes (CMDLINE_COMP('x', "community-min-members",   community_min_members,   "Minumum community size"));
         cp.add_bytes (CMDLINE_COMP('y', "community-max-members",   community_max_members,   "Maximum community size"));
@@ -114,7 +116,12 @@ int main(int argc, char* argv[]) {
     LFR::LFR lfr(config.node_distribution_param,
                  config.community_distribution_param,
                  config.mixing);
-    lfr.setMaxDegreeWithinCommunity(config.max_degree_within_community);
+
+    LFR::OverlapConfig oconfig;
+    oconfig.constDegree.multiCommunityDegree = 10;
+    oconfig.constDegree.overlappingNodes = config.number_of_nodes / 10;
+
+    lfr.setOverlap(LFR::OverlapMethod::constDegree, oconfig);
     lfr.run();
 
     return 0;
