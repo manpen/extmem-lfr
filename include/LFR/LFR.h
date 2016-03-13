@@ -81,6 +81,23 @@ struct CommunityAssignment {
     DECL_TUPLE_OS(CommunityAssignment);
 };
 
+struct OverlapConfigConstDegree {
+    community_t multiCommunityDegree;
+    node_t overlappingNodes;
+};
+
+struct OverlapConfigGeometric {
+    degree_t maxDegreeIntraDegree;
+};
+
+union OverlapConfig {
+    OverlapConfigConstDegree constDegree;
+    OverlapConfigGeometric geometric;
+};
+
+enum OverlapMethod {
+    constDegree, geometric
+};
 
 class LFR {
 public:
@@ -94,10 +111,12 @@ protected:
     // model parameters
     const node_t _number_of_nodes;
     NodeDegreeDistribution::Parameters _degree_distribution_params;
-    degree_t _max_degree_within_community;
     const community_t _number_of_communities;
     CommunityDistribution::Parameters _community_distribution_params;
     const double _mixing;
+    
+    OverlapMethod _overlap_method;
+    OverlapConfig _overlap_config;
 
     // model materialization
     stxxl::sorter<NodeDegreeMembership, NodeDegreeMembershipInternalDegComparator> _node_sorter;
@@ -134,16 +153,18 @@ public:
         double mixing_parameter) :
         _number_of_nodes(node_degree_dist.numberOfNodes),
         _degree_distribution_params(node_degree_dist),
-        _max_degree_within_community((uint_t)node_degree_dist.maxDegree),
         _number_of_communities((community_t)community_degree_dist.numberOfNodes),
         _community_distribution_params(community_degree_dist),
         _mixing(mixing_parameter),
         _node_sorter(NodeDegreeMembershipInternalDegComparator(_mixing), SORTER_MEM)
-    {}
+    {
+        _overlap_method = geometric;
+        _overlap_config.geometric.maxDegreeIntraDegree = (uint_t)node_degree_dist.maxDegree;
+    }
 
-    void setMaxDegreeWithinCommunity(degree_t v) {
-        assert(v >= _degree_distribution_params.minDegree);
-        _max_degree_within_community = v;
+    void setOverlap(OverlapMethod method, const OverlapConfig & config) {
+        _overlap_method = method;
+        _overlap_config = config;
     }
 
     void run();
