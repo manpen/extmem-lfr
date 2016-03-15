@@ -89,8 +89,14 @@ namespace LFR {
         _compute_node_distributions();
         _compute_community_size();
         _compute_community_assignments();
+        #pragma omp parallel
+        {
+        // FIXME: untested if this task pattern actually works
+        #pragma omp task
         _generate_community_graphs();
+        #pragma omp task
         _generate_global_graph();
+        }
         _merge_community_and_global_graph();
     }
 
