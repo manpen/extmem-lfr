@@ -244,6 +244,11 @@ public:
         return _current_edge;
     }
 
+    const value_type* operator->() const {
+        assert(_mode == Generate);
+        return &_current_edge;
+    }
+
     bool empty() const {
         assert(_mode == Generate);
         return _empty;
