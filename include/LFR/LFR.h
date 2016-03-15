@@ -81,6 +81,16 @@ struct CommunityAssignment {
     DECL_TUPLE_OS(CommunityAssignment);
 };
 
+struct CommunityEdge {
+    community_t community_id;
+    edge_t edge;
+
+    CommunityEdge() {}
+    CommunityEdge(const community_t& community_id, const edge_t& edge) : community_id(community_id), edge(edge) {}
+
+    DECL_LEX_COMPARE_OS(CommunityEdge, edge, community_id);
+};
+
 struct OverlapConfigConstDegree {
     community_t multiCommunityDegree;
     node_t overlappingNodes;
@@ -134,6 +144,8 @@ protected:
      * of community k */
     stxxl::vector<CommunityAssignment> _community_assignments;
 
+    stxxl::vector<CommunityEdge> _intra_community_edges;
+    stxxl::vector<edge_t> _inter_community_edges;
     stxxl::vector<edge_t> _edges;
 
     /// Get community size based on _community_cumulative_sizes
@@ -146,6 +158,8 @@ protected:
     void _compute_community_size();
     void _compute_community_assignments();
     void _generate_community_graphs();
+    void _generate_global_graph();
+    void _merge_community_and_global_graph();
 
 public:
     LFR(const NodeDegreeDistribution::Parameters & node_degree_dist,

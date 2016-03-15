@@ -90,6 +90,8 @@ namespace LFR {
         _compute_community_size();
         _compute_community_assignments();
         _generate_community_graphs();
+        _generate_global_graph();
+        _merge_community_and_global_graph();
     }
 
 }
