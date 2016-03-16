@@ -38,7 +38,7 @@ namespace LFR {
 
                 int_t degree_sum = 0;
 
-                HavelHakimiIMGenerator gen;
+                HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
                 bool internalNodes = (com_size < MAX_INTERNAL_NODES);
 
                 if (internalNodes) {
@@ -71,7 +71,7 @@ namespace LFR {
                     node_id_writer.finish();
                 }
 
-                gen.generate(HavelHakimiIMGenerator::DecreasingDegree);
+                gen.generate();
 
                 if (internalNodes && degree_sum < 2*MAX_INTERNAL_EDGES) {
                     IMGraph graph(node_degrees);

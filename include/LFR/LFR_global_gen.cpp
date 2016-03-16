@@ -8,7 +8,7 @@
 
 namespace LFR {
     void LFR::_generate_global_graph() {
-        HavelHakimiIMGenerator gen;
+        HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
 
         int_t degree_sum = 0;
 
@@ -30,7 +30,7 @@ namespace LFR {
             }
         }
 
-        gen.generate(HavelHakimiIMGenerator::DecreasingDegree);
+        gen.generate();
 
         // FIXME this sort might also be eliminated if edges are produced in the right order
         { // writes edges sorted in _inter_community_edges
