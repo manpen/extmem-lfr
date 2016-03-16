@@ -1,9 +1,6 @@
 #include "LFR.h"
-#include "GlobalRewiringSwapGenerator.h"
-#include <HavelHakimi/HavelHakimiGenerator.h>
-#include <HavelHakimi/HavelHakimiGeneratorRLE.h>
+#include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
-#include <DistributionCount.h>
 #include <SwapGenerator.h>
 #include <stxxl/vector>
 #include <stxxl/sorter>
@@ -11,204 +8,175 @@
 #include <EdgeSwaps/IMEdgeSwap.h>
 #include <Utils/AsyncStream.h>
 
+#ifndef MAX_INTERNAL_EDGES
+#define MAX_INTERNAL_EDGES (1 * IntScale::M)
+#endif
+
+#ifndef MAX_INTERNAL_NODES
+#define MAX_INTERNAL_NODES (1 * IntScale::M)
+#endif
+
 namespace LFR {
     void LFR::_generate_community_graphs() {
-        decltype(_community_assignments)::bufreader_type assignment_reader(_community_assignments);
-        std::vector<node_t> node_ids;
-        std::vector<degree_t> node_degrees;
-        stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
-        stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+        stxxl::sorter<CommunityEdge, GenericComparatorStruct<CommunityEdge>::Ascending> edgeSorter(GenericComparatorStruct<CommunityEdge>::Ascending(), SORTER_MEM);
 
-        for (community_t i = 0; i < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++i) {
-            node_t com_size = _community_cumulative_sizes[i+1] - _community_cumulative_sizes[i];
-            // FIXME: implement this with EM vectors for large communities!
-            node_ids.clear();
-            node_ids.reserve(com_size);
-            node_degrees.clear();
-            node_degrees.reserve(com_size);
+        #pragma omp parallel shared(edgeSorter)
+        {
+            // set-up thread-private variables
+            std::vector<node_t> node_ids;
+            std::vector<degree_t> node_degrees;
+            stxxl::vector<node_t> external_node_ids;
+            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
 
-            while (!assignment_reader.empty() && assignment_reader->community_id == i) {
-                node_degrees.push_back(assignment_reader->degree);
-                node_ids.push_back(assignment_reader->node_id);
-                ++assignment_reader;
-            }
+            #pragma omp for
+            for (community_t com = 0; com < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++com) {
+                node_t com_size = _community_cumulative_sizes[com+1] - _community_cumulative_sizes[com];
 
-            if (com_size < 2) continue; // no edges to create
-
-            auto node_deg_stream = stxxl::stream::streamify(node_degrees.begin(), node_degrees.end());
-
-            HavelHakimiPrioQueueInt prio_queue;
-            std::stack<HavelHakimiNodeDegree> stack;
-            HavelHakimiGenerator<HavelHakimiPrioQueueInt, std::stack<HavelHakimiNodeDegree>> gen{prio_queue, stack, node_deg_stream};
-
-            if (gen.maxEdges() < 1 * IntScale::M) { // TODO: make limit configurable!
-                IMGraph graph(node_degrees);
-                while (!gen.empty()) {
-                    graph.addEdge(*gen);
-                    ++gen;
+                if (com_size < 2) {
+                    continue; // no edges to create
                 }
 
-                if (graph.numEdges() > 1) {
-                    // Generate swaps
-                    uint_t numSwaps = 10*graph.numEdges();
+                int_t degree_sum = 0;
 
-                    IMEdgeSwap swapAlgo(graph);
-                    for (SwapGenerator swapGen(numSwaps, graph.numEdges()); !swapGen.empty(); ++swapGen) {
-                        swapAlgo.push(*swapGen);
+                HavelHakimiIMGenerator gen;
+                bool internalNodes = (com_size < MAX_INTERNAL_NODES);
+
+                if (internalNodes) {
+                    node_ids.clear();
+                    node_ids.reserve(com_size);
+                    node_degrees.clear();
+                    node_degrees.reserve(com_size);
+
+                    for (auto it(_community_assignments.cbegin() + _community_cumulative_sizes[com]); it < _community_assignments.cbegin() + _community_cumulative_sizes[com+1]; ++it) {
+                        const auto ca = *it;
+                        assert(ca.community_id == com);
+                        node_degrees.push_back(ca.degree);
+                        degree_sum += ca.degree;
+                        node_ids.push_back(ca.node_id);
+                        gen.push(ca.degree);
                     }
+                } else {
+                    external_node_ids.clear();
+                    external_node_ids.resize(com_size);
+                    stxxl::vector<node_t>::bufwriter_type node_id_writer(external_node_ids);
+
+                    for (auto it(_community_assignments.cbegin() + _community_cumulative_sizes[com]); it < _community_assignments.cbegin() + _community_cumulative_sizes[com+1]; ++it) {
+                        const auto ca = *it;
+                        assert(ca.community_id == com);
+                        node_id_writer << ca.node_id;
+                        degree_sum += ca.degree;
+                        gen.push(ca.degree);
+                    }
+
+                    node_id_writer.finish();
+                }
+
+                gen.generate(HavelHakimiIMGenerator::DecreasingDegree);
+
+                if (internalNodes && degree_sum < 2*MAX_INTERNAL_EDGES) {
+                    IMGraph graph(node_degrees);
+                    while (!gen.empty()) {
+                        graph.addEdge(*gen);
+                        ++gen;
+                    }
+
+                    if (graph.numEdges() > 1) {
+                        // Generate swaps
+                        uint_t numSwaps = 10*graph.numEdges();
+
+                        IMEdgeSwap swapAlgo(graph);
+                        for (SwapGenerator swapGen(numSwaps, graph.numEdges()); !swapGen.empty(); ++swapGen) {
+                            swapAlgo.push(*swapGen);
+                        }
+
+                        swapAlgo.run();
+                    }
+
+                    #pragma omp critical (_edgeSorter)
+                    for (auto it = graph.getEdges(); !it.empty(); ++it) {
+                        edge_t e = {node_ids[it->first], node_ids[it->second]};
+                        e.normalize();
+                        edgeSorter.push(CommunityEdge(com, e));
+                    }
+                } else {
+                    stxxl::vector<edge_t> intra_edges(degree_sum/2);
+
+                    while (!gen.empty()) {
+                        if (gen->first < gen->second) {
+                            intra_edgeSorter.push(edge_t {gen->first, gen->second});
+                        } else {
+                            intra_edgeSorter.push(edge_t {gen->second, gen->first});
+                        }
+
+                        ++gen;
+                    }
+
+                    intra_edgeSorter.sort();
+                    auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
+                    intra_edgeSorter.clear();
+
+                    intra_edges.resize(endIt - intra_edges.begin());
+
+                    int_t swapsPerIteration = intra_edges.size() / 3;
+
+                    // Generate swaps
+                    uint_t numSwaps = 10*intra_edges.size();
+                    SwapGenerator swapGen(numSwaps, intra_edges.size());
+
+                    // perform swaps
+                    EdgeSwapInternalSwaps swapAlgo(intra_edges, swapsPerIteration);
+
+                    AsyncStream<SwapGenerator> astream(swapGen, true, swapsPerIteration, 2);
+                    for(; !astream.empty(); astream.nextBuffer())
+                        swapAlgo.swap_buffer(astream.readBuffer());
 
                     swapAlgo.run();
-                }
 
-                for (auto it = graph.getEdges(); !it.empty(); ++it) {
-                    edge_t e = {node_ids[it->first], node_ids[it->second]};
-                    e.normalize();
-                    edgeSorter.push(e);
-                }
-            } else {
-                stxxl::vector<edge_t> intra_edges(gen.maxEdges());
+                    decltype(intra_edges)::bufreader_type edge_reader(intra_edges);
 
-                while (!gen.empty()) {
-                    if (gen->first < gen->second) {
-                        intra_edgeSorter.push(edge_t {gen->first, gen->second});
-                    } else {
-                        intra_edgeSorter.push(edge_t {gen->second, gen->first});
+                    if (internalNodes) {
+                        #pragma omp critical (_edgeSorter)
+                        while (!edge_reader.empty()) {
+                            edge_t e = {node_ids[edge_reader->first], node_ids[edge_reader->second]};
+                            e.normalize();
+                            edgeSorter.push(CommunityEdge(com, e));
+                            ++edge_reader;
+                        }
+                    } else { // external memory mapping with an additional sort step
+                        {
+                            decltype(external_node_ids)::bufreader_type node_id_reader(external_node_ids);
+
+                            for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
+                                while (!edge_reader.empty() && edge_reader->first == u) {
+                                    intra_edgeSorter.push(edge_t {edge_reader->second, *node_id_reader});
+                                }
+                            }
+                        }
+
+                        intra_edgeSorter.sort();
+
+                        {
+                            decltype(external_node_ids)::bufreader_type node_id_reader(external_node_ids);
+
+                            #pragma omp critical (_edgeSorter)
+                            for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
+                                while (!intra_edgeSorter.empty() && intra_edgeSorter->first == u) {
+                                    edge_t e(edge_reader->second, *node_id_reader);
+                                    e.normalize();
+                                    edgeSorter.push(CommunityEdge(com, e));
+                                }
+                            }
+                        }
+
+                        intra_edgeSorter.clear();
                     }
-
-                    ++gen;
-                }
-
-                intra_edgeSorter.sort();
-                auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
-                intra_edgeSorter.clear();
-
-                intra_edges.resize(endIt - intra_edges.begin());
-
-                // Generate swaps
-                uint_t numSwaps = 10*intra_edges.size();
-                SwapGenerator swapGen(numSwaps, intra_edges.size());
-                stxxl::vector<SwapDescriptor> swaps(numSwaps);
-                stxxl::stream::materialize(swapGen, swaps.begin());
-
-                // perform swaps
-                EdgeSwapInternalSwaps swapAlgo(intra_edges, swaps, intra_edges.size()/3);
-                swapAlgo.run();
-
-                decltype(intra_edges)::bufreader_type edge_reader(intra_edges);
-                while (!edge_reader.empty()) {
-                    edge_t e = {node_ids[edge_reader->first], node_ids[edge_reader->second]};
-                    e.normalize();
-                    edgeSorter.push(e);
-                    ++edge_reader;
                 }
             }
         }
 
         edgeSorter.sort();
 
-        {
-            // TODO if we assume that the maximum degree fits in RAM, the distribution counting could be done using bucket sort in IM.
-            stxxl::sorter<degree_t, GenericComparator<degree_t>::Descending> extDegree(GenericComparator<degree_t>::Descending(), SORTER_MEM);
-            _node_sorter.rewind();
-            while (!_node_sorter.empty()) {
-                extDegree.push(_node_sorter->externalDegree(_mixing));
-                ++_node_sorter;
-            }
-
-            extDegree.sort();
-
-            DistributionCount<decltype(extDegree)> dcount(extDegree);
-            HavelHakimiGeneratorRLE<decltype(dcount)> gen(dcount);
-            stxxl::vector<edge_t> external_edges(gen.maxEdges());
-
-            while (!gen.empty()) {
-                if (gen->first < gen->second) {
-                    intra_edgeSorter.push(edge_t {gen->first, gen->second});
-                } else {
-                    intra_edgeSorter.push(edge_t {gen->second, gen->first});
-                }
-
-                ++gen;
-            }
-
-            intra_edgeSorter.sort();
-            auto endIt = stxxl::stream::materialize(intra_edgeSorter, external_edges.begin());
-            intra_edgeSorter.clear();
-
-            external_edges.resize(endIt - external_edges.begin());
-
-            int_t swapsPerIteration = external_edges.size()/3;
-
-            EdgeSwapInternalSwaps swapAlgo(external_edges, swapsPerIteration);
-
-            {
-                // Generate swaps
-                uint_t numSwaps = 10*external_edges.size();
-                SwapGenerator swapGen(numSwaps, external_edges.size());
-
-                // perform swaps
-                AsyncStream<SwapGenerator> astream(swapGen, true, swapsPerIteration, 2);
-
-                for(; !astream.empty(); astream.nextBuffer())
-                    swapAlgo.swap_buffer(astream.readBuffer());
-                swapAlgo.flush();
-            }
-
-            {
-                GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, external_edges.size());
-                rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(external_edges));
-                rewiringSwapGenerator.generate();
-
-                swapAlgo.setUpdatedEdgesCallback([&rewiringSwapGenerator](const std::vector<edge_t> & updatedEdges) {
-                    rewiringSwapGenerator.pushEdges(stxxl::stream::streamify(updatedEdges.begin(), updatedEdges.end()));
-                });
-
-                while (!rewiringSwapGenerator.empty()) {
-                    int_t numSwaps = 0;
-                    // Execute all generated swaps. Some edges might not exist in the second round anymore.
-                    // Then these edges have been part of a swap already so they might not be a problem anymore.
-                    // If the target edges should still be a problem we will add them again
-                    while (!rewiringSwapGenerator.empty()) {
-                        swapAlgo.push(*rewiringSwapGenerator);
-                        ++numSwaps;
-                        ++rewiringSwapGenerator;
-                    }
-
-                    if (numSwaps > 0) {
-                        STXXL_MSG("Executing global rewiring phase with " << numSwaps << " swaps.");
-
-                        swapAlgo.process_buffer(); // this triggers the callback and thus pushes new edges in the generator
-                        rewiringSwapGenerator.generate();
-                    }
-                }
-            }
-
-            swapAlgo.run();
-
-            decltype(external_edges)::bufreader_type ext_edge_reader(external_edges);
-            edge_t curEdge = {-1, -1};
-            decltype(_edges)::bufwriter_type edge_writer(_edges);
-
-            while (!ext_edge_reader.empty() || !edgeSorter.empty()) {
-                if (ext_edge_reader.empty() || (!edgeSorter.empty() && *edgeSorter <= *ext_edge_reader)) {
-                    // FIXME this simply discards duplicates, add rewiring!
-                    if (curEdge != *edgeSorter) {
-                        curEdge = *edgeSorter;
-                        edge_writer << curEdge;
-                    }
-
-                    ++edgeSorter;
-                } else if (edgeSorter.empty() || *ext_edge_reader < *edgeSorter) {
-                    if (curEdge != *ext_edge_reader) {
-                        curEdge = *ext_edge_reader;
-                        edge_writer << curEdge;
-                    } else {
-                        assert(false && "Global edges should have been rewired to not to conflict with any internal edge!");
-                    };
-
-                    ++ext_edge_reader;
-                }
-            }
-        }
+        _intra_community_edges.reserve(edgeSorter.size());
+        stxxl::stream::materialize(edgeSorter, _intra_community_edges.begin());
     }
 }
