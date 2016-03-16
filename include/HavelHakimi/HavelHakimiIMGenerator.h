@@ -49,6 +49,7 @@ protected:
     std::stack<Block> _blocks_checkedout;
 
     //! Push phase
+    const PushDirection _push_direction;
     const node_t _initial_node;
     node_t _push_current_node;
 
@@ -69,6 +70,9 @@ protected:
                     "Node " << _current_edge.first << " requires "
             << _remaining_neighbors << " more neighbors.\n";
             _remaining_neighbors = 0;
+
+            _fetch_next_edge();
+
             return;
         }
 
@@ -76,20 +80,23 @@ protected:
         if (block.size() > _remaining_neighbors) {
             // partially consume block, i.e. keep lower ids at higher degree
             _blocks.back().node_upper -= _remaining_neighbors;
+            block.node_lower = _blocks.back().node_upper+1;
+
+            // move unused block to stack
             _blocks_checkedout.push(_blocks.back());
             _blocks.pop_back();
 
-            // use part with higher ids for consume
-            block.node_lower += _remaining_neighbors;
         } else {
             // completely consume block, i.e. remove it from queue
             // (may be reinserted with lower degree from stack)
             _blocks.pop_back();
         }
 
-        block.degree--;
+        --block.degree;
         _blocks_checkedout.push(block);
+
         _current_edge.second = block.node_lower;
+        --_remaining_neighbors;
     }
 
     /**
@@ -97,6 +104,11 @@ protected:
      * to merge neighboring blocks if degree and boundaries match
      */
     void _restore_blocks() {
+        // blocks with degree zero are kept in stack to avoid
+        // special treatment; they however can be destroyed
+        for (; !_blocks_checkedout.empty() && !_blocks_checkedout.top().degree; _blocks_checkedout.pop() );
+
+
         // if stack is empty nothing is to be done
         if (UNLIKELY(_blocks_checkedout.empty()))
             return;
@@ -111,11 +123,6 @@ protected:
         for(; !_blocks_checkedout.empty(); _blocks_checkedout.pop()) {
             const auto & stack_block = _blocks_checkedout.top();
             auto & deque_block = _blocks.back();
-
-            // blocks with degree zero are kept in stack to avoid
-            // special treatment; they however can be destroyed
-            if (UNLIKELY(!stack_block.degree))
-                continue;
 
             // test whether stack's block can be merged
             if (UNLIKELY(
@@ -135,17 +142,21 @@ protected:
         if (LIKELY(_remaining_neighbors)) {
             // advance to next neighbor
             _current_edge.second++;
-            --_remaining_neighbors;
 
             // if this new edge is not contained in the current block being consumed
             // we have to fetch a new one
-            if (UNLIKELY(_blocks_checkedout.top().node_upper > _current_edge.second)) {
+            if (UNLIKELY(_blocks_checkedout.top().node_upper < _current_edge.second)) {
+                // will get correct id and also decrement _remaining_neighbors
                 _checkout_block();
+
+            } else {
+                --_remaining_neighbors;
             }
 
         } else {
             // move blocks previously "parked" on stack back to queue
             _restore_blocks();
+            _verify_deque_invariants();
 
             if (UNLIKELY(_blocks.empty())) {
                 _empty = true;
@@ -165,9 +176,29 @@ protected:
         }
     }
 
+    void _verify_deque_invariants() {
+#ifndef NDEBUG
+        if (_blocks.empty())
+            return;
+
+        assert(_blocks.back().node_lower  >= _initial_node);
+        assert(_blocks.front().node_upper <= _push_current_node-1);
+
+        auto previous_block = _blocks.front();
+        for (auto it = _blocks.cbegin()+1; it != _blocks.cend(); ++it) {
+            auto & block = *it;
+
+            assert(block.degree > previous_block.degree);
+            assert(block.node_lower <= block.node_upper);
+            assert(block.node_lower < previous_block.node_upper);
+        }
+#endif
+    }
+
 public:
-    HavelHakimiIMGenerator(node_t initial_node = 0) :
+    HavelHakimiIMGenerator(PushDirection push_direction = IncreasingDegree, node_t initial_node = 0) :
         _mode(Push),
+        _push_direction(push_direction),
         _initial_node(initial_node),
         _push_current_node(initial_node)
     {}
@@ -181,22 +212,32 @@ public:
             _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
         }
 
-        if (LIKELY(_blocks.front().degree == deg)) {
-            _blocks.front().node_upper = _push_current_node;
+        if (_push_direction == IncreasingDegree) {
+            if (LIKELY(_blocks.back().degree == deg)) {
+                _blocks.back().node_upper = _push_current_node;
+            } else {
+                assert(deg > _blocks.back().degree);
+                _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
+            }
         } else {
-            _blocks.push_front(Block(deg, _push_current_node, _push_current_node));
+            if (LIKELY(_blocks.front().degree == deg)) {
+                _blocks.front().node_upper = _push_current_node;
+            } else {
+                assert(deg < _blocks.back().degree);
+                _blocks.push_front(Block(deg, _push_current_node, _push_current_node));
+            }
         }
 
         ++_push_current_node;
     }
 
     //! Switch to generation mode; the streaming interface become available
-    void generate(PushDirection push_direction) {
+    void generate() {
         assert(_mode == Push);
 
         // If the degree sequence was provided in increasing order, we have to
         // reverse the node ids
-        if (push_direction == IncreasingDegree) {
+        if (_push_direction == IncreasingDegree) {
             for(auto & block : _blocks) {
                 auto tmp = _push_current_node - 1 - block.node_lower + _initial_node;
                 block.node_lower = _push_current_node - 1 - block.node_upper + _initial_node;
@@ -204,24 +245,15 @@ public:
             }
         }
 
-        std::cout << "HH Queue size: " << _blocks.size() << " for " << (_push_current_node - _initial_node) << " nodes\"";
-        // Assert that we obtained an degree degree sequence with increasing and
-        // contiguous node ids
+        std::cout << "HH Queue size: " << _blocks.size() << " for " << (_push_current_node - _initial_node) << " nodes\n";
+
         #ifndef NDEBUG
         {
+            // assert node range is properly covered and that deque invariants hold
+            assert(_blocks.back().node_lower == _initial_node);
+            assert(_blocks.front().node_upper == _push_current_node-1);
 
-            auto previous_block = _blocks.front();
-
-            assert(previous_block.node_lower == _initial_node);
-            assert(previous_block.node_lower <= previous_block.node_upper);
-
-            for (auto it = _blocks.cbegin()+1; it != _blocks.cend(); ++it) {
-                auto & block = *it;
-
-                assert(block.degree > previous_block.degree);
-                assert(block.node_lower <= block.node_upper);
-                assert(block.node_lower == previous_block.node_upper+1);
-            }
+            // _verify_deque_invariants(); not necessary since checked in _fetch_next_edge
         }
         #endif
 
@@ -245,7 +277,6 @@ public:
     }
 
     bool empty() const {
-        assert(_mode == Generate);
         return _empty;
     }
 };
