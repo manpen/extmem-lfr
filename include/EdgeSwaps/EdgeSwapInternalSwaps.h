@@ -13,15 +13,13 @@
 #include <algorithm>
 #include <iterator>
 #include <functional>
+#include <EdgeSwaps/EdgeSwapInternalSwapsBase.h>
 
-class EdgeSwapInternalSwaps : public EdgeSwapBase {
+class EdgeSwapInternalSwaps : public EdgeSwapInternalSwapsBase {
 public:
     using updated_edges_callback_t = std::function<void(const std::vector<edge_t> &)>;
 protected:
     edge_vector & _edges;
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-    typename debug_vector::bufwriter_type _debug_vector_writer;
-#endif
 
     int_t _num_swaps_per_iteration;
     std::vector<swap_descriptor> _current_swaps;
@@ -29,46 +27,11 @@ protected:
     std::vector<edgeid_t> _edge_ids_in_current_swaps;
     std::vector<edge_t> _edges_in_current_swaps;
 
-    std::vector<bool> _swap_has_successor[2];
-
-
-    struct edge_existence_request_t {
-        edge_t e;
-        int_t sid;
-        bool forward_only; // if this requests is only for generating the correct forwaring information but no existence information is needed
-        DECL_TO_TUPLE(e, sid, forward_only);
-        bool operator< (const edge_existence_request_t& o) const {
-            return (e < o.e || (e == o.e && (sid > o.sid || (sid == o.sid && forward_only < o.forward_only))));
-        }
-    };
-
-    stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> _query_sorter; // Query of possible conflict edges. This may be large (too large...)
-
-    struct edge_existence_answer_t {
-        int_t sid;
-        edge_t e;
-        int_t numExistences;
-        DECL_LEX_COMPARE(edge_existence_answer_t, sid, e);
-    };
-
-    std::vector<edge_existence_answer_t> _edge_existence_pq;
-
-    struct edge_existence_successor_t {
-        int_t from_sid;
-        edge_t e;
-        int_t to_sid;
-        DECL_LEX_COMPARE(edge_existence_successor_t, from_sid, e);
-    };
-
-    std::vector<edge_existence_successor_t> _edge_existence_successors;
+    std::array<std::vector<bool>, 2> _swap_has_successor;
 
     updated_edges_callback_t _updated_edges_callback;
 
-    void simulateSwapsAndGenerateEdgeExistenceQuery();
-    void loadEdgeExistenceInformation();
-    void performSwaps();
     void updateEdgesAndLoadSwapsWithEdgesAndSuccessors();
-
 
 public:
     EdgeSwapInternalSwaps() = delete;
@@ -78,13 +41,9 @@ public:
     //! Swaps are performed during constructor.
     //! @param edges  Edge vector changed in-place
     EdgeSwapInternalSwaps(edge_vector & edges, int_t num_swaps_per_iteration = 1000000) :
-        EdgeSwapBase()
+        EdgeSwapInternalSwapsBase()
         , _edges(edges)
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-        , _debug_vector_writer(_result)
-#endif
         , _num_swaps_per_iteration(num_swaps_per_iteration)
-        , _query_sorter(typename GenericComparatorStruct<edge_existence_request_t>::Ascending(), SORTER_MEM)
     {
         _current_swaps.reserve(_num_swaps_per_iteration);
     }
