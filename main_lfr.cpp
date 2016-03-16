@@ -34,13 +34,14 @@ public:
 
     stxxl::uint64 community_min_members;
     stxxl::uint64 community_max_members;
+
     double community_gamma;
 
     double mixing;
     unsigned int randomSeed;
 
-    MonotonicPowerlawRandomStream<>::Parameters node_distribution_param;
-    MonotonicPowerlawRandomStream<>::Parameters community_distribution_param;
+    MonotonicPowerlawRandomStream<false>::Parameters node_distribution_param;
+    MonotonicPowerlawRandomStream<false>::Parameters community_distribution_param;
 
     RunConfig() :
         number_of_nodes      (100000),
@@ -74,8 +75,8 @@ public:
         cp.add_bytes (CMDLINE_COMP('n', "num-nodes", number_of_nodes, "Number of nodes"));
         cp.add_bytes (CMDLINE_COMP('c', "num-communities", number_of_communities, "Number of communities"));
 
-        cp.add_bytes (CMDLINE_COMP('h', "node-min-degree",   node_min_degree,   "Minumum node degree"));
-        cp.add_bytes (CMDLINE_COMP('i', "node-max-degree",   node_max_degree,   "Maximum node degree"));
+        cp.add_bytes (CMDLINE_COMP('i', "node-min-degree",   node_min_degree,   "Minumum node degree"));
+        cp.add_bytes (CMDLINE_COMP('a', "node-max-degree",   node_max_degree,   "Maximum node degree"));
         cp.add_double(CMDLINE_COMP('j', "node-gamma",        node_gamma,        "Exponent of node degree distribution"));
 
         cp.add_bytes (CMDLINE_COMP('x', "community-min-members",   community_min_members,   "Minumum community size"));
@@ -84,12 +85,20 @@ public:
 
         cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
 
+        cp.add_bytes (CMDLINE_COMP('l', "num-overlap-node",   overlapping_nodes,   "Minumum node degree"));
+        cp.add_bytes (CMDLINE_COMP('k', "overlap-members",   overlap_degree,   "Maximum node degree"));
+
         cp.add_double(CMDLINE_COMP('m', "mixing",        mixing,         "Fraction node edge being inter-community"));
 
         assert(number_of_communities < std::numeric_limits<community_t>::max());
 
         if (!cp.process(argc, argv)) {
             cp.print_usage();
+            return false;
+        }
+
+        if (overlapping_nodes> number_of_nodes) {
+            std::cerr << "Number of overlapping exceed total number of nodes" << std::endl;
             return false;
         }
 
@@ -118,8 +127,8 @@ int main(int argc, char* argv[]) {
                  config.mixing);
 
     LFR::OverlapConfig oconfig;
-    oconfig.constDegree.multiCommunityDegree = 10;
-    oconfig.constDegree.overlappingNodes = config.number_of_nodes / 10;
+    oconfig.constDegree.multiCommunityDegree = config.overlap_degree;
+    oconfig.constDegree.overlappingNodes = config.overlapping_nodes;
 
     lfr.setOverlap(LFR::OverlapMethod::constDegree, oconfig);
     lfr.run();
