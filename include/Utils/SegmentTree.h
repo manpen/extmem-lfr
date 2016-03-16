@@ -126,7 +126,7 @@ namespace SegmentTree {
         }
     };
 
-    template <typename Output, unsigned int depth, unsigned int queue_size = 16, class QueryToken = Token<>, class TreeNode=TreeNode<>>
+    template <typename Output, unsigned int depth=8, unsigned int queue_size = 32, class QueryToken = Token<>, class TreeNode=TreeNode<>>
     class SegmentSubTree {
     protected:
         constexpr static size_t number_of_subtrees = 2<<depth;
@@ -169,7 +169,7 @@ namespace SegmentTree {
                 // in case we rediscovered this subtree, we have to flush its pending operations
                 // (which should reduce its weight to 0) before we can reinitialize it
                 if (!new_tree) {
-                    _subtrees[idx]->flush();
+                    _subtrees[idx]->flush(false);
                     assert(!_subtrees[idx]->_weight);
                 }
 
@@ -190,7 +190,7 @@ namespace SegmentTree {
                     const auto & node = _tree[node_idx - 1];
 
                     if (UNLIKELY(node.type() == Leaf)) {
-                        _output(node.data(), token.id());
+                        _output.push(std::make_pair<uint64_t, uint64_t>(node.data(), token.id()));
                         return;
                     }
 
@@ -263,7 +263,7 @@ namespace SegmentTree {
         void _push(const QueryToken & item) {
             _queue[_queued++] = item;
             if (_queued == queue_size)
-                flush();
+                flush(false);
         }
 
         void _initialize(const TreeNode & root, uint64_t weight) {
@@ -330,7 +330,7 @@ namespace SegmentTree {
             }
         }
 
-        void flush(bool recursive = false, bool delete_empty = false) {
+        void flush(bool recursive = true, bool delete_empty = false) {
             // process queued tokens
             for(unsigned int i = 0; i < _queued; i++) {
                 _process(_queue[i]);
@@ -353,7 +353,7 @@ namespace SegmentTree {
         }
     };
 
-    template <typename Output, unsigned int depth, unsigned int queue_size = 32, class QueryToken = Token<>, class TreeNode=TreeNode<>>
+    template <typename Output, unsigned int depth=8, unsigned int queue_size = 32, class QueryToken = Token<>, class TreeNode=TreeNode<>>
     class SegmentTree : public SegmentSubTree<Output, depth, queue_size, QueryToken, TreeNode> {
         using SubTreeType = SegmentSubTree<Output, depth, queue_size, QueryToken, TreeNode>;
         uint64_t _uncached_weight;
@@ -394,6 +394,7 @@ namespace SegmentTree {
         uint64_t weight() const {
             return _uncached_weight;
         }
+
 
         template <class ostream>
         void toDot(ostream & os) const {
