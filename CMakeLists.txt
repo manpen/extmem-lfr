@@ -72,6 +72,7 @@ add_library(libextmemgraphgen STATIC
     include/HavelHakimi/HavelHakimiGeneratorRLE.cpp
     include/LFR/LFR.cpp
     include/LFR/GlobalRewiringSwapGenerator.cpp
+    include/LFR/CommunityEdgeRewiringSwaps.cpp
     include/IMGraph.cpp
     ${LFR_SRCS}
 )

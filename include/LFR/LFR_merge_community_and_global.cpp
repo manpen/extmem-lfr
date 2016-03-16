@@ -13,7 +13,6 @@ namespace LFR {
 
         while (!ext_edge_reader.empty() || !intra_edge_reader.empty()) {
             if (ext_edge_reader.empty() || (!intra_edge_reader.empty() && intra_edge_reader->edge <= *ext_edge_reader)) {
-                // FIXME this simply discards duplicates, add rewiring!
                 if (curEdge != intra_edge_reader->edge) {
                     curEdge = intra_edge_reader->edge;
                     edge_writer << curEdge;
@@ -36,6 +35,8 @@ namespace LFR {
 
         edge_writer.finish();
 
-        STXXL_MSG("Discarded " << discardedEdges << " internal edges that were in multiple communities of in total " << _edges.size() << " edges.");
+        if (discardedEdges > 0) {
+            STXXL_MSG("Discarded " << discardedEdges << " internal edges that were in multiple communities of in total " << _edges.size() << " edges.");
+        }
     }
 }

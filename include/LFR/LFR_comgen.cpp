@@ -1,4 +1,5 @@
 #include "LFR.h"
+#include "CommunityEdgeRewiringSwaps.h"
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <SwapGenerator.h>
@@ -178,5 +179,8 @@ namespace LFR {
 
         _intra_community_edges.reserve(edgeSorter.size());
         stxxl::stream::materialize(edgeSorter, _intra_community_edges.begin());
+
+        CommunityEdgeRewiringSwaps rewiringSwaps(_intra_community_edges, _intra_community_edges.size() / 3);
+        rewiringSwaps.run();
     }
 }
