@@ -90,8 +90,8 @@ namespace LFR {
         _compute_community_size();
         _compute_community_assignments();
         #pragma omp parallel
+        #pragma omp single
         {
-        // FIXME: untested if this task pattern actually works
         #pragma omp task
         _generate_community_graphs();
         #pragma omp task
