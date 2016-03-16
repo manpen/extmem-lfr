@@ -50,6 +50,8 @@ public:
         node_max_degree(number_of_nodes/10),
         max_degree_within_community(node_max_degree),
         node_gamma(-2.0),
+        overlap_degree(0),
+        overlapping_nodes(0),
         community_min_members(  25),
         community_max_members(1000),
         community_gamma(-2.0),
