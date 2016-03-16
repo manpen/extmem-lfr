@@ -46,6 +46,9 @@ namespace LFR {
 
                 const NodeDegreeMembership ndm(degree, memberships);
                 assert(ndm.intraCommunityDegree(_mixing, memberships-1));
+
+                //std::cout << "Node " << i <<  " Degree: " << degree << " Mem: " << memberships << std::endl;
+
                 _node_sorter.push(ndm);
             }
         }
@@ -56,32 +59,21 @@ namespace LFR {
 
 
     void LFR::_compute_community_size() {
+        // allocate memory
         _community_cumulative_sizes.resize(_number_of_communities+1);
 
-        // FIXME: We can easily change the direction of the powerlaw distribution generator!
-
+        // generate prefix sum of random powerlaw degree distribution
         CommunityDistribution cdd(_community_distribution_params);
-        // The very lazy way ...
-        std::vector<degree_t> tmp(_number_of_communities);
-        for(auto & t : tmp) {
-            assert(!cdd.empty());
-            t = *cdd;
-            ++cdd;
+        uint_t members_sum = 0;
+        auto cum_sum = _community_cumulative_sizes.begin();
+        for(; !cdd.empty(); ++cdd, ++cum_sum) {
+            *cum_sum = members_sum;
+            members_sum += *cdd;
         }
-        assert(cdd.empty());
+        *cum_sum = members_sum;
 
-        {
-            uint_t memebers_sum = 0;
-            auto cdd = tmp.rbegin();
-            for (auto dit = _community_cumulative_sizes.begin() + 1; dit != _community_cumulative_sizes.end(); ++cdd, ++dit) {
-                memebers_sum += *cdd;
-                *dit = memebers_sum;
-            }
-#ifndef NDEBUG
-            std::cout << "Community member sum: " << memebers_sum << "\n";
-#endif
-        }
-
+        assert(++cum_sum == _community_cumulative_sizes.end());
+        std::cout << "Community member sum: " << members_sum << "\n";
     }
 
 

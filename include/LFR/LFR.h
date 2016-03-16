@@ -101,8 +101,8 @@ enum OverlapMethod {
 
 class LFR {
 public:
-    using NodeDegreeDistribution = MonotonicPowerlawRandomStream<>;
-    using CommunityDistribution = MonotonicPowerlawRandomStream<>;
+    using NodeDegreeDistribution = MonotonicPowerlawRandomStream<false>;
+    using CommunityDistribution = MonotonicPowerlawRandomStream<false>;
 
 
 protected:
