@@ -35,8 +35,8 @@ namespace SegmentTree {
     public:
         TestSegmentTreeWriter() {};
 
-        void operator() (uint64_t segment, uint64_t query) {
-            _list.push_back( std::make_pair(segment, query) );
+        void push(const std::pair<uint64_t, uint64_t> & pair) {
+            _list.push_back( pair );
         }
 
         value_type & list() {return _list;}
