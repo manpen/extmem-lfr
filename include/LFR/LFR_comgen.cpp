@@ -177,7 +177,7 @@ namespace LFR {
 
         edgeSorter.sort();
 
-        _intra_community_edges.reserve(edgeSorter.size());
+        _intra_community_edges.resize(edgeSorter.size());
         stxxl::stream::materialize(edgeSorter, _intra_community_edges.begin());
 
         CommunityEdgeRewiringSwaps rewiringSwaps(_intra_community_edges, _intra_community_edges.size() / 3);
