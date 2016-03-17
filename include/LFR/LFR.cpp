@@ -60,19 +60,69 @@ namespace LFR {
 
     void LFR::_compute_community_size() {
         // allocate memory
-        _community_cumulative_sizes.resize(_number_of_communities+1);
+        _community_cumulative_sizes.clear();
+        _community_cumulative_sizes.reserve(_number_of_communities+1);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+
+        uint_t needed_memberships = (_number_of_nodes + (_overlap_config.constDegree.overlappingNodes * (_overlap_config.constDegree.multiCommunityDegree - 1)));
 
         // generate prefix sum of random powerlaw degree distribution
         CommunityDistribution cdd(_community_distribution_params);
         uint_t members_sum = 0;
-        auto cum_sum = _community_cumulative_sizes.begin();
-        for(; !cdd.empty(); ++cdd, ++cum_sum) {
-            *cum_sum = members_sum;
-            members_sum += *cdd;
-        }
-        *cum_sum = members_sum;
+        community_t min_community = 0;
+        community_t min_community_size = std::numeric_limits<community_t>::max();
+        for(community_t c = 0; !cdd.empty(); ++cdd, ++c) {
+            assert(static_cast<community_t>(_community_cumulative_sizes.size()) == c);
 
-        assert(++cum_sum == _community_cumulative_sizes.end());
+            int_t s = *cdd;
+            _community_cumulative_sizes.push_back(s);
+            members_sum += s;
+
+            if (s < min_community_size) {
+                min_community = c;
+                min_community_size = s;
+            }
+
+            // remove communities as long as we have too many memberships
+            while (members_sum > needed_memberships) {
+                std::uniform_int_distribution<> dis(0, c);
+                community_t x = dis(gen);
+                members_sum -= _community_cumulative_sizes[x];
+                std::swap(_community_cumulative_sizes[x], _community_cumulative_sizes.back());
+                _community_cumulative_sizes.pop_back();
+                --c;
+                if (min_community == x) {
+                    auto it = std::min_element(_community_cumulative_sizes.begin(), _community_cumulative_sizes.end());
+                    min_community_size = *it;
+                    min_community = std::distance(_community_cumulative_sizes.begin(), it);
+                }
+            }
+        }
+
+        if (members_sum < needed_memberships) {
+            _community_cumulative_sizes[min_community] += (needed_memberships - members_sum);
+            std::cout << "Added " << (needed_memberships - members_sum) << " memberships to community " << min_community << " which has now size " << _community_cumulative_sizes[min_community] << std::endl;
+            members_sum = needed_memberships;
+        }
+
+        SEQPAR::sort(_community_cumulative_sizes.begin(), _community_cumulative_sizes.end(), std::greater<decltype(_community_cumulative_sizes)::value_type>());
+
+        {
+            _community_cumulative_sizes.push_back(0);
+
+            // exclusive prefix sum
+            community_t sum = 0;
+            for (size_t c = 0; c < _community_cumulative_sizes.size(); ++c) {
+                community_t tmp = _community_cumulative_sizes[c];
+                _community_cumulative_sizes[c] = sum;
+                sum += tmp;
+            }
+        }
+
+        assert(static_cast<community_t>(members_sum) == _community_cumulative_sizes.back());
+
         std::cout << "Community member sum: " << members_sum << "\n";
     }
 
