@@ -162,7 +162,6 @@ namespace LFR {
         _community_assignments.resize(assignments.size());
         stxxl::stream::materialize(assignments, _community_assignments.begin());
 
-
         {
             _community_cumulative_sizes.push_back(0);
 
@@ -176,5 +175,34 @@ namespace LFR {
         }
 
         assert(_community_cumulative_sizes.back() == _number_of_nodes);
+
+#ifndef NDEBUG
+        // check that assignment is valid
+        {
+            community_t com = 0;
+            node_t size = 0;
+            degree_t max_deg = 0;
+
+            for (typename decltype(_community_assignments)::bufreader_type reader(_community_assignments);
+                 !reader.empty(); ++reader) {
+
+                auto & a = *reader;
+
+                if (a.community_id == com) {
+                    size++;
+                    max_deg = std::max<degree_t>(max_deg, a.degree);
+                } else {
+                    assert(size == _community_size(com));
+                    assert(size >= max_deg);
+                    com = a.community_id;
+                    size = 1;
+                    max_deg = a.degree;
+                }
+            }
+
+            assert(size == _community_size(com));
+            assert(size >= max_deg);
+        }
+#endif
     }
 }
