@@ -102,6 +102,10 @@ namespace LFR {
         }
 
         if (members_sum < needed_memberships) {
+            if (static_cast<int_t>(needed_memberships - members_sum) > _community_distribution_params.maxDegree) {
+                STXXL_ERRMSG("There are " << (needed_memberships - members_sum) << " memberships missing, which is more than the size of the largest community (" << _community_distribution_params.maxDegree << "), you need to specify more communities!");
+                abort();
+            }
             _community_cumulative_sizes[min_community] += (needed_memberships - members_sum);
             std::cout << "Added " << (needed_memberships - members_sum) << " memberships to community " << min_community << " which has now size " << _community_cumulative_sizes[min_community] << std::endl;
             members_sum = needed_memberships;
