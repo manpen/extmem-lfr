@@ -1,5 +1,4 @@
 #include "LFR.h"
-
 #include <random>
 
 namespace LFR {
@@ -10,8 +9,8 @@ namespace LFR {
         std::default_random_engine generator;
         std::geometric_distribution<int> geo_dist(0.1);
 
-        uint_t degree_sum = 0;
-        uint_t memebership_sum = 0;
+        node_t degree_sum = 0;
+        node_t membership_sum = 0;
 
         if (_overlap_method == geometric) {
             for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
@@ -34,7 +33,7 @@ namespace LFR {
 
                 _node_sorter.push(NodeDegreeMembership(degree, memberships));
                 degree_sum += degree;
-                memebership_sum += memberships;
+                membership_sum += memberships;
             }
         } else if (_overlap_method == constDegree) {
             for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
@@ -46,15 +45,20 @@ namespace LFR {
 
                 const NodeDegreeMembership ndm(degree, memberships);
                 assert(ndm.intraCommunityDegree(_mixing, memberships-1));
+                degree_sum += ndm.totalInternalDegree(_mixing);
 
                 //std::cout << "Node " << i <<  " Degree: " << degree << " Mem: " << memberships << std::endl;
 
                 _node_sorter.push(ndm);
             }
+
+            membership_sum = _overlap_config.constDegree.overlappingNodes * (_overlap_config.constDegree.multiCommunityDegree - 1)
+                           + _number_of_nodes;
         }
 
         _node_sorter.sort();
-        std::cout << "Degree sum: " << degree_sum << " Membership sum: " << memebership_sum << "\n";
+        std::cout << "Degree sum: " << degree_sum << " Membership sum: " << membership_sum << "\n";
+        _node_total_interal_degree = degree_sum;
     }
 
 
@@ -102,10 +106,6 @@ namespace LFR {
         }
 
         if (members_sum < needed_memberships) {
-            if (static_cast<int_t>(needed_memberships - members_sum) > _community_distribution_params.maxDegree) {
-                STXXL_ERRMSG("There are " << (needed_memberships - members_sum) << " memberships missing, which is more than the size of the largest community (" << _community_distribution_params.maxDegree << "), you need to specify more communities!");
-                abort();
-            }
             _community_cumulative_sizes[min_community] += (needed_memberships - members_sum);
             std::cout << "Added " << (needed_memberships - members_sum) << " memberships to community " << min_community << " which has now size " << _community_cumulative_sizes[min_community] << std::endl;
             members_sum = needed_memberships;
@@ -113,22 +113,12 @@ namespace LFR {
 
         SEQPAR::sort(_community_cumulative_sizes.begin(), _community_cumulative_sizes.end(), std::greater<decltype(_community_cumulative_sizes)::value_type>());
 
-        {
-            _community_cumulative_sizes.push_back(0);
-
-            // exclusive prefix sum
-            community_t sum = 0;
-            for (size_t c = 0; c < _community_cumulative_sizes.size(); ++c) {
-                community_t tmp = _community_cumulative_sizes[c];
-                _community_cumulative_sizes[c] = sum;
-                sum += tmp;
-            }
-        }
-
-        assert(static_cast<community_t>(members_sum) == _community_cumulative_sizes.back());
+        assert(static_cast<community_t>(members_sum) ==
+               std::accumulate(_community_cumulative_sizes.begin(), _community_cumulative_sizes.end(), 0));
 
         std::cout << "Community member sum: " << members_sum << "\n";
     }
+
 
 
     void LFR::run() {
@@ -144,8 +134,6 @@ namespace LFR {
         _generate_global_graph();
         }
         _merge_community_and_global_graph();
-
-        std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " << _inter_community_edges.size() << " of them are inter-community edges" << std::endl;
     }
 
 }
