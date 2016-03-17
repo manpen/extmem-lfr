@@ -21,7 +21,7 @@ namespace LFR {
     void LFR::_generate_community_graphs() {
         stxxl::sorter<CommunityEdge, GenericComparatorStruct<CommunityEdge>::Ascending> edgeSorter(GenericComparatorStruct<CommunityEdge>::Ascending(), SORTER_MEM);
 
-        #pragma omp parallel shared(edgeSorter)
+        #pragma omp parallel shared(edgeSorter), num_threads(omp_get_max_threads() - 1)
         {
             // set-up thread-private variables
             std::vector<node_t> node_ids;
