@@ -144,6 +144,8 @@ namespace LFR {
         _generate_global_graph();
         }
         _merge_community_and_global_graph();
+
+        std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " << _inter_community_edges.size() << " of them are inter-community edges" << std::endl;
     }
 
 }
