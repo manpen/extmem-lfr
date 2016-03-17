@@ -41,6 +41,9 @@ remove_cxx_flag("-O3")
 # enable warnings (always good)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 
+# SSE support required for crc-intrinsic
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -mtune=native -msse4")
+
 # enable C++11
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -DSTXXL_VERBOSE_LEVEL=0")
 
