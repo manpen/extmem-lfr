@@ -71,37 +71,27 @@ namespace LFR {
         // generate prefix sum of random powerlaw degree distribution
         CommunityDistribution cdd(_community_distribution_params);
         uint_t members_sum = 0;
-        community_t min_community = 0;
-        community_t min_community_size = std::numeric_limits<community_t>::max();
         for(community_t c = 0; !cdd.empty(); ++cdd, ++c) {
             assert(static_cast<community_t>(_community_cumulative_sizes.size()) == c);
 
             int_t s = *cdd;
             _community_cumulative_sizes.push_back(s);
             members_sum += s;
+        }
 
-            if (s < min_community_size) {
-                min_community = c;
-                min_community_size = s;
-            }
-
-            // remove communities as long as we have too many memberships
-            while (members_sum > needed_memberships) {
-                std::uniform_int_distribution<> dis(0, c);
-                community_t x = dis(gen);
-                members_sum -= _community_cumulative_sizes[x];
-                std::swap(_community_cumulative_sizes[x], _community_cumulative_sizes.back());
-                _community_cumulative_sizes.pop_back();
-                --c;
-                if (min_community == x) {
-                    auto it = std::min_element(_community_cumulative_sizes.begin(), _community_cumulative_sizes.end());
-                    min_community_size = *it;
-                    min_community = std::distance(_community_cumulative_sizes.begin(), it);
-                }
-            }
+        // remove communities as long as we have too many memberships
+        while (members_sum > needed_memberships) {
+            std::uniform_int_distribution<> dis(0, _community_cumulative_sizes.size()-1);
+            community_t x = dis(gen);
+            members_sum -= _community_cumulative_sizes[x];
+            std::swap(_community_cumulative_sizes[x], _community_cumulative_sizes.back());
+            _community_cumulative_sizes.pop_back();
         }
 
         if (members_sum < needed_memberships) {
+            auto it = std::min_element(_community_cumulative_sizes.begin(), _community_cumulative_sizes.end());
+            community_t min_community = std::distance(_community_cumulative_sizes.begin(), it);
+
             if (static_cast<int_t>(needed_memberships - members_sum) > _community_distribution_params.maxDegree) {
                 STXXL_ERRMSG("There are " << (needed_memberships - members_sum) << " memberships missing, which is more than the size of the largest community (" << _community_distribution_params.maxDegree << "), you need to specify more communities!");
                 abort();
