@@ -9,8 +9,8 @@ namespace LFR {
         std::default_random_engine generator;
         std::geometric_distribution<int> geo_dist(0.1);
 
-        node_t degree_sum = 0;
-        node_t membership_sum = 0;
+        uint_t degree_sum = 0;
+        uint_t memebership_sum = 0;
 
         if (_overlap_method == geometric) {
             for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
@@ -25,18 +25,18 @@ namespace LFR {
                         auto r = (1 + geo_dist(generator));
                         memberships = internal_degree / r;
                     } while (
-                            !memberships ||
-                            memberships > 8 * _community_distribution_params.numberOfNodes / 10 ||
-                            internal_degree / memberships > _overlap_config.geometric.maxDegreeIntraDegree
-                            );
+                          !memberships ||
+                          memberships > 8 * _community_distribution_params.numberOfNodes / 10 ||
+                          internal_degree / memberships > _overlap_config.geometric.maxDegreeIntraDegree
+                          );
                 }
 
                 _node_sorter.push(NodeDegreeMembership(degree, memberships));
                 degree_sum += degree;
-                membership_sum += memberships;
+                memebership_sum += memberships;
             }
         } else if (_overlap_method == constDegree) {
-            for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
+            for (node_t i = 0; i < static_cast<node_t>(_number_of_nodes); ++i, ++ndd) {
                 assert(!ndd.empty());
                 auto &degree = *ndd;
 
@@ -45,21 +45,17 @@ namespace LFR {
 
                 const NodeDegreeMembership ndm(degree, memberships);
                 assert(ndm.intraCommunityDegree(_mixing, memberships-1));
-                degree_sum += ndm.totalInternalDegree(_mixing);
 
                 //std::cout << "Node " << i <<  " Degree: " << degree << " Mem: " << memberships << std::endl;
 
                 _node_sorter.push(ndm);
             }
-
-            membership_sum = _overlap_config.constDegree.overlappingNodes * (_overlap_config.constDegree.multiCommunityDegree - 1)
-                           + _number_of_nodes;
         }
 
         _node_sorter.sort();
-        std::cout << "Degree sum: " << degree_sum << " Membership sum: " << membership_sum << "\n";
-        _node_total_interal_degree = degree_sum;
+        std::cout << "Degree sum: " << degree_sum << " Membership sum: " << memebership_sum << "\n";
     }
+
 
 
     void LFR::_compute_community_size() {
