@@ -34,15 +34,15 @@ struct RandomizingSegmentComparator {
     }
 #else
     #warning "Need SSE4.2 for fast randomizing comparator"
-    uint32_t hash(uint32_t x) {
+    uint32_t hash(uint32_t x) const {
         // gcc's linear congruential config
         return 1103515245*x + 12345;
     }
 
     bool operator()(const value_type & a, const value_type & b) const {
         if (UNLIKELY(a.first == b.first)) {
-            auto rnd_a = hash(static_cast<uint32_t>(a.second ^ (a.second << 32)));
-            auto rnd_b = hash(static_cast<uint32_t>(b.second ^ (b.second << 32)));
+            auto crc_a = hash(static_cast<uint32_t>(a.second ^ (a.second << 32)));
+            auto crc_b = hash(static_cast<uint32_t>(b.second ^ (b.second << 32)));
 
             return crc_a < crc_b;
 
