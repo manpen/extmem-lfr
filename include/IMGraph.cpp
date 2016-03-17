@@ -31,15 +31,8 @@ SwapResult IMGraph::swapEdges(const edgeid_t eid0, const edgeid_t eid1, bool dir
         result.loop = true;
     } else { // check for conflict edges
         result.loop = false;
-        result.conflictDetected[0] = false;
-        result.conflictDetected[1] = false;
         for (unsigned char pos = 0; pos < 2; ++pos) {
-            node_t src = t[pos].first;
-            for (edgeid_t i = _first_head[src]; i < _first_head[src+1]; ++i) {
-                if (_head[i] == t[pos].second) {
-                    result.conflictDetected[pos] = true;
-                }
-            }
+            result.conflictDetected[pos] = hasEdge(t[pos].first, t[pos].second);
         }
     }
 

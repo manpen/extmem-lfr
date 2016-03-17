@@ -101,6 +101,35 @@ public:
     }
 
     /**
+     * The degree of the given node.
+     *
+     * @param u The node to get the degree for
+     * @return The degree of @a u.
+     */
+    int_t degree(node_t u) const {
+        return  _last_head[u] - _first_head[u];
+    }
+
+    /**
+     * Checks if the given edge exists.
+     *
+     * Running time is linear in the size of the smaller degree of the two nodes.
+     *
+     * @param u The source node
+     * @param v The target node
+     * @return If the edge exists
+     */
+     bool hasEdge(node_t u, node_t v) const {
+        if (degree(u) > degree(v)) std::swap(u, v);
+        for (edgeid_t i = _first_head[u]; i < _last_head[u]; ++i) {
+            if (UNLIKELY(_head[i] == v)) {
+                return true;
+            }
+        }
+        return false;
+     }
+
+    /**
      * Get the number of edges the graph has.
      *
      * @return The number of edges.
