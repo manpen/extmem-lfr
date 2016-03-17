@@ -8,6 +8,7 @@
 #include <IMGraph.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 #include <Utils/AsyncStream.h>
+#include <omp.h>
 
 #ifndef MAX_INTERNAL_EDGES
 #define MAX_INTERNAL_EDGES (1 * IntScale::M)
