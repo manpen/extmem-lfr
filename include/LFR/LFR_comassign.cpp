@@ -9,6 +9,14 @@ namespace LFR {
         assert(_overlap_method == constDegree && _overlap_config.constDegree.overlappingNodes == 0);
         auto & com_sizes = _community_cumulative_sizes;
 
+        if (_degree_distribution_params.maxDegree * (1.0 - _mixing) >= _community_distribution_params.maxDegree) {
+            throw std::runtime_error("Error, the maximum community is too small to fit the node of the highest degree.");
+        }
+
+        if (_degree_distribution_params.minDegree * (1.0 - _mixing) >= _community_distribution_params.minDegree) {
+            throw std::runtime_error("Error, the minimum community size is too small to fit the node of the lowest degree.");
+        }
+
         // ensure a legal assignment exists and if not merge communities
         // to make one possible
         {
