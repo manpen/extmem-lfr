@@ -17,12 +17,12 @@ private:
 
         void findNext() {
             for (; pos < _graph._head.size(); ++pos) {
-                while (pos == static_cast<size_t>(_graph._last_head[u])) {
+                while (pos < _graph._head.size() && pos == static_cast<size_t>(_graph._last_head[u])) {
                     ++u;
                     pos = _graph._first_head[u];
                 }
 
-                if (u <= _graph._head[pos]) {
+                if (pos < _graph._head.size() && u <= _graph._head[pos]) {
                     cur = {u, _graph._head[pos]};
                     return;
                 }
@@ -49,7 +49,7 @@ private:
         }
 
         bool empty() const {
-            return pos == _graph._head.size();
+            return pos >= _graph._head.size();
         };
 
     };
