@@ -117,6 +117,8 @@ int main(int argc, char* argv[]) {
     std::cout << "[build with assertions]" << std::endl;
 #endif
 
+    omp_set_nested(1);
+
     RunConfig config;
     if (!config.parse_cmdline(argc, argv))
         return -1;
