@@ -12,6 +12,15 @@
 #include <limits>
 #include <ostream>
 
+#ifndef SEQPAR
+    #if 1
+        #include <parallel/algorithm>
+        #define SEQPAR __gnu_parallel
+    #else
+        #define SEQPAR std
+    #endif
+#endif
+
 /** 
  * @typedef int_t
  * @brief The default signed integer to be used.
