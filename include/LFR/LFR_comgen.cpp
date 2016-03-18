@@ -30,7 +30,7 @@ namespace LFR {
             stxxl::vector<node_t> external_node_ids;
             stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
 
-            #pragma omp for schedule(dynamic, 10)
+            #pragma omp for schedule(dynamic, 1)
             for (community_t com = 0; com < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++com) {
                 node_t com_size = _community_cumulative_sizes[com+1] - _community_cumulative_sizes[com];
 
