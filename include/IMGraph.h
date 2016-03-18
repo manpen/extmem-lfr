@@ -11,26 +11,11 @@ private:
     class IMEdgeStream {
     private:
         const IMGraph &_graph;
-        node_t u;
         size_t pos;
         edge_t cur;
-
-        void findNext() {
-            for (; pos < _graph._head.size(); ++pos) {
-                while (pos < _graph._head.size() && pos == static_cast<size_t>(_graph._last_head[u])) {
-                    ++u;
-                    pos = _graph._first_head[u];
-                }
-
-                if (pos < _graph._head.size() && u <= _graph._head[pos]) {
-                    cur = {u, _graph._head[pos]};
-                    return;
-                }
-            }
-        }
     public:
-        IMEdgeStream(const IMGraph &graph) : _graph(graph), u(0), pos(0) {
-            findNext();
+        IMEdgeStream(const IMGraph &graph) : _graph(graph), pos(0) {
+            if (!empty()) cur = _graph.getEdge(pos);
         };
 
 
@@ -44,19 +29,25 @@ private:
 
         IMEdgeStream & operator++ () {
             ++pos;
-            findNext();
+            if (!empty()) cur = _graph.getEdge(pos);
             return *this;
         }
 
         bool empty() const {
-            return pos >= _graph._head.size();
+            return pos >= _graph.numEdges();
         };
 
     };
+    struct node_ref {
+        bool index_is_node;
+        int_t index;
+    };
+    node_t _h;
     std::vector<node_t> _head;
     std::vector<edgeid_t> _first_head;
     std::vector<edgeid_t> _last_head;
-    std::vector<std::pair<edgeid_t, edgeid_t>> _edge_index;
+    std::vector<std::pair<node_ref, node_ref>> _edge_index;
+    std::vector<bool> _adjacency_matrix;
     stxxl::random_number64 _random_integer;
 public:
     /**
@@ -71,13 +62,29 @@ public:
      *
      * @param e The edge to add
      */
-    void addEdge(edge_t e) {
-        assert(_last_head[e.first] < _first_head[e.first+1] && _last_head[e.second] < _first_head[e.second+1]);
-        _head[_last_head[e.first]] = e.second;
-        _head[_last_head[e.second]] = e.first;
-        _edge_index.emplace_back(_last_head[e.first], _last_head[e.second]);
-        ++_last_head[e.first];
-        ++_last_head[e.second];
+    void addEdge(const edge_t &e) {
+        std::pair<node_ref, node_ref> idx = {{true, e.first}, {true, e.second}};
+        if (e.first >= _h) {
+            node_t i = e.first - _h;
+            assert(_last_head[i] < _first_head[i+1]);
+            _head[_last_head[i]] = e.second;
+            idx.second = {false, _last_head[i]}; // warning: roles swapped
+            ++_last_head[i];
+        }
+        if (e.second >= _h) {
+            node_t j = e.second - _h;
+            assert(_last_head[j] < _first_head[j+1]);
+            _head[_last_head[j]] = e.first;
+            idx.first = {false, _last_head[j]}; // warning: roles swapped
+            ++_last_head[j];
+        }
+        if (e.first < _h && e.second < _h) {
+            _adjacency_matrix[e.first*_h + e.second] = true;
+            _adjacency_matrix[e.second*_h + e.first] = true;
+        }
+        _edge_index.push_back(idx);
+
+        assert(getEdge(_edge_index.size()-1) == e);
     }
 
     /**
@@ -97,19 +104,32 @@ public:
      */
     edge_t getEdge(edgeid_t eid) const {
         auto &idx = _edge_index[eid];
-        return {_head[idx.second], _head[idx.first]};
+        edge_t result= {idx.first.index, idx.second.index};
+
+        if (!idx.first.index_is_node) {
+            result.first = _head[result.first];
+        }
+
+        if (!idx.second.index_is_node) {
+            result.second = _head[result.second];
+        }
+
+        return result;
     }
 
+protected:
     /**
-     * The degree of the given node.
+     * The degree of the given node if the node is not smaller than _h.
      *
      * @param u The node to get the degree for
      * @return The degree of @a u.
      */
     int_t degree(node_t u) const {
-        return  _last_head[u] - _first_head[u];
+        assert(u >= _h && "Error, degree of the first nodes cannot be recovered");
+        return  _last_head[u-_h] - _first_head[u-_h];
     }
 
+public:
     /**
      * Checks if the given edge exists.
      *
@@ -120,8 +140,13 @@ public:
      * @return If the edge exists
      */
      bool hasEdge(node_t u, node_t v) const {
-        if (degree(u) > degree(v)) std::swap(u, v);
-        for (edgeid_t i = _first_head[u]; i < _last_head[u]; ++i) {
+        if (u < _h && v < _h) return _adjacency_matrix[u*_h + v];
+
+        if (u < _h) std::swap(u, v);
+        // now u is definitely >= _h, but v could be < _h
+        if (v >= _h && degree(u) > degree(v)) std::swap(u, v);
+
+        for (edgeid_t i = _first_head[u-_h]; i < _last_head[u-_h]; ++i) {
             if (UNLIKELY(_head[i] == v)) {
                 return true;
             }
@@ -134,7 +159,7 @@ public:
      *
      * @return The number of edges.
      */
-    int_t numEdges() const {
+    uint_t numEdges() const {
         return _edge_index.size();
     }
 
