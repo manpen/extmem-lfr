@@ -5,11 +5,14 @@ GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LF
     : _edge_community_input_sorter(new edge_community_sorter_t(GenericComparatorStruct<EdgeCommunity>::Ascending(), SORTER_MEM)), _num_edges(numEdges), _empty(true) {
 
     stxxl::sorter<NodeCommunity, GenericComparatorStruct<NodeCommunity>::Ascending> node_community_sorter(GenericComparatorStruct<NodeCommunity>::Ascending(), SORTER_MEM);
-    stxxl::vector<LFR::CommunityAssignment>::bufreader_type communityReader(communityAssignment);
+    #pragma omp critical (_community_assignment)
+    {
+        stxxl::vector<LFR::CommunityAssignment>::bufreader_type communityReader(communityAssignment);
 
-    while (!communityReader.empty()) {
-        node_community_sorter.push(NodeCommunity {communityReader->node_id, communityReader->community_id});
-        ++communityReader;
+        while (!communityReader.empty()) {
+            node_community_sorter.push(NodeCommunity {communityReader->node_id, communityReader->community_id});
+            ++communityReader;
+        }
     }
 
     node_community_sorter.sort();

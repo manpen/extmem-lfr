@@ -49,6 +49,7 @@ namespace LFR {
                     node_degrees.clear();
                     node_degrees.reserve(com_size);
 
+                    #pragma omp critical (_community_assignment)
                     for (auto it(_community_assignments.cbegin() + _community_cumulative_sizes[com]); it < _community_assignments.cbegin() + _community_cumulative_sizes[com+1]; ++it) {
                         const auto ca = *it;
                         assert(ca.community_id == com);
@@ -62,6 +63,7 @@ namespace LFR {
                     external_node_ids.resize(com_size);
                     stxxl::vector<node_t>::bufwriter_type node_id_writer(external_node_ids);
 
+                    #pragma omp critical (_community_assignment)
                     for (auto it(_community_assignments.cbegin() + _community_cumulative_sizes[com]); it < _community_assignments.cbegin() + _community_cumulative_sizes[com+1]; ++it) {
                         const auto ca = *it;
                         assert(ca.community_id == com);
