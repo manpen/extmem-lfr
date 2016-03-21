@@ -96,6 +96,7 @@ namespace LFR {
             community_t slots_deleted = 0;
 
             const community_t number_of_communities = com_sizes.size();
+            slots_left.reserve(number_of_communities);
             for(community_t c=0; c < number_of_communities; c++) {
                 assert(com_sizes[c]);
                 slots_left.emplace_back(c, com_sizes[c]);
