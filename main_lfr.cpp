@@ -38,6 +38,7 @@ public:
     double community_gamma;
 
     double mixing;
+    stxxl::uint64 max_bytes;
     unsigned int randomSeed;
 
     MonotonicPowerlawRandomStream<false>::Parameters node_distribution_param;
@@ -55,7 +56,8 @@ public:
         community_min_members(  25),
         community_max_members(1000),
         community_gamma(-2.0),
-        mixing(0.5)
+        mixing(0.5),
+        max_bytes(10*UIntScale::Gi)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -91,6 +93,7 @@ public:
         cp.add_bytes (CMDLINE_COMP('k', "overlap-members",   overlap_degree,   "Maximum node degree"));
 
         cp.add_double(CMDLINE_COMP('m', "mixing",        mixing,         "Fraction node edge being inter-community"));
+        cp.add_bytes(CMDLINE_COMP('b', "max-bytes", max_bytes, "Maximum number of bytes of main memory to use"));
 
         assert(number_of_communities < std::numeric_limits<community_t>::max());
 
@@ -128,7 +131,8 @@ int main(int argc, char* argv[]) {
 
     LFR::LFR lfr(config.node_distribution_param,
                  config.community_distribution_param,
-                 config.mixing);
+                 config.mixing,
+                 config.max_bytes);
 
     LFR::OverlapConfig oconfig;
     oconfig.constDegree.multiCommunityDegree = config.overlap_degree;

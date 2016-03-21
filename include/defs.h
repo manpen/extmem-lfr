@@ -81,6 +81,7 @@ inline std::ostream &operator<<(std::ostream &os, const edge_t & t) {
  * This class is not meant to be used directly; use one of its named specialisations.
  * 
  * @see IntScale
+ * @see UIntScale
  * @see DblScale
  */
 template <typename T>
@@ -102,6 +103,13 @@ struct Scale {
  * @see Scale
  */
 using IntScale = Scale<int_t>;
+
+/**
+ * @typedef UIntScale
+ * @brief Specialisation of Scale to uint_t
+ * @see Scale
+ */
+using UIntScale = Scale<int_t>;
 
 /**
  * @typedef DblScale

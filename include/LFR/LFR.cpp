@@ -9,7 +9,7 @@ namespace LFR {
         std::default_random_engine generator;
         std::geometric_distribution<int> geo_dist(0.1);
 
-        uint_t degree_sum = 0;
+        _degree_sum = 0;
         uint_t memebership_sum = 0;
 
         if (_overlap_method == geometric) {
@@ -32,13 +32,14 @@ namespace LFR {
                 }
 
                 _node_sorter.push(NodeDegreeMembership(degree, memberships));
-                degree_sum += degree;
+                _degree_sum += degree;
                 memebership_sum += memberships;
             }
         } else if (_overlap_method == constDegree) {
             for (node_t i = 0; i < static_cast<node_t>(_number_of_nodes); ++i, ++ndd) {
                 assert(!ndd.empty());
                 auto &degree = *ndd;
+                _degree_sum += degree;
 
                 community_t memberships = (i < _overlap_config.constDegree.overlappingNodes)
                                           ? _overlap_config.constDegree.multiCommunityDegree : 1;
@@ -53,7 +54,7 @@ namespace LFR {
         }
 
         _node_sorter.sort();
-        std::cout << "Degree sum: " << degree_sum << " Membership sum: " << memebership_sum << "\n";
+        std::cout << "Degree sum: " << _degree_sum << " Membership sum: " << memebership_sum << "\n";
     }
 
 
@@ -115,13 +116,26 @@ namespace LFR {
         _compute_node_distributions();
         _compute_community_size();
         _compute_community_assignments();
+
+        // the swap implementation needs a sorter + the merging of the communities needs a sorter + the global rewiring needs at least one sorter
+        _max_memory_usage -= 3*SORTER_MEM;
+        STXXL_MSG("Remaining memory for actual swaps is " << _max_memory_usage << " bytes");
+        STXXL_MSG("Degree sum is " << _degree_sum);
+        // set global swaps per iteration to the minimum of the number of inter-community-edges divided by 8 and half of the available memory
+        // the swaps need about 100 Byte/swap
+        int_t globalSwapsPerIteration = std::min<int_t>((_degree_sum/2 * _mixing) / 4, (_max_memory_usage/2)/100);
+        STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
+        // subtract actually used amount of memory (so more memory is possibly available for communities)
+        _max_memory_usage -= (globalSwapsPerIteration * 100);
+        STXXL_MSG("Remaining memory for per-community swaps is " << _max_memory_usage << " bytes");
+
         //#pragma omp parallel num_threads(2)
         //#pragma omp single
         {
         //#pragma omp task
         _generate_community_graphs();
         //#pragma omp task
-        _generate_global_graph();
+        _generate_global_graph(globalSwapsPerIteration);
         }
         _merge_community_and_global_graph();
 
