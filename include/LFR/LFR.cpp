@@ -129,12 +129,12 @@ namespace LFR {
         _max_memory_usage -= (globalSwapsPerIteration * 100);
         STXXL_MSG("Remaining memory for per-community swaps is " << _max_memory_usage << " bytes");
 
-        //#pragma omp parallel num_threads(2)
-        //#pragma omp single
+        #pragma omp parallel num_threads(2)
+        #pragma omp single
         {
-        //#pragma omp task
+        #pragma omp task
         _generate_community_graphs();
-        //#pragma omp task
+        #pragma omp task
         _generate_global_graph(globalSwapsPerIteration);
         }
         _merge_community_and_global_graph();

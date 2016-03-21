@@ -16,12 +16,12 @@ namespace LFR {
         const uint_t n_threads = std::max(1, omp_get_max_threads() - 1);
         const uint_t memory_per_thread = _max_memory_usage / n_threads;
 
-        //#pragma omp parallel shared(edgeSorter), num_threads(n_threads)
+        #pragma omp parallel shared(edgeSorter), num_threads(omp_get_max_threads() - 1)
         {
             // set-up thread-private variables
             stxxl::vector<node_t> external_node_ids;
 
-            //#pragma omp for schedule(dynamic, 1)
+            #pragma omp for schedule(dynamic, 1)
             for (community_t com = 0; com < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++com) {
                 node_t com_size = _community_cumulative_sizes[com+1] - _community_cumulative_sizes[com];
                 std::vector<node_t> node_ids;
