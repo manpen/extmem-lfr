@@ -121,13 +121,19 @@ namespace LFR {
         _max_memory_usage -= 3*SORTER_MEM;
         STXXL_MSG("Remaining memory for actual swaps is " << _max_memory_usage << " bytes");
         STXXL_MSG("Degree sum is " << _degree_sum);
-        // set global swaps per iteration to the minimum of the number of inter-community-edges divided by 8 and half of the available memory
+
+        // set global swaps per iteration to the minimum of the number of inter-community-edges divided by 8 and the memory available per thread
         // the swaps need about 100 Byte/swap
-        int_t globalSwapsPerIteration = std::min<int_t>((_degree_sum/2 * _mixing) / 4, (_max_memory_usage/2)/100);
+        int_t localCores = std::max<int_t>(omp_get_max_threads() - 1, 1);
+        int_t min_local_memory = localCores * SORTER_MEM * 1.3; // locally, we need at least a sorter and something more per thread to be able to do anything
+        int_t max_global_memory = std::min(_max_memory_usage - min_local_memory, _max_memory_usage/2); // give the global algorithm at maximum half of the memory, but make sure we have still enough for all local phases
+
+        int_t globalSwapsPerIteration = std::min<int_t>((_degree_sum/2 * _mixing) / 4, (max_global_memory)/100);
         STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
         // subtract actually used amount of memory (so more memory is possibly available for communities)
         _max_memory_usage -= (globalSwapsPerIteration * 100);
         STXXL_MSG("Remaining memory for per-community swaps is " << _max_memory_usage << " bytes");
+        assert(_max_memory_usage >= min_local_memory);
 
         #pragma omp parallel num_threads(2)
         #pragma omp single

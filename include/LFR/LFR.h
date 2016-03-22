@@ -180,9 +180,8 @@ public:
         _overlap_method = geometric;
         _overlap_config.geometric.maxDegreeIntraDegree = (uint_t)node_degree_dist.maxDegree;
 
-        if (_max_memory_usage < 3 * SORTER_MEM + 2 * SORTER_MEM * omp_get_max_threads() + sizeof(node_t) * _number_of_communities * 4) {
-            throw std::runtime_error("Not enough memory given, need at least memory for two sorter per thread, two global sorters and several values per community.");
-            // FIXME actually we do not need two sorters per thread, but we need some room for swaps, maybe find a better formula?
+        if (_max_memory_usage < 4 * SORTER_MEM + 1.3 * SORTER_MEM * omp_get_max_threads() + sizeof(node_t) * _number_of_communities * 4) {
+            throw std::runtime_error("Not enough memory given, need at least memory for a sorter and a bit more per thread, four global sorters and several values per community.");
         }
 
         _max_memory_usage -= SORTER_MEM; // for _node_sorter FIXME see if we really need it constantly...
