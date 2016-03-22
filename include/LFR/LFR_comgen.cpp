@@ -158,6 +158,7 @@ namespace LFR {
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
                                 while (!edge_reader.empty() && edge_reader->first == u) {
                                     intra_edgeSorter.push(edge_t {edge_reader->second, *node_id_reader});
+                                    ++edge_reader;
                                 }
                             }
                         }
@@ -170,9 +171,10 @@ namespace LFR {
                             #pragma omp critical (_edgeSorter)
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
                                 while (!intra_edgeSorter.empty() && intra_edgeSorter->first == u) {
-                                    edge_t e(edge_reader->second, *node_id_reader);
+                                    edge_t e(intra_edgeSorter->second, *node_id_reader);
                                     e.normalize();
                                     edgeSorter.push(CommunityEdge(com, e));
+                                    ++intra_edgeSorter;
                                 }
                             }
                         }
