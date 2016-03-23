@@ -37,6 +37,20 @@ public:
     EdgeSwapInternalSwaps() = delete;
     EdgeSwapInternalSwaps(const EdgeSwapInternalSwaps &) = delete;
 
+    static constexpr int_t maxSwaps() {
+        return std::numeric_limits<internal_swapid_t>::max();
+    };
+
+    static uint_t memoryUsage(int_t numSwaps) {
+        return sizeof(swap_descriptor) /* 24 */ * numSwaps + // _current_swaps, needed with random access while loading swaps but afterwards only two scans are needed for simulation and execute
+            (sizeof(edgeid_t) /* 8 */ + sizeof(edge_t)) /* 16 */ * numSwaps * 2 +  // _edge_ids_in_current_swaps + _edges_in_current_swaps, first one only written and read once sequentially, edges need random access
+            numSwaps/4 + // _swap_has_successor - written with random access while loading, then only read once sequentially (but really small)
+            SORTER_MEM + // _query_sorter - needed only while simulating swaps and loading conflicts
+            (sizeof(edge_existence_answer_t) /* 32 */ + sizeof(edge_existence_successor_t) /* 32 */ ) * numSwaps/10 + // _edge_existence_pq + _edge_existence_successors (estimated)
+            (sizeof(std::vector<edge_t>) /* 24 */ + sizeof(edge_t) /* 16 */ ) * numSwaps * 2  // possibleEdges in simulateSwapsAndGenerateEdgeExistenceQuery()
+            ; // TODO: _edge_existence_pq/_edge_existence_successors and possibleEdges don't need to be allocated at the same time.
+            // TODO here the internal vectors from updateEdgesAndLoadSwapsWithEdgesAndSuccessors() are not considered. Make sure we de-allocate enough memory so they don't matter.
+    };
 
     //! Swaps are performed during constructor.
     //! @param edges  Edge vector changed in-place
@@ -45,6 +59,9 @@ public:
         , _edges(edges)
         , _num_swaps_per_iteration(num_swaps_per_iteration)
     {
+        if (UNLIKELY(num_swaps_per_iteration > std::numeric_limits<internal_swapid_t>::max())) {
+            throw std::runtime_error("Error, only 4 billion swaps per iteration are possible!");
+        }
         _current_swaps.reserve(_num_swaps_per_iteration);
     }
 

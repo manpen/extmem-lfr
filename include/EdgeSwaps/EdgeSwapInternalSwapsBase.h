@@ -21,11 +21,12 @@ protected:
 #ifdef EDGE_SWAP_DEBUG_VECTOR
     typename debug_vector::bufwriter_type _debug_vector_writer;
 #endif
+    using internal_swapid_t = uint32_t;
 
-private:
+protected:
     struct edge_existence_request_t {
         edge_t e;
-        int_t sid;
+        internal_swapid_t sid;
         bool forward_only; // if this requests is only for generating the correct forwaring information but no existence information is needed
         DECL_TO_TUPLE(e, sid, forward_only);
         bool operator< (const edge_existence_request_t& o) const {
@@ -36,18 +37,18 @@ private:
     stxxl::sorter<edge_existence_request_t, typename GenericComparatorStruct<edge_existence_request_t>::Ascending> _query_sorter; // Query of possible conflict edges. This may be large (too large...)
 
     struct edge_existence_answer_t {
-        int_t sid;
+        internal_swapid_t sid;
         edge_t e;
-        int_t numExistences;
+        community_t numExistences;
         DECL_LEX_COMPARE(edge_existence_answer_t, sid, e);
     };
 
     std::vector<edge_existence_answer_t> _edge_existence_pq;
 
     struct edge_existence_successor_t {
-        int_t from_sid;
+        internal_swapid_t from_sid;
         edge_t e;
-        int_t to_sid;
+        internal_swapid_t to_sid;
         DECL_LEX_COMPARE(edge_existence_successor_t, from_sid, e);
     };
 

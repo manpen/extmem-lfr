@@ -41,7 +41,7 @@ private:
     struct node_ref {
         bool index_is_node;
         uint32_t index;
-    };
+    }; // FIXME this needs 64 bits, i.e. a pair of these needs 128 bits!
     node_t _h;
     std::vector<uint32_t> _head;
     std::vector<uint32_t> _first_head;

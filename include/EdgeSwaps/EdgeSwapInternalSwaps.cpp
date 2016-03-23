@@ -12,7 +12,7 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
     // stores load requests with information who requested the edge
     struct edgeid_swap_t {
         edgeid_t eid;
-        uint_t sid;
+        internal_swapid_t sid;
         unsigned char spos;
 
         DECL_LEX_COMPARE(edgeid_swap_t, eid, sid, spos);
@@ -20,7 +20,7 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
 
     struct edge_swap_t {
         edge_t e;
-        uint_t sid;
+        internal_swapid_t sid;
         unsigned char spos;
 
         DECL_LEX_COMPARE(edge_swap_t, e, sid, spos);
@@ -54,15 +54,15 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
     _swap_has_successor[1].clear();
     _swap_has_successor[1].resize(numMaxSwaps);
 
-    for (uint_t i = 0; i < _current_swaps.size(); ++i) {
+    for (internal_swapid_t i = 0; i < _current_swaps.size(); ++i) {
         const auto & swap = _current_swaps[i];
         edgeIdLoadRequests.push_back(edgeid_swap_t {swap.edges()[0], i, 0});
         edgeIdLoadRequests.push_back(edgeid_swap_t {swap.edges()[1], i, 1});
     }
 
-    uint_t semiLoadedOffset = _current_swaps.size();
+    internal_swapid_t semiLoadedOffset = _current_swaps.size();
 
-    for (uint_t i = 0; i < _current_semiloaded_swaps.size(); ++i) {
+    for (internal_swapid_t i = 0; i < _current_semiloaded_swaps.size(); ++i) {
         const auto & swap = _current_semiloaded_swaps[i];
         edgeLoadRequests.push_back(edge_swap_t {swap.edge(), i + semiLoadedOffset, 0});
         edgeIdLoadRequests.push_back(edgeid_swap_t {swap.eid(), i + semiLoadedOffset, 1});
@@ -83,7 +83,7 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
         auto semi_loaded_request_it = edgeLoadRequests.begin();
 
         auto use_edge = [&] (const edge_t & cur_e) {
-            swapid_t sid;
+            internal_swapid_t sid;
             unsigned char spos;
 
             auto match_request = [&]() {

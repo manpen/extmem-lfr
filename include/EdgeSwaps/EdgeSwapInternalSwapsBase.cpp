@@ -4,7 +4,7 @@
 void EdgeSwapInternalSwapsBase::simulateSwapsAndGenerateEdgeExistenceQuery(const std::vector< EdgeSwapBase::swap_descriptor > &swaps, const std::vector< edge_t > &edges, const std::array<std::vector< bool >, 2>& swap_has_successor) {
     // stores for a swap and the position in the swap (0,1) the edge
     struct swap_edge_t {
-        int_t sid;
+        internal_swapid_t sid;
         unsigned char spos;
         edge_t e;
 
@@ -19,7 +19,7 @@ void EdgeSwapInternalSwapsBase::simulateSwapsAndGenerateEdgeExistenceQuery(const
         std::vector<edge_t> new_edges[2];
 
         for (auto s_it = swaps.begin(); s_it != swaps.end(); ++s_it) {
-            const auto sid = (s_it - swaps.begin());
+            const internal_swapid_t sid = (s_it - swaps.begin());
             const auto& eids = s_it->edges();
 
             if (eids[0] == eids[1] || eids[0] == -1) continue;
@@ -90,10 +90,10 @@ void EdgeSwapInternalSwapsBase::simulateSwapsAndGenerateEdgeExistenceQuery(const
 
 void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>& swaps, std::vector<edge_t> &edges) {
     auto edge_existence_succ_it = _edge_existence_successors.begin();
-    std::vector<std::pair<edge_t, int_t>> current_existence;
+    std::vector<std::pair<edge_t, community_t>> current_existence;
 
-    auto getNumExistences = [&](edge_t e, bool mustExist = false) -> int_t {
-        auto it = std::partition_point(current_existence.begin(), current_existence.end(), [&](const std::pair<edge_t, int_t>& a) { return a.first < e; });
+    auto getNumExistences = [&](edge_t e, bool mustExist = false) -> community_t {
+        auto it = std::partition_point(current_existence.begin(), current_existence.end(), [&](const std::pair<edge_t, community_t>& a) { return a.first < e; });
         assert(it != current_existence.end() && it->first == e); // only valid if assertions are on...
 
         if (it != current_existence.end() && it->first == e) {
@@ -109,7 +109,7 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
 
         if (eids[0] == eids[1] || eids[0] == -1) continue;
 
-        const auto sid = (s_it - swaps.begin());
+        const internal_swapid_t sid = (s_it - swaps.begin());
         edge_t s_edges[2] = {edges[eids[0]], edges[eids[1]]};
         edge_t t_edges[2];
         current_existence.clear();
@@ -159,7 +159,7 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
         while (edge_existence_succ_it != _edge_existence_successors.end() && edge_existence_succ_it->from_sid == sid) {
             if (result.performed && (edge_existence_succ_it->e == s_edges[0] || edge_existence_succ_it->e == s_edges[1])) {
                 // if the swap was performed, a source edge occurs once less - but it might still exist if it was a multi-edge
-                int_t t = getNumExistences(edge_existence_succ_it->e, true) - 1;
+                auto t = getNumExistences(edge_existence_succ_it->e, true) - 1;
 #ifdef NDEBUG
                 if (t > 0) { // without debugging, push only if edge still exists
 #endif
@@ -173,7 +173,7 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
                 _edge_existence_pq.push_back(edge_existence_answer_t {edge_existence_succ_it->to_sid, edge_existence_succ_it->e, 1});
                 std::push_heap(_edge_existence_pq.begin(), _edge_existence_pq.end(), std::greater<edge_existence_answer_t>());
             } else {
-                    int_t t = getNumExistences(edge_existence_succ_it->e);
+                    auto t = getNumExistences(edge_existence_succ_it->e);
 #ifdef NDEBUG
                     if (t > 0) { // without debugging, push only if edge still exists
 #endif
