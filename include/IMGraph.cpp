@@ -16,8 +16,8 @@ IMGraph::IMGraph(const std::vector<degree_t> &degreeSequence) {
     _h = degreeSequence.size();
     bool has_h = false;
     for (size_t i = 0; i < degreeSequence.size(); ++i) {
-        // TODO adjust factor if less memory shall be consumed or (internal) node ids are 32bit
-        if (!has_h && (sum + degreeSequence[i]) *64 < static_cast<node_t>((i+1)*(i+1))) {
+        // TODO adjust factor if less memory shall be consumed
+        if (!has_h && (sum + degreeSequence[i]) * 32 < static_cast<node_t>((i+1)*(i+1))) {
             has_h = true;
             _h = i;
             _first_head.reserve(degreeSequence.size() + 1 - _h);
@@ -30,6 +30,10 @@ IMGraph::IMGraph(const std::vector<degree_t> &degreeSequence) {
             _last_head.push_back(sum);
         }
         sum += degreeSequence[i];
+    }
+
+    if (UNLIKELY(sum >= IMGraph::maxEdges())) {
+        throw std::runtime_error("Error, too many edges for internal graph. The internal graph supports at maximum 2 billion edges");
     }
 
     STXXL_MSG("Putting first " << _h << " of in total " << degreeSequence.size() << " nodes in adjacency matrix");

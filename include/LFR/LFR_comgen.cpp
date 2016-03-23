@@ -70,7 +70,7 @@ namespace LFR {
 
                 gen.generate();
 
-                if (internalNodes && ((sizeof(node_t) * 4 + 2) * degree_sum/2 + sizeof(edgeid_t) * com_size) < available_memory) {
+                if (internalNodes && IMGraph::memoryUsage(com_size, degree_sum/2) < available_memory && degree_sum/2 < IMGraph::maxEdges()) {
                     IMGraph graph(node_degrees);
                     while (!gen.empty()) {
                         graph.addEdge(*gen);

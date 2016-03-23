@@ -40,12 +40,12 @@ private:
     };
     struct node_ref {
         bool index_is_node;
-        int_t index;
+        uint32_t index;
     };
     node_t _h;
-    std::vector<node_t> _head;
-    std::vector<edgeid_t> _first_head;
-    std::vector<edgeid_t> _last_head;
+    std::vector<uint32_t> _head;
+    std::vector<uint32_t> _first_head;
+    std::vector<uint32_t> _last_head;
     std::vector<std::pair<node_ref, node_ref>> _edge_index;
     std::vector<bool> _adjacency_matrix;
     stxxl::random_number64 _random_integer;
@@ -63,7 +63,7 @@ public:
      * @param e The edge to add
      */
     void addEdge(const edge_t &e) {
-        std::pair<node_ref, node_ref> idx = {{true, e.first}, {true, e.second}};
+        std::pair<node_ref, node_ref> idx = {{true, static_cast<uint32_t>(e.first)}, {true, static_cast<uint32_t>(e.second)}};
         if (e.first >= _h) {
             node_t i = e.first - _h;
             assert(_last_head[i] < _first_head[i+1]);
@@ -130,6 +130,15 @@ protected:
     }
 
 public:
+    static constexpr int_t maxEdges() {
+        return std::numeric_limits< uint32_t >::max()/2;
+    }
+
+    static uint_t memoryUsage(uint_t numNodes, uint_t numEdges) {
+        // we need two node refs per edge + 2 node ids per edge + 2 indices per node (+ 1 for end marker) and the size of the object itself
+        return (sizeof(node_ref) * 2  + sizeof(uint32_t) * 2) * numEdges + 2 * sizeof(uint32_t) * (numNodes + 1) + sizeof(IMGraph);
+    }
+
     /**
      * Checks if the given edge exists.
      *
