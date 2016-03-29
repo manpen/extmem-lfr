@@ -5,6 +5,11 @@
 #include <stxxl/bits/unused.h>
 
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <future>
+#include <utility>
+#include <stack>
 
 #include <defs.h>
 #include "Swaps.h"
@@ -94,6 +99,90 @@ namespace EdgeSwapParallelTFP {
         DECL_LEX_COMPARE_OS(ExistenceSuccessorMsg, swap_id, edge, successor);
     };
 
+
+    template <class runs_creator_t>
+    class RunsCreatorThread {
+    private:
+        using buffer_type = std::vector<typename runs_creator_t::value_type>;
+
+        struct Task {
+            buffer_type requests;
+            std::promise<buffer_type> promise;
+            runs_creator_t &runs_creator;
+
+            Task(buffer_type && requests, runs_creator_t &runs_creator) : requests(requests), runs_creator(runs_creator) {};
+
+            Task(Task&&) = default;
+
+            void operator()() {
+                for (auto & req : requests) {
+                    runs_creator.push(req);
+                }
+                runs_creator.finish();
+
+                promise.set_value(std::move(requests));
+            };
+
+            std::future<buffer_type> get_future() {
+                return promise.get_future();
+            };
+        };
+
+        runs_creator_t& runs_creator;
+        bool is_running;
+        std::thread worker_thread;
+        std::stack<Task> tasks;
+        std::mutex mutex;
+        std::condition_variable items_available;
+
+    public:
+        RunsCreatorThread(runs_creator_t& runs_creator) :
+            runs_creator(runs_creator),
+            is_running(true),
+            worker_thread([this]() {
+                std::unique_lock<std::mutex> lk(this->mutex);
+                while (this->is_running) {
+                    while (!this->tasks.empty()) {
+                        auto t = std::move(this->tasks.top());
+                        this->tasks.pop();
+
+                        lk.unlock();
+
+                        t();
+
+                        lk.lock();
+                    }
+
+                    this->items_available.wait(lk, [&](){return !this->is_running || !this->tasks.empty();});
+                }
+            })
+        {};
+
+        ~RunsCreatorThread() {
+            {
+                std::lock_guard<std::mutex> lk(mutex);
+                is_running = false;
+            }
+
+            items_available.notify_all();
+
+            worker_thread.join();
+        };
+
+        std::future<buffer_type> enqueue_task(buffer_type &&existence_requests) {
+            std::future<buffer_type> result;
+            {
+                std::lock_guard<std::mutex> lk(mutex);
+                tasks.emplace(std::forward<buffer_type>(existence_requests), runs_creator);
+                result = tasks.top().get_future();
+            }
+            items_available.notify_one();
+
+            return result;
+        };
+    };
+
+
     class EdgeSwapParallelTFP : public EdgeSwapBase {
     protected:
         constexpr static size_t _pq_mem = PQ_INT_MEM;
@@ -104,7 +193,7 @@ namespace EdgeSwapParallelTFP {
         constexpr static bool produce_debug_vector=true;
 
         edge_vector &_edges;
-        uint_t _num_swaps_per_iteration;
+        swapid_t _num_swaps_per_iteration;
         swapid_t _swap_id;
 
 // swap direction information
@@ -148,7 +237,7 @@ namespace EdgeSwapParallelTFP {
 // threads
         int _num_threads;
 
-        void _thread(swapid_t swap_id) {
+        int _thread(swapid_t swap_id) {
             return swap_id % _num_threads;
         };
 
@@ -165,10 +254,10 @@ namespace EdgeSwapParallelTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector - ignored!
-        EdgeSwapParallelTFP(edge_vector &edges, swap_vector &, uint64_t swaps_per_iteration) :
+        EdgeSwapParallelTFP(edge_vector &edges, swap_vector &, swapid_t swaps_per_iteration) :
               EdgeSwapParallelTFP(edges, swaps_per_iteration) { }
 
-        EdgeSwapParallelTFP(edge_vector &edges, uint64_t swaps_per_iteration, int num_threads = omp_get_max_threads()) :
+        EdgeSwapParallelTFP(edge_vector &edges, swapid_t swaps_per_iteration, int num_threads = omp_get_max_threads()) :
               EdgeSwapBase(),
               _edges(edges),
               _num_swaps_per_iteration(swaps_per_iteration),
@@ -176,7 +265,7 @@ namespace EdgeSwapParallelTFP {
 
               _swap_direction(num_threads),
               _swap_direction_writer(num_threads),
-              _edge_swap_sorter(GenericComparatorTuple<EdgeSwapMsg>::Ascending(), _sorter_mem),
+              _edge_swap_sorter(GenericComparatorStruct<EdgeLoadRequest>::Ascending(), _sorter_mem),
               _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem),
               _num_threads(num_threads) {
                 for (int i = 0; i < _num_threads; ++i) {
@@ -191,8 +280,8 @@ namespace EdgeSwapParallelTFP {
         void run();
 
         void push(const swap_descriptor& swap) {
-            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[0], 0, _swap_id});
-            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[1], 1, _swap_id});
+            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[0], _swap_id, 0});
+            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[1], _swap_id, 1});
             *(_swap_direction_writer[_thread(_swap_id)]) << swap.direction();
             ++_swap_id;
             if (_swap_id >= _num_swaps_per_iteration) {
