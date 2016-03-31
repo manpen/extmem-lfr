@@ -10,6 +10,7 @@
 #include <stx/btree_map>
 #include <stxxl/priority_queue>
 
+#include <ParallelBufferedPQSorterMerger.h>
 #include "PQSorterMerger.h"
 #include "EdgeVectorUpdateStream.h"
 
@@ -269,14 +270,14 @@ namespace EdgeSwapParallelTFP {
                 swapid_t sid_in_batch_base = sid-tid;
                 swapid_t sid_in_batch_limit = std::min<swapid_t>(_swap_id, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
+                std::array<std::vector<edge_t>, 2> current_edges;
+                std::array<std::vector<edge_t>, 2> dd_new_edges;
+
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
                     if (UNLIKELY(sid >= _swap_id)) continue;
-                    std::array<std::vector<edge_t>, 2> current_edges;
-                    std::array<std::vector<edge_t>, 2> dd_new_edges;
 
-                    std::array<swapid_t, 2> successor_sid;
-                    std::array<unsigned char, 2> successor_spos;
-
+                    std::array<swapid_t, 2> successor_sid = {0, 0};
+                    std::array<unsigned char, 2> successor_spos = {0, 0};
 
                     assert(!direction_reader.empty());
 
@@ -285,6 +286,8 @@ namespace EdgeSwapParallelTFP {
 
                     // fetch messages sent to this edge
                     for (unsigned int spos = 0; spos < 2; spos++) {
+                        current_edges[spos].clear();
+
                         // get successor
                         if (!dep.empty()) {
                             auto &msg = *dep;
@@ -292,16 +295,13 @@ namespace EdgeSwapParallelTFP {
                             assert(msg.swap_id >= sid);
                             assert(msg.swap_id > sid || msg.spos >= spos);
 
-                            if (msg.swap_id != sid || msg.spos != spos) {
-                                successor_sid[spos] = 0;
-                            } else {
+                            if (msg.swap_id == sid && msg.spos == spos) {
                                 DEBUG_MSG(_display_debug, "Got successor for S" << sid << ", E" << spos << ": " << msg);
                                 successor_sid[spos] = msg.successor;
                                 successor_spos[spos] = msg.successor_spos;
+                                assert(msg.successor > sid);
                                 ++dep;
                             }
-                        } else {
-                            successor_sid[spos] = 0;
                         }
 
 
@@ -384,55 +384,68 @@ namespace EdgeSwapParallelTFP {
                         // sort to support binary search and linear time deduplication
                         if (dd.size() > 1) {
                             std::sort(dd.begin(), dd.end());
-                            // TODO move this in merge (see fixme below)
-                            auto last = std::unique(dd.begin(), dd.end()); // eliminate duplicates
-                            dd.erase(last, dd.end());
                         }
 
                         bool has_successor_in_batch = false;
                         bool has_successor_in_other_batch = false;
+                        std::vector<edge_t>* t_edges = nullptr;
+                        swapid_t successor_pos = 0;
                         int_t successor_tid = 0;
                         if (successor_sid[spos]) {
                             successor_tid = _thread(successor_sid[spos]);
                             if (successor_sid[spos] < sid_in_batch_limit) {
                                 has_successor_in_batch = true;
+
+                                successor_pos = (successor_sid[spos] - sid_in_batch_base)/_num_threads;
+                                t_edges = &(*edge_information[successor_tid])[successor_pos].edges[successor_spos[spos]];
+
+                                t_edges->clear();
+                                t_edges->reserve(current_edges[spos].size() + dd.size());
                             } else {
                                 has_successor_in_other_batch = true;
                             }
                         }
 
-                        for (const auto &e : dd) {
-                            existence_request_buffer.push(ExistenceRequestMsg {e, sid, false});
+                        auto cur_it = current_edges[spos].begin(), cur_end = current_edges[spos].end();
+                        auto new_it = dd.begin(), new_end = dd.end();
+
+                        auto forward_edge = [&](const edge_t &e, bool is_source) {
+                            existence_request_buffer.push(ExistenceRequestMsg {e, sid, is_source});
+
                             if (UNLIKELY(has_successor_in_other_batch)) {
                                 depchain_pqsort.push(DependencyChainEdgeMsg {successor_sid[spos], successor_spos[spos], e}, successor_tid);
                             }
-                        }
+                            if (UNLIKELY(has_successor_in_batch)) {
+                                assert(t_edges != nullptr);
+                                t_edges->push_back(e);
+                            }
+                        };
 
-                        for (const auto &e : current_edges[spos]) {
-                            // check whether already sent above
-                            // FIXME use combined iteration over dd and current_edges instead with merging!
-                            if (UNLIKELY(std::binary_search(dd.cbegin(), dd.cend(), e)))
-                                continue;
+                        assert(std::is_sorted(cur_it, cur_end));
+                        assert(std::is_sorted(new_it, new_end));
+                        assert(std::unique(cur_it, cur_end) == cur_end);
 
-                            existence_request_buffer.push(ExistenceRequestMsg{e, sid, true});
-                            if (UNLIKELY(has_successor_in_other_batch)) {
-                                depchain_pqsort.push(DependencyChainEdgeMsg {successor_sid[spos], successor_spos[spos], e}, successor_tid);
+                        while (cur_it != cur_end || new_it != new_end) {
+                            if (new_it == new_end || (cur_it != cur_end && *cur_it < *new_it)) {
+                                forward_edge(*cur_it, true);
+                                ++cur_it;
+                            } else {
+                                forward_edge(*new_it, false);
+                                auto last_e = *new_it;
+
+                                do {
+                                    ++new_it;
+                                } while (new_it != new_end && *new_it == last_e);
+
+                                if (cur_it != cur_end && *cur_it == last_e) {
+                                    ++cur_it;
+                                }
                             }
                         }
 
                         if (has_successor_in_batch) {
-                            auto pos = (successor_sid[spos] - sid_in_batch_base)/_num_threads;
-                            auto & t_edges = (*edge_information[successor_tid])[pos].edges[successor_spos[spos]];
-
-                            t_edges.clear();
-                            t_edges.reserve(current_edges[spos].size() + dd.size());
-
-                            std::set_union(current_edges[spos].begin(), current_edges[spos].end(),
-                                dd.begin(), dd.end(),
-                                std::back_inserter(t_edges));
-
                             #pragma omp atomic write seq_cst // make sure that the vector is flushed before is_set is updated!
-                            (*edge_information[successor_tid])[pos].is_set[successor_spos[spos]] = 1;
+                            (*edge_information[successor_tid])[successor_pos].is_set[successor_spos[spos]] = 1;
                         }
                     }
                 }
