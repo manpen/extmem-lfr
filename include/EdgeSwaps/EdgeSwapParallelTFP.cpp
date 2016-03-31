@@ -260,6 +260,8 @@ namespace EdgeSwapParallelTFP {
 
             RunsCreatorBuffer<decltype(existence_request_runs_creator)> existence_request_buffer(existence_request_runs_creator_thread, existence_request_buffer_size);
 
+            #pragma omp barrier // make sure all data structures have been initialized before the algorithm starts
+
             swapid_t loop_limit = _swap_id;
             {
                 swapid_t remainder = _swap_id % _num_threads;
@@ -820,12 +822,14 @@ namespace EdgeSwapParallelTFP {
 #ifdef EDGE_SWAP_DEBUG_VECTOR
                 #pragma omp single
                 {
-                    for (swapid_t i = 0, s = 0; i < batch_size_per_thread && s < _swap_id; ++i) {
-                        for (int tid = 0; tid < _num_threads && s < _swap_id; ++tid, ++s) {
-                            _debug_vector_writer << debug_output_buffer[tid][i];
+                    for (swapid_t i = 0, s = sid_in_batch_base; i < batch_size_per_thread && s < _swap_id; ++i) {
+                        for (int t = 0; t < _num_threads && s < _swap_id; ++t, ++s) {
+                            _debug_vector_writer << debug_output_buffer[t][i];
                         }
                     }
                 }
+
+                debug_output_buffer[tid].clear();
 #endif
 
                 edge_state_pqsort.flush_buffer();
