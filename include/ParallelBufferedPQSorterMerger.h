@@ -45,13 +45,11 @@ public:
                 }
             };
 
-            /*
         void push(value_type&& v, int target_tid) {
             assert(_global_data._pq_output_buffer[target_tid * _global_data._num_threads + _tid]);
             assert(target_tid < _global_data._num_threads);
             _global_data._pq_output_buffer[target_tid * _global_data._num_threads + _tid]->push_back(std::forward<value_type>(v));
         };
-        */
 
         void push(const value_type& v, int target_tid) {
             assert(_global_data._pq_output_buffer[target_tid * _global_data._num_threads + _tid]);
