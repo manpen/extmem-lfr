@@ -8,46 +8,41 @@
 #include <IMGraph.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 #include <Utils/AsyncStream.h>
-
-#ifndef MAX_INTERNAL_EDGES
-#define MAX_INTERNAL_EDGES (1 * IntScale::M)
-#endif
-
-#ifndef MAX_INTERNAL_NODES
-#define MAX_INTERNAL_NODES (1 * IntScale::M)
-#endif
+#include <omp.h>
 
 namespace LFR {
     void LFR::_generate_community_graphs() {
         stxxl::sorter<CommunityEdge, GenericComparatorStruct<CommunityEdge>::Ascending> edgeSorter(GenericComparatorStruct<CommunityEdge>::Ascending(), SORTER_MEM);
+        const uint_t n_threads = std::max<uint_t>(1, omp_get_max_threads() - 1);
+        const uint_t memory_per_thread = _max_memory_usage / n_threads;
 
-        #pragma omp parallel shared(edgeSorter)
+        #pragma omp parallel shared(edgeSorter), num_threads(n_threads)
         {
             // set-up thread-private variables
-            std::vector<node_t> node_ids;
-            std::vector<degree_t> node_degrees;
             stxxl::vector<node_t> external_node_ids;
-            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
 
-            #pragma omp for
+            #pragma omp for schedule(dynamic, 1)
             for (community_t com = 0; com < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++com) {
                 node_t com_size = _community_cumulative_sizes[com+1] - _community_cumulative_sizes[com];
+                std::vector<node_t> node_ids;
+                std::vector<degree_t> node_degrees;
 
                 if (com_size < 2) {
                     continue; // no edges to create
                 }
 
                 int_t degree_sum = 0;
+                uint_t available_memory = memory_per_thread;
 
                 HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
-                bool internalNodes = (com_size < MAX_INTERNAL_NODES);
+                bool internalNodes = (com_size * 2 * sizeof(node_t) < available_memory / 10 ); // use up to ten percent of the memory for internal node ids
 
                 if (internalNodes) {
-                    node_ids.clear();
+                    available_memory -= (com_size * 2 * sizeof(node_t));
                     node_ids.reserve(com_size);
-                    node_degrees.clear();
                     node_degrees.reserve(com_size);
 
+                    #pragma omp critical (_community_assignment)
                     for (auto it(_community_assignments.cbegin() + _community_cumulative_sizes[com]); it < _community_assignments.cbegin() + _community_cumulative_sizes[com+1]; ++it) {
                         const auto ca = *it;
                         assert(ca.community_id == com);
@@ -61,6 +56,7 @@ namespace LFR {
                     external_node_ids.resize(com_size);
                     stxxl::vector<node_t>::bufwriter_type node_id_writer(external_node_ids);
 
+                    #pragma omp critical (_community_assignment)
                     for (auto it(_community_assignments.cbegin() + _community_cumulative_sizes[com]); it < _community_assignments.cbegin() + _community_cumulative_sizes[com+1]; ++it) {
                         const auto ca = *it;
                         assert(ca.community_id == com);
@@ -74,12 +70,14 @@ namespace LFR {
 
                 gen.generate();
 
-                if (internalNodes && degree_sum < 2*MAX_INTERNAL_EDGES) {
+                if (internalNodes && IMGraph::memoryUsage(com_size, degree_sum/2) < available_memory && degree_sum/2 < IMGraph::maxEdges()) {
                     IMGraph graph(node_degrees);
                     while (!gen.empty()) {
                         graph.addEdge(*gen);
                         ++gen;
                     }
+
+                    STXXL_MSG("Running internal swaps with " << graph.numEdges() << " edges");
 
                     if (graph.numEdges() > 1) {
                         // Generate swaps
@@ -102,23 +100,31 @@ namespace LFR {
                 } else {
                     stxxl::vector<edge_t> intra_edges(degree_sum/2);
 
-                    while (!gen.empty()) {
-                        if (gen->first < gen->second) {
-                            intra_edgeSorter.push(edge_t {gen->first, gen->second});
-                        } else {
-                            intra_edgeSorter.push(edge_t {gen->second, gen->first});
+                    available_memory -= SORTER_MEM; // internal swaps need a sorter! and we made sure there is memory for one.
+
+                    // FIXME check if this can be eliminated, i.e. if output is already sorted!
+                    {
+                        stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
+                        while (!gen.empty()) {
+                            if (gen->first < gen->second) {
+                                intra_edgeSorter.push(edge_t {gen->first, gen->second});
+                            } else {
+                                intra_edgeSorter.push(edge_t {gen->second, gen->first});
+                            }
+
+                            ++gen;
                         }
 
-                        ++gen;
+                        intra_edgeSorter.sort();
+                        auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
+                        intra_edges.resize(endIt - intra_edges.begin());
                     }
 
-                    intra_edgeSorter.sort();
-                    auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
-                    intra_edgeSorter.clear();
-
-                    intra_edges.resize(endIt - intra_edges.begin());
-
-                    int_t swapsPerIteration = intra_edges.size() / 3;
+                    int_t swapsPerIteration = std::min<int_t>(intra_edges.size() / 4, (available_memory)/100);
+                    if (swapsPerIteration*100 < static_cast<int_t>(intra_edges.size())) {
+                        STXXL_ERRMSG("With the given memory, more than 1000 swap iterations are required! Consider increasing the amount of available memory.");
+                    }
 
                     // Generate swaps
                     uint_t numSwaps = 10*intra_edges.size();
@@ -144,12 +150,15 @@ namespace LFR {
                             ++edge_reader;
                         }
                     } else { // external memory mapping with an additional sort step
+                        stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
                         {
                             decltype(external_node_ids)::bufreader_type node_id_reader(external_node_ids);
 
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
                                 while (!edge_reader.empty() && edge_reader->first == u) {
                                     intra_edgeSorter.push(edge_t {edge_reader->second, *node_id_reader});
+                                    ++edge_reader;
                                 }
                             }
                         }
@@ -162,14 +171,14 @@ namespace LFR {
                             #pragma omp critical (_edgeSorter)
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
                                 while (!intra_edgeSorter.empty() && intra_edgeSorter->first == u) {
-                                    edge_t e(edge_reader->second, *node_id_reader);
+                                    edge_t e(intra_edgeSorter->second, *node_id_reader);
                                     e.normalize();
                                     edgeSorter.push(CommunityEdge(com, e));
+                                    ++intra_edgeSorter;
                                 }
                             }
                         }
 
-                        intra_edgeSorter.clear();
                     }
                 }
             }
@@ -177,10 +186,10 @@ namespace LFR {
 
         edgeSorter.sort();
 
-        _intra_community_edges.reserve(edgeSorter.size());
+        _intra_community_edges.resize(edgeSorter.size());
         stxxl::stream::materialize(edgeSorter, _intra_community_edges.begin());
 
-        CommunityEdgeRewiringSwaps rewiringSwaps(_intra_community_edges, _intra_community_edges.size() / 3);
-        rewiringSwaps.run();
+        //CommunityEdgeRewiringSwaps rewiringSwaps(_intra_community_edges, _intra_community_edges.size() / 3);
+        //rewiringSwaps.run();
     }
 }

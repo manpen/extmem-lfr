@@ -128,6 +128,9 @@ protected:
     OverlapMethod _overlap_method;
     OverlapConfig _overlap_config;
 
+    uint_t _max_memory_usage;
+    uint_t _degree_sum;
+
     // model materialization
     stxxl::sorter<NodeDegreeMembership, NodeDegreeMembershipInternalDegComparator> _node_sorter;
 
@@ -158,22 +161,31 @@ protected:
     void _compute_community_size();
     void _compute_community_assignments();
     void _generate_community_graphs();
-    void _generate_global_graph();
+    void _generate_global_graph(int_t swaps_per_iteration);
     void _merge_community_and_global_graph();
 
 public:
     LFR(const NodeDegreeDistribution::Parameters & node_degree_dist,
         const NodeDegreeDistribution::Parameters & community_degree_dist,
-        double mixing_parameter) :
+        double mixing_parameter,
+        uint_t max_memory_usage) :
         _number_of_nodes(node_degree_dist.numberOfNodes),
         _degree_distribution_params(node_degree_dist),
         _number_of_communities((community_t)community_degree_dist.numberOfNodes),
         _community_distribution_params(community_degree_dist),
         _mixing(mixing_parameter),
+        _max_memory_usage(max_memory_usage),
         _node_sorter(NodeDegreeMembershipInternalDegComparator(_mixing), SORTER_MEM)
     {
         _overlap_method = geometric;
         _overlap_config.geometric.maxDegreeIntraDegree = (uint_t)node_degree_dist.maxDegree;
+
+        if (_max_memory_usage < 4 * SORTER_MEM + 1.3 * SORTER_MEM * omp_get_max_threads() + sizeof(node_t) * _number_of_communities * 4) {
+            throw std::runtime_error("Not enough memory given, need at least memory for a sorter and a bit more per thread, four global sorters and several values per community.");
+        }
+
+        _max_memory_usage -= SORTER_MEM; // for _node_sorter FIXME see if we really need it constantly...
+        _max_memory_usage -= _number_of_communities * sizeof(node_t); // for _community_cumulative_sizes
     }
 
     void setOverlap(OverlapMethod method, const OverlapConfig & config) {

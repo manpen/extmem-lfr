@@ -28,6 +28,8 @@ public:
 
 protected:
     MonotonicUniformRandomStream<Increasing> _uniform_random;
+    const bool _gamma_is_one;
+
     const double _offset;
     const double _scale;
     const double _exp;
@@ -35,15 +37,20 @@ protected:
     value_type _current;
 
     void _compute() {
-        _current = std::round(std::pow(*_uniform_random * _scale + _offset, _exp) + 0.5);
+        if (_gamma_is_one) {
+            _current = std::round(std::exp(*_uniform_random * _scale + _offset));
+        } else {
+            _current = std::round(std::pow(*_uniform_random * _scale + _offset, _exp) + 0.5);
+        }
     }
 
 public:
     MonotonicPowerlawRandomStream(int_t minDegree, int_t maxDegree, double gamma, int_t numberOfNodes)
         : _uniform_random(numberOfNodes)
-        , _offset(std::pow(double(minDegree), 1.0+gamma))
-        , _scale (std::pow(double(maxDegree), 1.0+gamma)-_offset)
-        , _exp(1.0/(1.0+gamma))
+        , _gamma_is_one(fabs(gamma + 1) <= std::numeric_limits<double>::epsilon())
+        , _offset(_gamma_is_one ? (std::log(minDegree)) : std::pow(double(minDegree), 1.0+gamma))
+        , _scale (_gamma_is_one ? (std::log((double)maxDegree/minDegree)) : (std::pow(double(maxDegree), 1.0+gamma)-_offset))
+        , _exp(_gamma_is_one ? 1 : 1.0/(1.0+gamma))
     {
         assert(std::abs(gamma) > std::numeric_limits<double>::epsilon());
         assert(minDegree < maxDegree);

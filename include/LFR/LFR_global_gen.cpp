@@ -7,55 +7,55 @@
 #include <Utils/AsyncStream.h>
 
 namespace LFR {
-    void LFR::_generate_global_graph() {
-        HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
+    void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {
+        {
+            HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
 
-        int_t degree_sum = 0;
+            int_t degree_sum = 0;
 
-        // FIXME find out if this sorting is necessary at all or if _node_sorter already sorts in the desired order
-        { // push node degrees in descending order in generator
-            stxxl::sorter<degree_t, GenericComparator<degree_t>::Descending> extDegree(GenericComparator<degree_t>::Descending(), SORTER_MEM);
-            _node_sorter.rewind();
-            while (!_node_sorter.empty()) {
-                extDegree.push(_node_sorter->externalDegree(_mixing));
-                ++_node_sorter;
+            // FIXME this is not necessary for non-overlapping clusters
+            { // push node degrees in descending order in generator
+                stxxl::sorter<degree_t, GenericComparator<degree_t>::Descending> extDegree(GenericComparator<degree_t>::Descending(), SORTER_MEM);
+                _node_sorter.rewind();
+                while (!_node_sorter.empty()) {
+                    extDegree.push(_node_sorter->externalDegree(_mixing));
+                    ++_node_sorter;
+                }
+
+                extDegree.sort();
+
+                while (!extDegree.empty()) {
+                    gen.push(*extDegree);
+                    degree_sum += *extDegree;
+                    ++extDegree;
+                }
             }
 
-            extDegree.sort();
+            gen.generate();
 
-            while (!extDegree.empty()) {
-                gen.push(*extDegree);
-                degree_sum += *extDegree;
-                ++extDegree;
+            // FIXME this sort might also be eliminated if edges are produced in the right order
+            { // writes edges sorted in _inter_community_edges
+                stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
+                _inter_community_edges.resize(degree_sum/2);
+
+                while (!gen.empty()) {
+                    edge_t e(gen->first, gen->second);
+                    e.normalize();
+                    intra_edgeSorter.push(e);
+
+                    ++gen;
+                }
+
+                intra_edgeSorter.sort();
+                auto endIt = stxxl::stream::materialize(intra_edgeSorter, _inter_community_edges.begin());
+
+                _inter_community_edges.resize(endIt - _inter_community_edges.begin());
             }
         }
 
-        gen.generate();
 
-        // FIXME this sort might also be eliminated if edges are produced in the right order
-        { // writes edges sorted in _inter_community_edges
-            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
-
-            _inter_community_edges.resize(degree_sum/2);
-
-            while (!gen.empty()) {
-                edge_t e(gen->first, gen->second);
-                e.normalize();
-                intra_edgeSorter.push(e);
-
-                ++gen;
-            }
-
-            intra_edgeSorter.sort();
-            auto endIt = stxxl::stream::materialize(intra_edgeSorter, _inter_community_edges.begin());
-
-            _inter_community_edges.resize(endIt - _inter_community_edges.begin());
-        }
-
-
-        int_t swapsPerIteration = _inter_community_edges.size()/3;
-
-        EdgeSwapInternalSwaps swapAlgo(_inter_community_edges, swapsPerIteration);
+        EdgeSwapInternalSwaps swapAlgo(_inter_community_edges, globalSwapsPerIteration);
 
         { // regular edge swaps
             // Generate swaps
@@ -63,7 +63,7 @@ namespace LFR {
             SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
 
             // perform swaps
-            AsyncStream<SwapGenerator> astream(swapGen, true, swapsPerIteration, 2);
+            AsyncStream<SwapGenerator> astream(swapGen, true, globalSwapsPerIteration, 2);
 
             for(; !astream.empty(); astream.nextBuffer())
                 swapAlgo.swap_buffer(astream.readBuffer());

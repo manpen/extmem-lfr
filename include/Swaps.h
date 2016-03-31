@@ -19,7 +19,7 @@ using swapid_t = int64_t;
  */
 class SwapDescriptor {
     edgeid_t _edges[2];
-    bool _direction;
+    bool _direction; // FIXME: this needs 64 Bit at the moment because of padding!
 
 public:
     SwapDescriptor() : _edges{0, 0}, _direction(false) {}

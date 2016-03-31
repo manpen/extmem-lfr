@@ -113,10 +113,10 @@ void benchmark(RunConfig & config) {
     stxxl::stats * stats = stxxl::stats::get_instance();
     stxxl::stats_data stats_begin(*stats);
 
-    MonotonicPowerlawRandomStream<> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
+    MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
 
     if (config.showInitDegrees) {
-        DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
+        DistributionCount<MonotonicPowerlawRandomStream<false>> dcount(degreeSequence);
         
         for(; !dcount.empty(); ++dcount) {
             auto block = *dcount;
@@ -131,8 +131,8 @@ void benchmark(RunConfig & config) {
     result_vector_type edges;
     
     if (config.rle) {
-        DistributionCount<MonotonicPowerlawRandomStream<>> dcount(degreeSequence);
-        HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<>>> hhgenerator(dcount);
+        DistributionCount<MonotonicPowerlawRandomStream<false>> dcount(degreeSequence);
+        HavelHakimiGeneratorRLE<DistributionCount<MonotonicPowerlawRandomStream<false>>> hhgenerator(dcount);
         materialize(hhgenerator, edges, stats, stats_begin);
         
     } else {

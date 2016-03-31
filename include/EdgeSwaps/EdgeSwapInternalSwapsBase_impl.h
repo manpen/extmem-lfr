@@ -18,7 +18,7 @@ void EdgeSwapInternalSwapsBase::loadEdgeExistenceInformation(EdgeReader &edgeRea
         if (edgeReader.empty() || *edgeReader >= _query_sorter->e) { // found edge or went past it (does not exist)
             // first request for the edge - give existence info if edge exists
             auto lastQuery = *_query_sorter;
-            int_t numFound = 0;
+            community_t numFound = 0;
 
             // found requested edge - advance reader
             while (!edgeReader.empty() && *edgeReader == _query_sorter->e) {
@@ -64,7 +64,7 @@ void EdgeSwapInternalSwapsBase::loadEdgeExistenceInformation(EdgeReader &edgeRea
 
 template <typename EdgeReader>
 void EdgeSwapInternalSwapsBase::executeSwaps(const std::vector< EdgeSwapBase::swap_descriptor > &swaps, std::vector< edge_t > &edges, const std::array<std::vector<bool>, 2>& swap_has_successor, EdgeReader &edgeReader) {
-    bool show_stats = true;
+    bool show_stats = false;
 
     if (swaps.empty())
         return;

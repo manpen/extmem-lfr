@@ -57,6 +57,8 @@ void CommunityEdgeRewiringSwaps::run() {
 
         community_t numCommunities = _community_sizes.size();
 
+        STXXL_MSG("Found " << com_swap_edges.size() << " duplicates which shall be rewired");
+
         // no duplicates found - nothing to do anymore!
         // FIXME introduce threshold
         if (com_swap_edges.empty()) return;

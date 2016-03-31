@@ -58,6 +58,7 @@ message(STATUS "STXXL_LIBRARIES: ${STXXL_LIBRARIES}")
 # apply CXXFLAGS to our configuration
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-depth=1000")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -msse4")
 include_directories(${STXXL_INCLUDE_DIRS})
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DEDGE_SWAP_DEBUG_VECTOR")
@@ -70,6 +71,7 @@ add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/EdgeSwapInternalSwaps.cpp
     include/EdgeSwaps/EdgeSwapInternalSwapsBase.cpp
     include/EdgeSwaps/EdgeSwapTFP.cpp
+    include/EdgeSwaps/EdgeSwapParallelTFP.cpp
     include/EdgeSwaps/IMEdgeSwap.cpp
     include/HavelHakimi/HavelHakimiGenerator.cpp
     include/HavelHakimi/HavelHakimiGeneratorRLE.cpp
