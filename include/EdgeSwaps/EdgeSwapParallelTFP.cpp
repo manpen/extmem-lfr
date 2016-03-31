@@ -735,12 +735,12 @@ namespace EdgeSwapParallelTFP {
                         debug_output_buffer[tid].push_back(res);
                         DEBUG_MSG(_display_debug, "Swap " << sid << " " << res);
                     }
+#endif
 
                     if (!perform_swap) {
                         new_edges[0] = cur_edges[0];
                         new_edges[1] = cur_edges[1];
                     }
-#endif
 
                     // forward edge state to successor swap
                     std::array<bool, 2> successor_found = {false, false};
