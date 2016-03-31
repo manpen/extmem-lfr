@@ -57,12 +57,12 @@ struct RunConfig {
 
         cp.add_param_string("test", test, "Test to execute");
 
+        cp.set_verbose_process(false);
+
         if (!cp.process(argc, argv)) {
             cp.print_usage();
             return false;
         }
-
-        cp.print_result();
 
         stxxl::srandom_number32(randomSeed);
         stxxl::set_seed(randomSeed);
@@ -88,19 +88,40 @@ void test_hist_mono_unif(RunConfig& conf) {
 
 void test_hist_powerlaw(RunConfig& conf) {
     MonotonicPowerlawRandomStream<> rs(conf.minValue, conf.maxValue, conf.gamma, conf.randomPoints);
-    FloatDistributionCount histogram(conf.minValue/2, conf.maxValue*2, conf.maxValue*2-conf.minValue/2);
+    FloatDistributionCount histogram(conf.minValue/2, conf.maxValue*2, conf.maxValue*2-conf.minValue/2+1);
     histogram.consume(rs);
     histogram.dump();
 }
+
+void count_powerlaw(RunConfig& conf) {
+    MonotonicPowerlawRandomStream<> rs(conf.minValue, conf.maxValue, conf.gamma, conf.randomPoints);
+
+    uint64_t count = 0;
+    degree_t prev_degree = 0;
+
+    while(!rs.empty()) {
+        count += (prev_degree != *rs);
+        prev_degree = *rs;
+        ++rs;
+    }
+
+    std::cout << conf.minValue << " "
+              << conf.maxValue << " "
+              << conf.randomPoints << " "
+              << conf.gamma << " "
+              << count << std::endl;
+}
+
 
 
 int main(int argc, char* argv[]) {
     RunConfig config;
     if (!config.parse_cmdline(argc, argv)) abort();
 
-         if (config.test.compare("hist_unif")) {test_hist_unif(config);}
-    else if (config.test.compare("hist_mono_unif")) {test_hist_mono_unif(config);}
-    else if (config.test.compare("hist_powerlaw")) {test_hist_powerlaw(config);}
+         if (!config.test.compare("hist_unif")) {test_hist_unif(config);}
+    else if (!config.test.compare("hist_mono_unif")) {test_hist_mono_unif(config);}
+    else if (!config.test.compare("hist_powerlaw")) {test_hist_powerlaw(config);}
+    else if (!config.test.compare("count_powerlaw")) {count_powerlaw(config);}
     else {
         std::cerr << "Unknown test" << std::endl;
         abort();
