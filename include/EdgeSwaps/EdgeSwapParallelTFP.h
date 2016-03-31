@@ -418,6 +418,7 @@ namespace EdgeSwapParallelTFP {
         void process_swaps();
         void run() {
             process_swaps();
+            process_swaps();
 #ifdef EDGE_SWAP_DEBUG_VECTOR
             _debug_vector_writer.finish();
 #endif
