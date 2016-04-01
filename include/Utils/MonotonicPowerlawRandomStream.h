@@ -27,7 +27,7 @@ public:
 
 
 protected:
-    MonotonicUniformRandomStream<Increasing> _uniform_random;
+    MonotonicUniformRandomStream<true> _uniform_random;
 
     const degree_t _min_degree;
     const degree_t _max_degree;
