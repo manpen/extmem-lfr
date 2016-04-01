@@ -332,6 +332,7 @@ namespace EdgeSwapParallelTFP {
               _existence_info(num_threads),
               _edge_update_merger(EdgeUpdateComparator{}, _sorter_mem),
               _num_threads(num_threads) {
+                _start_stats();
                 for (int i = 0; i < _num_threads; ++i) {
                     _swap_direction[i].reset(new BoolVector);
                     _swap_direction[i]->resize(swaps_per_iteration);
@@ -344,6 +345,7 @@ namespace EdgeSwapParallelTFP {
                     _edge_state.initialize(tid);
                     _existence_info.initialize(tid);
                 }
+                _report_stats("_constructor");
               } // FIXME actually _edge_update_merger isn't needed all the time. If memory is an issue, we could safe memory here
 
         void process_swaps();

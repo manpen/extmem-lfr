@@ -18,6 +18,7 @@ namespace EdgeSwapParallelTFP {
     void EdgeSwapParallelTFP::process_swaps() {
         // if we have no swaps to load and no edges to write back, do nothing (might happen by calling process_swaps several times)
         if (_swap_id == 0 && _used_edge_ids.empty()) return;
+        _report_stats("_push_swaps");
 
         std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> swap_edge_dependencies_sorter(_num_threads);
 
@@ -38,8 +39,11 @@ namespace EdgeSwapParallelTFP {
                 existence_placeholder_sorter[tid].reset(new ExistencePlaceholderSorter(ExistencePlaceholderComparator(), _sorter_mem));
             }
         }
+        _report_stats("_init_process_swaps");
 
         _load_and_update_edges(swap_edge_dependencies_sorter);
+
+        _report_stats("_load_and_update_edges");
 
         if (_swap_id > 0) {
             for (auto &w : _swap_direction_writer) {
@@ -50,10 +54,13 @@ namespace EdgeSwapParallelTFP {
                 ExistenceRequestMerger existence_merger(ExistenceRequestComparator(), SORTER_MEM);
 
                 _compute_conflicts(swap_edge_dependencies_sorter, existence_merger);
+                _report_stats("_compute_conflicts");
                 _process_existence_requests(existence_merger, existence_successor_sorter, existence_placeholder_sorter);
+                _report_stats("_process_existence_requests");
             }
 
             _perform_swaps(swap_edge_dependencies_sorter, existence_successor_sorter, existence_placeholder_sorter);
+            _report_stats("_perform_swaps");
 
             for (int i = 0; i < _num_threads; ++i) {
                 _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
@@ -63,6 +70,7 @@ namespace EdgeSwapParallelTFP {
         // re-initialize data structures for new swaps
         _swap_id = 0;
         _edge_swap_sorter.clear();
+        _report_stats("_cleanup");
     }
 
     void EdgeSwapParallelTFP::_load_and_update_edges(std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> &dependency_output) {
