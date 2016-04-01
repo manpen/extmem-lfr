@@ -94,10 +94,16 @@ TEST_F(TestBoolStream, randomFillAndConsume) {
 
         bs.consume();
 
-        for(unsigned int i=0; i<read_items; i++) {
-            ASSERT_FALSE(bs.empty()) << i;
-            ASSERT_EQ(*bs, reference[i]) << i;
-            ++bs;
+        for(unsigned repeated_reads = 1+(round % 3); repeated_reads; --repeated_reads) {
+            for(unsigned int i=0; i<read_items; i++) {
+                ASSERT_FALSE(bs.empty()) << i;
+                ASSERT_EQ(*bs, reference[i]) << i;
+                ++bs;
+            }
+
+            if (repeated_reads > 1) {
+                bs.rewind();
+            }
         }
 
         bs.clear();
