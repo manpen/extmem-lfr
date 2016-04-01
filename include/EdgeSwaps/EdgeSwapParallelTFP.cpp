@@ -19,10 +19,8 @@ namespace EdgeSwapParallelTFP {
         // if we have no swaps to load and no edges to write back, do nothing (might happen by calling process_swaps several times)
         if (_swap_id == 0 && _used_edge_ids.empty()) return;
 
-        std::vector<std::unique_ptr<DependencyChainEdgeSorter>> swap_edge_sorter(_num_threads);
         std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> swap_edge_dependencies_sorter(_num_threads);
 
-        std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceInfoSorter > > existence_info_sorter(_num_threads);
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceSuccessorSorter > > existence_successor_sorter(_num_threads);
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > existence_placeholder_sorter(_num_threads);
 
@@ -32,16 +30,16 @@ namespace EdgeSwapParallelTFP {
             #pragma omp parallel num_threads(_num_threads)
             {
                 auto tid = omp_get_thread_num();
-                swap_edge_sorter[tid].reset(new DependencyChainEdgeSorter(DependencyChainEdgeComparatorSorter(), _sorter_mem/_num_threads));
-                swap_edge_dependencies_sorter[tid].reset(new DependencyChainSuccessorSorter(DependencyChainSuccessorComparator(), _sorter_mem/_num_threads));
+                _edge_state.clear(tid);
+                swap_edge_dependencies_sorter[tid].reset(new DependencyChainSuccessorSorter(DependencyChainSuccessorComparator(), _sorter_mem));
 
-                existence_info_sorter[tid].reset(new ExistenceInfoSorter(ExistenceInfoComparator(), _sorter_mem/_num_threads));
-                existence_successor_sorter[tid].reset(new ExistenceSuccessorSorter(ExistenceSuccessorComparator(), _sorter_mem/_num_threads));
-                existence_placeholder_sorter[tid].reset(new ExistencePlaceholderSorter(ExistencePlaceholderComparator(), _sorter_mem/_num_threads));
+                _existence_info.clear(tid);
+                existence_successor_sorter[tid].reset(new ExistenceSuccessorSorter(ExistenceSuccessorComparator(), _sorter_mem));
+                existence_placeholder_sorter[tid].reset(new ExistencePlaceholderSorter(ExistencePlaceholderComparator(), _sorter_mem));
             }
         }
 
-        _load_and_update_edges(swap_edge_sorter, swap_edge_dependencies_sorter);
+        _load_and_update_edges(swap_edge_dependencies_sorter);
 
         if (_swap_id > 0) {
             for (auto &w : _swap_direction_writer) {
@@ -51,11 +49,11 @@ namespace EdgeSwapParallelTFP {
             {
                 ExistenceRequestMerger existence_merger(ExistenceRequestComparator(), SORTER_MEM);
 
-                _compute_conflicts(swap_edge_sorter, swap_edge_dependencies_sorter, existence_merger);
-                _process_existence_requests(existence_merger, existence_info_sorter, existence_successor_sorter, existence_placeholder_sorter);
+                _compute_conflicts(swap_edge_dependencies_sorter, existence_merger);
+                _process_existence_requests(existence_merger, existence_successor_sorter, existence_placeholder_sorter);
             }
 
-            _perform_swaps(swap_edge_sorter, swap_edge_dependencies_sorter, existence_info_sorter, existence_successor_sorter, existence_placeholder_sorter);
+            _perform_swaps(swap_edge_dependencies_sorter, existence_successor_sorter, existence_placeholder_sorter);
 
             for (int i = 0; i < _num_threads; ++i) {
                 _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
@@ -65,11 +63,9 @@ namespace EdgeSwapParallelTFP {
         // re-initialize data structures for new swaps
         _swap_id = 0;
         _edge_swap_sorter.clear();
-        _num_threads = old_num_threads;
-
     }
 
-    void EdgeSwapParallelTFP::_load_and_update_edges(std::vector<std::unique_ptr<DependencyChainEdgeSorter>> &edge_output, std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> &dependency_output) {
+    void EdgeSwapParallelTFP::_load_and_update_edges(std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> &dependency_output) {
         uint64_t numSwaps = _swap_id;
 
         // copy old edge ids for writing back
@@ -106,10 +102,9 @@ namespace EdgeSwapParallelTFP {
                 };
 
                 if (match_request()) {
-                    assert(edge_output[tid]);
                     assert(dependency_output[tid]);
                     edge_id_writer << id;
-                    edge_output[tid]->push(DependencyChainEdgeMsg {sid, spos, cur_e});
+                    _edge_state.push_sorter(DependencyChainEdgeMsg {sid, spos, cur_e}, tid);
 
                     auto lastSpos = spos;
                     auto lastSid = sid;
@@ -185,7 +180,7 @@ namespace EdgeSwapParallelTFP {
             #pragma omp parallel num_threads(_num_threads)
             {
                 auto tid = omp_get_thread_num();
-                edge_output[tid]->sort();
+                _edge_state.finish_sorter_input(tid);
                 dependency_output[tid]->sort();
             }
 
@@ -209,12 +204,11 @@ namespace EdgeSwapParallelTFP {
      * We further request information whether the edge exists by pushing requests
      * into _existence_request_sorter.
      */
-    void EdgeSwapParallelTFP::_compute_conflicts(std::vector< std::unique_ptr< EdgeSwapParallelTFP::DependencyChainEdgeSorter > > &swap_edges, std::vector< std::unique_ptr< EdgeSwapParallelTFP::DependencyChainSuccessorSorter > > &dependencies, ExistenceRequestMerger &requestOutputMerger) {
-        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
+    void EdgeSwapParallelTFP::_compute_conflicts(std::vector< std::unique_ptr< EdgeSwapParallelTFP::DependencyChainSuccessorSorter > > &dependencies, ExistenceRequestMerger &requestOutputMerger) {
 
         // FIXME make sure that this leads to useful sort buffer sizes!
-        const auto existence_request_buffer_size = SORTER_MEM/_num_threads/sizeof(ExistenceRequestMsg);
-        swapid_t batch_size_per_thread = 1*IntScale::Mi;
+        const auto existence_request_buffer_size = SORTER_MEM/sizeof(ExistenceRequestMsg)/2;
+        swapid_t batch_size_per_thread = SORTER_MEM/sizeof(ExistenceRequestMsg)/6/2; // assume 6 existence request messages per swap, 4 are minimum and two buffers
 
         struct edge_information_t {
             std::array<int_t, 2> is_set;
@@ -229,9 +223,6 @@ namespace EdgeSwapParallelTFP {
 
         RunsCreatorThread<decltype(existence_request_runs_creator)> existence_request_runs_creator_thread(existence_request_runs_creator);
 
-        using DependencyChainParallelPQSorterMerger = ParallelBufferedPQSorterMerger<DependencyChainEdgeSorter, DependencyChainEdgeComparatorPQ>;
-        DependencyChainParallelPQSorterMerger global_parallel_pq_sorter_merger(_num_threads, swap_edges);
-
         #pragma omp parallel num_threads(_num_threads)
         {
 
@@ -240,7 +231,7 @@ namespace EdgeSwapParallelTFP {
             edge_information[tid].reset(new std::vector<edge_information_t>(batch_size_per_thread));
             auto &my_edge_information = *edge_information[tid];
 
-            DependencyChainParallelPQSorterMerger::ThreadData depchain_pqsort(global_parallel_pq_sorter_merger, tid);
+            auto depchain_stream = _edge_state.get_stream(tid);
 
             BoolVector::bufreader_type direction_reader(*_swap_direction[tid]);
 
@@ -296,8 +287,8 @@ namespace EdgeSwapParallelTFP {
 
 
                         // fetch possible edge state before swap
-                        while (!my_edge_information[i].is_set[spos] && !depchain_pqsort.empty()) {
-                            const auto & msg = *depchain_pqsort;
+                        while (!my_edge_information[i].is_set[spos] && !depchain_stream.empty()) {
+                            const auto & msg = *depchain_stream;
 
                             if (msg.swap_id != sid || msg.spos != spos)
                                 break;
@@ -311,7 +302,7 @@ namespace EdgeSwapParallelTFP {
                             }
                             */
 
-                            ++depchain_pqsort;
+                            ++depchain_stream;
                         }
 
                         // ensure that we received at least one state of the edge before the swap
@@ -335,7 +326,7 @@ namespace EdgeSwapParallelTFP {
                     }
 
                     // ensure that all messages to this swap have been consumed
-                    assert(depchain_pqsort.empty() || (*depchain_pqsort).swap_id > sid);
+                    assert(depchain_stream.empty() || (*depchain_stream).swap_id > sid);
 
 
                     #ifndef NDEBUG
@@ -403,7 +394,7 @@ namespace EdgeSwapParallelTFP {
                             existence_request_buffer.push(ExistenceRequestMsg {e, sid, is_source});
 
                             if (UNLIKELY(has_successor_in_other_batch)) {
-                                depchain_pqsort.push(DependencyChainEdgeMsg {successor_sid[spos], successor_spos[spos], e}, successor_tid);
+                                _edge_state.push_pq(tid, DependencyChainEdgeMsg {successor_sid[spos], successor_spos[spos], e}, successor_tid);
                             }
                             if (UNLIKELY(has_successor_in_batch)) {
                                 assert(t_edges != nullptr);
@@ -449,14 +440,14 @@ namespace EdgeSwapParallelTFP {
                 #pragma omp barrier // TODO calculate wait time at this barrier as this is the first barrier after the processing of all swaps!
 
                 // flush the buffers in the pq. note that during the flush no pushes must happen, therefore we need a barrier before and after the flush.
-                depchain_pqsort.flush_buffer();
+                _edge_state.flush_pq_buffer(tid);
 
                 #pragma omp barrier
             } // finished processing all swaps of the current run
 
             existence_request_buffer.flush(); // make sure all requests are processed!
 
-            swap_edges[tid]->rewind();
+            _edge_state.rewind_sorter(tid);
             dependencies[tid]->rewind();
         } // end of parallel section
 
@@ -471,7 +462,6 @@ namespace EdgeSwapParallelTFP {
      * by informing every swap about the next one requesting the info and inform each swap how many edges it will get using placeholders.
      */
     void EdgeSwapParallelTFP::_process_existence_requests(ExistenceRequestMerger &requestMerger,
-        std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceInfoSorter > > &existence_info_output,
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceSuccessorSorter > > &successor_output,
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > &existence_placeholder_output) {
 
@@ -512,7 +502,7 @@ namespace EdgeSwapParallelTFP {
             // inform earliest swap whether edge exists
             if (foundTargetEdge && exists) {
                 auto tid = _thread(last_swap);
-                existence_info_output[tid]->push(ExistenceInfoMsg{last_swap, current_edge});
+                _existence_info.push_sorter(ExistenceInfoMsg{last_swap, current_edge}, tid);
                 existence_placeholder_output[tid]->push(last_swap);
                 DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists);
             }
@@ -521,7 +511,7 @@ namespace EdgeSwapParallelTFP {
         #pragma omp parallel num_threads(_num_threads)
         {
             auto tid = omp_get_thread_num();
-            existence_info_output[tid]->sort();
+            _existence_info.finish_sorter_input(tid);
             existence_placeholder_output[tid]->sort();
             successor_output[tid]->sort();
         }
@@ -532,9 +522,8 @@ namespace EdgeSwapParallelTFP {
      *  _swaps contains definition of swaps
      *  _depchain_successor_sorter stores swaps we need to inform about our actions
      */
-    void EdgeSwapParallelTFP::_perform_swaps(std::vector< std::unique_ptr< EdgeSwapParallelTFP::DependencyChainEdgeSorter > > &edges_sorter,
+    void EdgeSwapParallelTFP::_perform_swaps(
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::DependencyChainSuccessorSorter > > &edge_dependencies,
-        std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceInfoSorter > > &existence_info_sorter,
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceSuccessorSorter > > &existence_successor,
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > &existence_placeholder) {
 
@@ -554,15 +543,6 @@ namespace EdgeSwapParallelTFP {
         EdgeUpdateComparator, STXXL_DEFAULT_BLOCK_SIZE(edge_t), STXXL_DEFAULT_ALLOC_STRATEGY> edge_update_runs_creator (EdgeUpdateComparator(), SORTER_MEM);
 
         RunsCreatorThread<decltype(edge_update_runs_creator)> edge_update_runs_creator_thread(edge_update_runs_creator);
-
-        // we need to use a desc-comparator since the pq puts the largest element on top
-        using ExistenceInfoComparatorPQ = typename GenericComparatorStruct<ExistenceInfoMsg>::Descending;
-        using ExistenceInfoParallelPQSorterMerger = ParallelBufferedPQSorterMerger<ExistenceInfoSorter, ExistenceInfoComparatorPQ>;
-        ExistenceInfoParallelPQSorterMerger global_existence_info_pq_sorter_merger(_num_threads, existence_info_sorter);
-
-        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
-        using DependencyChainParallelPQSorterMerger = ParallelBufferedPQSorterMerger<DependencyChainEdgeSorter, DependencyChainEdgeComparatorPQ>;
-        DependencyChainParallelPQSorterMerger global_dependency_chain_pq_sorter_merger(_num_threads, edges_sorter);
 
         std::vector<std::unique_ptr<std::vector<std::array<edge_t, 2>>>> source_edges(_num_threads);
 
@@ -588,8 +568,8 @@ namespace EdgeSwapParallelTFP {
 
             auto &my_existence_sucessors = *existence_successor[tid];
 
-            ExistenceInfoParallelPQSorterMerger::ThreadData existence_info_pqsort(global_existence_info_pq_sorter_merger, tid);
-            DependencyChainParallelPQSorterMerger::ThreadData edge_state_pqsort(global_dependency_chain_pq_sorter_merger, tid);
+            auto existence_info_stream = _existence_info.get_stream(tid);
+            auto edge_state_stream = _edge_state.get_stream(tid);
 
             RunsCreatorBuffer<decltype(edge_update_runs_creator)> edge_update_buffer(edge_update_runs_creator_thread, batch_size_per_thread * 2);
 
@@ -636,15 +616,15 @@ namespace EdgeSwapParallelTFP {
                     for (unsigned int spos = 0; spos < 2; spos++) {
                         // get edge successors
                         // fetch possible edge state before swap
-                        while (!edge_state_pqsort.empty()) {
-                            const auto & msg = *edge_state_pqsort;
+                        while (!edge_state_stream.empty()) {
+                            const auto & msg = *edge_state_stream;
 
                             if (msg.swap_id != sid || msg.spos != spos)
                                 break;
 
                             cur_edges[spos] = msg.edge;
 
-                            ++edge_state_pqsort;
+                            ++edge_state_stream;
                         }
 
                         // possibly wait for another thread to set the information
@@ -670,8 +650,8 @@ namespace EdgeSwapParallelTFP {
 
                     // gather all edge states that have been sent to this swap
                     {
-                        for (; !existence_info_pqsort.empty() && (*existence_info_pqsort).swap_id == sid; ++existence_info_pqsort) {
-                            const auto &msg = *existence_info_pqsort;
+                        for (; !existence_info_stream.empty() && (*existence_info_stream).swap_id == sid; ++existence_info_stream) {
+                            const auto &msg = *existence_info_stream;
 
                             size_t k;
 
@@ -743,7 +723,7 @@ namespace EdgeSwapParallelTFP {
                             auto pos = (msg.successor - sid_in_batch_base)/_num_threads;
                             (*source_edges[successor_tid])[pos][msg.successor_spos] = new_edges[msg.spos];
                         } else {
-                            edge_state_pqsort.push(DependencyChainEdgeMsg {msg.successor, msg.successor_spos, new_edges[msg.spos]}, successor_tid);
+                            _edge_state.push_pq(tid, DependencyChainEdgeMsg {msg.successor, msg.successor_spos, new_edges[msg.spos]}, successor_tid);
                         }
 
                         ++my_edge_dependencies;
@@ -772,7 +752,7 @@ namespace EdgeSwapParallelTFP {
 
                             e_in.edges[s] = e;
                         } else {
-                            existence_info_pqsort.push(ExistenceInfoMsg{target_sid, e}, successor_tid);
+                            _existence_info.push_pq(tid, ExistenceInfoMsg{target_sid, e}, successor_tid);
                         }
                     };
 
@@ -820,8 +800,8 @@ namespace EdgeSwapParallelTFP {
                 debug_output_buffer[tid].clear();
 #endif
 
-                edge_state_pqsort.flush_buffer();
-                existence_info_pqsort.flush_buffer();
+                _edge_state.flush_pq_buffer(tid);
+                _existence_info.flush_pq_buffer(tid);
 
                 #pragma omp barrier
 
@@ -834,7 +814,7 @@ namespace EdgeSwapParallelTFP {
             assert(my_existence_sucessors.empty());
             //_existence_successor_sorter.finish_clear();
 
-            assert(existence_info_pqsort.empty());
+            assert(existence_info_stream.empty());
             //_existence_info_sorter.finish_clear();
 
             edge_update_buffer.flush();

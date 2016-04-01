@@ -53,10 +53,11 @@ private:
 public:
     PQSorterMerger() = delete;
 
-    PQSorterMerger(PQ & pq, Sorter & sorter) :
+    PQSorterMerger(PQ & pq, Sorter & sorter, bool initialize = true) :
           _pq(pq), _sorter(sorter), _elements_from_pq(0), _elements_from_sorter(0)
     {
-        update();
+        if (initialize)
+            update();
     }
 
     //! Call in case the PQ/Sorter are changed externally
