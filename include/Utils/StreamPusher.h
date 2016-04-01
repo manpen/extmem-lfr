@@ -19,6 +19,6 @@ public:
 
     void process() {
         for(; !_input.empty(); ++_input)
-            _output(*_input);
+            _output.push(*_input);
     }
 };
