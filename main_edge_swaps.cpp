@@ -150,7 +150,7 @@ void benchmark(RunConfig & config) {
     SwapGenerator swap_gen(config.numSwaps, edges.size());
     using swap_vector_t = stxxl::VECTOR_GENERATOR<SwapDescriptor>::result;
     swap_vector_t swaps;
-    if (config.edgeSwapAlgo == IM || config.edgeSwapAlgo == TFP) {
+    if (config.edgeSwapAlgo == TFP) {
         IOStatistics swap_report("SwapGenerator");
         swaps.resize(config.numSwaps);
 
