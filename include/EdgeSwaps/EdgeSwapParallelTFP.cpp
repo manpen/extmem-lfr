@@ -19,18 +19,6 @@ namespace EdgeSwapParallelTFP {
         // if we have no swaps to load and no edges to write back, do nothing (might happen by calling process_swaps several times)
         if (_swap_id == 0 && _used_edge_ids.empty()) return;
 
-        int old_num_threads = _num_threads;
-
-        #pragma omp parallel num_threads(old_num_threads)
-        #pragma omp single
-        {
-            _num_threads = omp_get_num_threads();
-        }
-
-        if (_num_threads < old_num_threads) {
-            STXXL_ERRMSG("Warning: Did only get " << _num_threads << " threads in the parallel section instead of the requested " << old_num_threads << " threads.");
-        }
-
         std::vector<std::unique_ptr<DependencyChainEdgeSorter>> swap_edge_sorter(_num_threads);
         std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> swap_edge_dependencies_sorter(_num_threads);
 
