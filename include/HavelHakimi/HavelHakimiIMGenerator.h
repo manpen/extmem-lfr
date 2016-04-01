@@ -52,6 +52,7 @@ protected:
     const PushDirection _push_direction;
     const node_t _initial_node;
     node_t _push_current_node;
+    node_t _max_number_of_edges;
 
     //! Generation phase
     bool _empty;            //!< The last generation step failed (or in Push-Mode)
@@ -200,7 +201,8 @@ public:
         _mode(Push),
         _push_direction(push_direction),
         _initial_node(initial_node),
-        _push_current_node(initial_node)
+        _push_current_node(initial_node),
+        _max_number_of_edges(0)
     {}
 
     //! Push a new vertex -represented by its degree- into degree sequence
@@ -229,11 +231,14 @@ public:
         }
 
         ++_push_current_node;
+        _max_number_of_edges += deg;
     }
 
     //! Switch to generation mode; the streaming interface become available
     void generate() {
         assert(_mode == Push);
+
+        _max_number_of_edges /= 2;
 
         // If the degree sequence was provided in increasing order, we have to
         // reverse the node ids
@@ -283,5 +288,10 @@ public:
 
     bool empty() const {
         return _empty;
+    }
+
+    node_t maxEdges() const {
+        assert(_mode == Generate);
+        return _max_number_of_edges;
     }
 };
