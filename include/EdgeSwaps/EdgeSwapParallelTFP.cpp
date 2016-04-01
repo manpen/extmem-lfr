@@ -528,7 +528,7 @@ namespace EdgeSwapParallelTFP {
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > &existence_placeholder) {
 
         // FIXME make sure that this leads to useful sort buffer sizes!
-        swapid_t batch_size_per_thread = 1*IntScale::Mi;
+        swapid_t batch_size_per_thread = SORTER_MEM/sizeof(edge_t)/4; // buffer size should be SORTER_MEM/2 and each swap produces up to two edge updates
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
         // debug only
