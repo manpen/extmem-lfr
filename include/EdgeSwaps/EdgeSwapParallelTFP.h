@@ -330,6 +330,7 @@ namespace EdgeSwapParallelTFP {
                     _swap_direction[i]->resize(swaps_per_iteration);
                     _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
                 }
+                omp_set_nested(1);
               } // FIXME actually _edge_update_sorter isn't needed all the time. If memory is an issue, we could safe memory here
 
         void process_swaps();
