@@ -18,8 +18,8 @@ class BoolStream : stxxl::noncopyable {
     Mode _mode;
 
     // the big picture
-    seq_t _sequence;
     std::unique_ptr<reader_t> _reader;
+    seq_t _sequence;
     uint64_t _items_stored;
 
     uint64_t _items_consumable;
@@ -44,7 +44,10 @@ class BoolStream : stxxl::noncopyable {
 public:
     // Let's satisfy the big 5 ;)
     BoolStream() {clear();}
-    ~BoolStream() = default;
+    ~BoolStream() {
+       _reader.release();
+    }
+
     BoolStream(const BoolStream&) = delete;
     BoolStream(BoolStream&& other) {
         swap(other);
