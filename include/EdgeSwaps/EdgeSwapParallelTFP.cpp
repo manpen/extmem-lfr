@@ -92,15 +92,13 @@ namespace EdgeSwapParallelTFP {
 
         { // load edges from EM. Generates successor information and swap_edges information (for the first edge in the chain).
             auto use_edge = [&] (const edge_t & cur_e, edgeid_t id) {
-                swapid_t sid;
-                unsigned char spos;
+                swap_id_spos sid;
                 int tid;
 
                 auto match_request = [&]() {
                     if (!_edge_swap_sorter.empty() && _edge_swap_sorter->eid == id) {
                         sid = _edge_swap_sorter->sid;
-                        spos = _edge_swap_sorter->spos;
-                        tid = _thread(sid);
+                        tid = _thread(sid.swap_id());
                         assert(tid < _num_threads);
                         ++_edge_swap_sorter;
                         return true;
@@ -112,9 +110,8 @@ namespace EdgeSwapParallelTFP {
                 if (match_request()) {
                     assert(dependency_output[tid]);
                     edge_id_writer << id;
-                    _edge_state.push_sorter(DependencyChainEdgeMsg {sid, spos, cur_e}, tid);
+                    _edge_state.push_sorter(DependencyChainEdgeMsg {sid, cur_e}, tid);
 
-                    auto lastSpos = spos;
                     auto lastSid = sid;
                     auto lastTid = tid;
 
@@ -123,8 +120,7 @@ namespace EdgeSwapParallelTFP {
                     while (match_request()) {
                         // set edge id to internal edge id
                         assert(dependency_output[lastTid]);
-                        dependency_output[lastTid]->push(DependencyChainSuccessorMsg {lastSid, lastSpos, sid, spos});
-                        lastSpos = spos;
+                        dependency_output[lastTid]->push(DependencyChainSuccessorMsg {lastSid, sid});
                         lastSid = sid;
                         lastTid = tid;
                     }
@@ -265,8 +261,7 @@ namespace EdgeSwapParallelTFP {
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
                     if (UNLIKELY(sid >= _num_swaps_in_run)) continue;
 
-                    std::array<swapid_t, 2> successor_sid = {0, 0};
-                    std::array<unsigned char, 2> successor_spos = {0, 0};
+                    std::array<swap_id_spos, 2> successor_sid = {0, 0};
 
                     assert(!direction_reader.empty());
 
@@ -281,14 +276,13 @@ namespace EdgeSwapParallelTFP {
                         if (!dep.empty()) {
                             auto &msg = *dep;
 
-                            assert(msg.swap_id >= sid);
-                            assert(msg.swap_id > sid || msg.spos >= spos);
+                            assert(msg.sid.swap_id() >= sid);
+                            assert(msg.sid.swap_id() > sid || msg.sid.spos() >= spos);
 
-                            if (msg.swap_id == sid && msg.spos == spos) {
+                            if (msg.sid.swap_id() == sid && msg.sid.spos() == spos) {
                                 DEBUG_MSG(_display_debug, "Got successor for S" << sid << ", E" << spos << ": " << msg);
                                 successor_sid[spos] = msg.successor;
-                                successor_spos[spos] = msg.successor_spos;
-                                assert(msg.successor > sid);
+                                assert(msg.successor.swap_id() > sid);
                                 ++dep;
                             }
                         }
@@ -298,7 +292,7 @@ namespace EdgeSwapParallelTFP {
                         while (!my_edge_information[i].is_set[spos] && !depchain_stream.empty()) {
                             const auto & msg = *depchain_stream;
 
-                            if (msg.swap_id != sid || msg.spos != spos)
+                            if (msg.sid.swap_id() != sid || msg.sid.spos() != spos)
                                 break;
 
                             current_edges[spos].push_back(msg.edge);
@@ -330,11 +324,11 @@ namespace EdgeSwapParallelTFP {
                         assert(!current_edges[spos].empty());
 
                         // ensure that dependent swap is in fact a successor (i.e. has larger index)
-                        assert(successor_sid[spos] == 0 || successor_sid[spos] > sid);
+                        assert(!successor_sid[spos] || successor_sid[spos].swap_id() > sid);
                     }
 
                     // ensure that all messages to this swap have been consumed
-                    assert(depchain_stream.empty() || (*depchain_stream).swap_id > sid);
+                    assert(depchain_stream.empty() || (*depchain_stream).sid.swap_id() > sid);
 
 
                     #ifndef NDEBUG
@@ -381,12 +375,12 @@ namespace EdgeSwapParallelTFP {
                         swapid_t successor_pos = 0;
                         int_t successor_tid = 0;
                         if (successor_sid[spos]) {
-                            successor_tid = _thread(successor_sid[spos]);
-                            if (successor_sid[spos] < sid_in_batch_limit) {
+                            successor_tid = _thread(successor_sid[spos].swap_id());
+                            if (successor_sid[spos].swap_id() < sid_in_batch_limit) {
                                 has_successor_in_batch = true;
 
-                                successor_pos = (successor_sid[spos] - sid_in_batch_base)/_num_threads;
-                                t_edges = &(*edge_information[successor_tid])[successor_pos].edges[successor_spos[spos]];
+                                successor_pos = (successor_sid[spos].swap_id() - sid_in_batch_base)/_num_threads;
+                                t_edges = &(*edge_information[successor_tid])[successor_pos].edges[successor_sid[spos].spos()];
 
                                 t_edges->clear();
                                 t_edges->reserve(current_edges[spos].size() + dd.size());
@@ -402,7 +396,7 @@ namespace EdgeSwapParallelTFP {
                             existence_request_buffer.push(ExistenceRequestMsg {e, sid, is_source});
 
                             if (UNLIKELY(has_successor_in_other_batch)) {
-                                _edge_state.push_pq(tid, DependencyChainEdgeMsg {successor_sid[spos], successor_spos[spos], e}, successor_tid);
+                                _edge_state.push_pq(tid, DependencyChainEdgeMsg {successor_sid[spos], e}, successor_tid);
                             }
                             if (UNLIKELY(has_successor_in_batch)) {
                                 assert(t_edges != nullptr);
@@ -434,7 +428,7 @@ namespace EdgeSwapParallelTFP {
 
                         if (has_successor_in_batch) {
                             #pragma omp atomic write seq_cst // make sure that the vector is flushed before is_set is updated!
-                            (*edge_information[successor_tid])[successor_pos].is_set[successor_spos[spos]] = 1;
+                            (*edge_information[successor_tid])[successor_pos].is_set[successor_sid[spos].spos()] = 1;
                         }
                     }
                 }
@@ -627,7 +621,7 @@ namespace EdgeSwapParallelTFP {
                         while (!edge_state_stream.empty()) {
                             const auto & msg = *edge_state_stream;
 
-                            if (msg.swap_id != sid || msg.spos != spos)
+                            if (msg.sid.swap_id() != sid || msg.sid.spos() != spos)
                                 break;
 
                             cur_edges[spos] = msg.edge;
@@ -720,18 +714,18 @@ namespace EdgeSwapParallelTFP {
 
                     // forward edge state to successor swap
                     std::array<bool, 2> successor_found = {false, false};
-                    while (!my_edge_dependencies.empty() && my_edge_dependencies->swap_id == sid) {
+                    while (!my_edge_dependencies.empty() && my_edge_dependencies->sid.swap_id() == sid) {
                         auto &msg = *my_edge_dependencies;
-                        DEBUG_MSG(_display_debug, "Got successor for S" << sid << ", E" << msg.spos << ": " << msg);
+                        DEBUG_MSG(_display_debug, "Got successor for S" << sid << ", E" << msg.sid.spos() << ": " << msg);
 
-                        successor_found[msg.spos] = true;
+                        successor_found[msg.sid.spos()] = true;
 
-                        auto successor_tid = _thread(msg.successor);
-                        if (msg.successor < sid_in_batch_limit) {
-                            auto pos = (msg.successor - sid_in_batch_base)/_num_threads;
-                            (*source_edges[successor_tid])[pos][msg.successor_spos] = new_edges[msg.spos];
+                        auto successor_tid = _thread(msg.successor.swap_id());
+                        if (msg.successor.swap_id() < sid_in_batch_limit) {
+                            auto pos = (msg.successor.swap_id() - sid_in_batch_base)/_num_threads;
+                            (*source_edges[successor_tid])[pos][msg.successor.spos()] = new_edges[msg.sid.spos()];
                         } else {
-                            _edge_state.push_pq(tid, DependencyChainEdgeMsg {msg.successor, msg.successor_spos, new_edges[msg.spos]}, successor_tid);
+                            _edge_state.push_pq(tid, DependencyChainEdgeMsg {msg.successor, new_edges[msg.sid.spos()]}, successor_tid);
                         }
 
                         ++my_edge_dependencies;

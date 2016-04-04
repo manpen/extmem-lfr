@@ -23,29 +23,65 @@
 
 namespace EdgeSwapParallelTFP {
 // TODO: get rid of spos. Use two swap ids per swap instead.
+    struct swap_id_spos {
+        swapid_t id;
+
+        swap_id_spos() {};
+        swap_id_spos(swapid_t sid) : id(sid) {};
+        swap_id_spos(swapid_t swap_id, unsigned char spos) : id(swap_id * 2 + spos) {};
+
+        swapid_t swap_id() const {
+            return id/2;
+        };
+
+        unsigned char spos() const {
+            return id%2;
+        };
+
+        bool operator<(const swap_id_spos& other) const { return id < other.id; };
+        bool operator>(const swap_id_spos& other) const { return id > other.id; };
+        bool operator==(const swap_id_spos& other) const { return id == other.id; };
+        operator swapid_t() const { return id; }
+    };
+
+   inline std::ostream& operator<<(std::ostream &os, const swap_id_spos & t) {
+       os << " #swap_id_spos [ swap_id=" << t.swap_id() << ", spos=" << t.spos() << "]";
+       return os;
+    };
+
     struct EdgeLoadRequest {
         edgeid_t eid;
-        swapid_t sid;
-        unsigned char spos;
+        swap_id_spos sid;
 
-        DECL_LEX_COMPARE_OS(EdgeLoadRequest, eid, sid, spos);
+        EdgeLoadRequest() {};
+        EdgeLoadRequest(edgeid_t eid, swap_id_spos sid) : eid(eid), sid(sid) {};
+        EdgeLoadRequest(edgeid_t eid, swapid_t swap_id, unsigned char spos) : eid(eid), sid(swap_id, spos) { };
+
+        DECL_LEX_COMPARE_OS(EdgeLoadRequest, eid, sid);
     };
 
     struct DependencyChainEdgeMsg {
-        swapid_t swap_id;
-        unsigned char spos;
+        swap_id_spos sid;
         edge_t edge;
 
-        DECL_LEX_COMPARE_OS(DependencyChainEdgeMsg, swap_id, spos, edge);
+        DependencyChainEdgeMsg() {};
+        DependencyChainEdgeMsg(swap_id_spos sid, const edge_t& edge) : sid(sid), edge(edge) {};
+        DependencyChainEdgeMsg(swap_id_spos sid, edge_t&& edge) : sid(sid), edge(edge) {};
+        DependencyChainEdgeMsg(swapid_t swap_id, unsigned char spos, const edge_t &edge) : sid(swap_id, spos), edge(edge) { };
+        DependencyChainEdgeMsg(swapid_t swap_id, unsigned char spos, edge_t &&edge) : sid(swap_id, spos), edge(edge) { };
+
+        DECL_LEX_COMPARE_OS(DependencyChainEdgeMsg, sid, edge);
     };
 
     struct DependencyChainSuccessorMsg {
-        swapid_t swap_id;
-        unsigned char spos;
-        swapid_t successor;
-        unsigned char successor_spos;
+        swap_id_spos sid;
+        swap_id_spos successor;
 
-        DECL_LEX_COMPARE_OS(DependencyChainSuccessorMsg, swap_id, spos); // NOTE other fields are not necessary for uniqueness and sorting.
+        DependencyChainSuccessorMsg() {};
+        DependencyChainSuccessorMsg(swap_id_spos sid, swap_id_spos successor) : sid(sid), successor(successor) {};
+        DependencyChainSuccessorMsg(swapid_t swap_id, unsigned char spos, swapid_t successor_swap_id, unsigned char successor_spos) : sid(swap_id, spos), successor(successor_swap_id, successor_spos) {};
+
+        DECL_LEX_COMPARE_OS(DependencyChainSuccessorMsg, sid); // NOTE other fields are not necessary for uniqueness and sorting.
     };
 
     struct ExistenceRequestMsg {
@@ -359,13 +395,21 @@ namespace EdgeSwapParallelTFP {
 
         void push(const swap_descriptor& swap) {
             *(_swap_direction_writer[_thread(_num_swaps_in_run)]) << swap.direction();
-            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[0], _num_swaps_in_run, 0});
-            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[1], _num_swaps_in_run, 1});
+            _edge_swap_sorter.push(EdgeLoadRequest(swap.edges()[0], _num_swaps_in_run, 0));
+            _edge_swap_sorter.push(EdgeLoadRequest(swap.edges()[1], _num_swaps_in_run, 1));
             ++_num_swaps_in_run;
             if (_num_swaps_in_run >= _num_swaps_per_iteration) {
                 process_swaps();
             }
         }
+    };
+}
+
+namespace std {
+    template <> class numeric_limits<EdgeSwapParallelTFP::swap_id_spos> {
+        public:
+        static EdgeSwapParallelTFP::swap_id_spos max() { return std::numeric_limits<swapid_t>::max(); };
+        static EdgeSwapParallelTFP::swap_id_spos min() { return std::numeric_limits<swapid_t>::min(); };
     };
 }
 
