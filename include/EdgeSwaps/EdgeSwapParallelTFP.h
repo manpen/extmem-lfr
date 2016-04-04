@@ -237,7 +237,7 @@ namespace EdgeSwapParallelTFP {
 
         edge_vector &_edges;
         swapid_t _num_swaps_per_iteration;
-        swapid_t _swap_id;
+        swapid_t _num_swaps_in_run;
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
         debug_vector::bufwriter_type _debug_vector_writer;
@@ -320,7 +320,7 @@ namespace EdgeSwapParallelTFP {
               EdgeSwapBase(),
               _edges(edges),
               _num_swaps_per_iteration(swaps_per_iteration),
-              _swap_id(0),
+              _num_swaps_in_run(0),
 #ifdef EDGE_SWAP_DEBUG_VECTOR
               _debug_vector_writer(_result),
 #endif
@@ -358,11 +358,11 @@ namespace EdgeSwapParallelTFP {
         };
 
         void push(const swap_descriptor& swap) {
-            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[0], _swap_id, 0});
-            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[1], _swap_id, 1});
-            *(_swap_direction_writer[_thread(_swap_id)]) << swap.direction();
-            ++_swap_id;
-            if (_swap_id >= _num_swaps_per_iteration) {
+            *(_swap_direction_writer[_thread(_num_swaps_in_run)]) << swap.direction();
+            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[0], _num_swaps_in_run, 0});
+            _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[1], _num_swaps_in_run, 1});
+            ++_num_swaps_in_run;
+            if (_num_swaps_in_run >= _num_swaps_per_iteration) {
                 process_swaps();
             }
         }

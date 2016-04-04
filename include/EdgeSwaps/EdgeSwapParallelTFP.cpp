@@ -17,7 +17,7 @@
 namespace EdgeSwapParallelTFP {
     void EdgeSwapParallelTFP::process_swaps() {
         // if we have no swaps to load and no edges to write back, do nothing (might happen by calling process_swaps several times)
-        if (_swap_id == 0 && _used_edge_ids.empty()) return;
+        if (_num_swaps_in_run == 0 && _used_edge_ids.empty()) return;
         _report_stats("_push_swaps");
 
         std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> swap_edge_dependencies_sorter(_num_threads);
@@ -26,7 +26,7 @@ namespace EdgeSwapParallelTFP {
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > existence_placeholder_sorter(_num_threads);
 
         // allocate sorters only if there is actually something to do!
-        if (_swap_id > 0) {
+        if (_num_swaps_in_run > 0) {
             // allocate sorters in parallel because of NUMA
             #pragma omp parallel num_threads(_num_threads)
             {
@@ -45,7 +45,7 @@ namespace EdgeSwapParallelTFP {
 
         _report_stats("_load_and_update_edges");
 
-        if (_swap_id > 0) {
+        if (_num_swaps_in_run > 0) {
             for (auto &w : _swap_direction_writer) {
                 w->finish();
             }
@@ -68,18 +68,18 @@ namespace EdgeSwapParallelTFP {
         }
 
         // re-initialize data structures for new swaps
-        _swap_id = 0;
+        _num_swaps_in_run = 0;
         _edge_swap_sorter.clear();
         _report_stats("_cleanup");
     }
 
     void EdgeSwapParallelTFP::_load_and_update_edges(std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> &dependency_output) {
-        uint64_t numSwaps = _swap_id;
+        uint64_t numSwaps = _num_swaps_in_run;
 
         // copy old edge ids for writing back
         EdgeIdVector old_edge_ids;
         old_edge_ids.swap(_used_edge_ids);
-        _used_edge_ids.reserve(_swap_id * 2);
+        _used_edge_ids.reserve(_num_swaps_in_run * 2);
         EdgeIdVector::bufwriter_type edge_id_writer(_used_edge_ids);
 
         _edge_swap_sorter.sort();
@@ -249,21 +249,21 @@ namespace EdgeSwapParallelTFP {
 
             #pragma omp barrier // make sure all data structures have been initialized before the algorithm starts
 
-            swapid_t loop_limit = _swap_id;
+            swapid_t loop_limit = _num_swaps_in_run;
             {
-                swapid_t remainder = _swap_id % _num_threads;
+                swapid_t remainder = _num_swaps_in_run % _num_threads;
                 if (remainder != 0) loop_limit += (_num_threads - remainder);
             }
             swapid_t sid = tid;
             while  (sid < loop_limit) { // execution of batch starts
                 swapid_t sid_in_batch_base = sid-tid;
-                swapid_t sid_in_batch_limit = std::min<swapid_t>(_swap_id, sid_in_batch_base + batch_size_per_thread * _num_threads);
+                swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
                 std::array<std::vector<edge_t>, 2> current_edges;
                 std::array<std::vector<edge_t>, 2> dd_new_edges;
 
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
-                    if (UNLIKELY(sid >= _swap_id)) continue;
+                    if (UNLIKELY(sid >= _num_swaps_in_run)) continue;
 
                     std::array<swapid_t, 2> successor_sid = {0, 0};
                     std::array<unsigned char, 2> successor_spos = {0, 0};
@@ -585,17 +585,17 @@ namespace EdgeSwapParallelTFP {
 
             swapid_t sid = tid;
 
-            swapid_t loop_limit = _swap_id;
+            swapid_t loop_limit = _num_swaps_in_run;
             {
-                swapid_t remainder = _swap_id % _num_threads;
+                swapid_t remainder = _num_swaps_in_run % _num_threads;
                 if (remainder != 0) loop_limit += (_num_threads - remainder);
             }
             while  (sid < loop_limit) { // execution of batch starts
                 swapid_t sid_in_batch_base = sid-tid;
-                swapid_t sid_in_batch_limit = std::min<swapid_t>(_swap_id, sid_in_batch_base + batch_size_per_thread * _num_threads);
+                swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
                 auto &my_existence_placeholder = *existence_placeholder[tid];
-                for (swapid_t s = sid, i = 0; i < batch_size_per_thread && s < _swap_id; ++i, s += _num_threads) {
+                for (swapid_t s = sid, i = 0; i < batch_size_per_thread && s < _num_swaps_in_run; ++i, s += _num_threads) {
                     size_t c = 0;
                     while (!my_existence_placeholder.empty() && *my_existence_placeholder == s) {
                             ++c;
@@ -609,7 +609,7 @@ namespace EdgeSwapParallelTFP {
                 #pragma omp barrier
 
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
-                    if (UNLIKELY(sid >= _swap_id)) continue;
+                    if (UNLIKELY(sid >= _num_swaps_in_run)) continue;
                     auto & ex_info = my_existence_information[i];
                     auto & cur_edges = my_source_edges[i];
 
@@ -798,8 +798,8 @@ namespace EdgeSwapParallelTFP {
 #ifdef EDGE_SWAP_DEBUG_VECTOR
                 #pragma omp single
                 {
-                    for (swapid_t i = 0, s = sid_in_batch_base; i < batch_size_per_thread && s < _swap_id; ++i) {
-                        for (int t = 0; t < _num_threads && s < _swap_id; ++t, ++s) {
+                    for (swapid_t i = 0, s = sid_in_batch_base; i < batch_size_per_thread && s < _num_swaps_in_run; ++i) {
+                        for (int t = 0; t < _num_threads && s < _num_swaps_in_run; ++t, ++s) {
                             _debug_vector_writer << debug_output_buffer[t][i];
                         }
                     }
