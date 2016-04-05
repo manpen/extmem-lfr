@@ -374,7 +374,6 @@ namespace EdgeSwapParallelTFP {
                     _swap_direction[i]->resize(swaps_per_iteration);
                     _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
                 }
-                omp_set_nested(1);
                 #pragma omp parallel num_threads(_num_threads)
                 {
                     int tid = omp_get_thread_num();
