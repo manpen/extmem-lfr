@@ -630,9 +630,9 @@ namespace EdgeSwapParallelTFP {
                         }
 
                         // possibly wait for another thread to set the information
-                        if (cur_edges[spos] == edge_t{-1, -1}) {
+                        if (cur_edges[spos].first == -1 || cur_edges[spos].second == -1) {
                             // TODO: find out if this is okay or if we should rather use some condition variable here in order to give the background output threads more cpu time (or wait e.g. 2ms)
-                            while (cur_edges[spos] == edge_t{-1, -1}) { // busy waiting for other thread to supply information
+                            while (cur_edges[spos].first == -1 || cur_edges[spos].second == -1) { // busy waiting for other thread to supply information
                                 std::this_thread::yield();
                             }
                         }
