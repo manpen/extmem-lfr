@@ -30,7 +30,6 @@ namespace EdgeSwapParallelTFP {
 #endif
 
               _swap_direction(num_threads),
-              _swap_direction_writer(num_threads),
               _edge_swap_sorter(GenericComparatorStruct<EdgeLoadRequest>::Ascending(), _sorter_mem),
               _edge_state(num_threads),
               _existence_info(num_threads),
@@ -39,9 +38,7 @@ namespace EdgeSwapParallelTFP {
 
         _start_stats();
         for (int i = 0; i < _num_threads; ++i) {
-            _swap_direction[i].reset(new BoolVector);
-            _swap_direction[i]->resize(swaps_per_iteration);
-            _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
+            _swap_direction[i].reset(new BoolStream);
         }
         #pragma omp parallel num_threads(_num_threads)
         {
@@ -92,8 +89,8 @@ namespace EdgeSwapParallelTFP {
         _report_stats("_load_and_update_edges");
 
         if (_num_swaps_in_run > 0) {
-            for (auto &w : _swap_direction_writer) {
-                w->finish();
+            for (auto &w : _swap_direction) {
+                w->consume();
             }
 
             {
@@ -108,8 +105,8 @@ namespace EdgeSwapParallelTFP {
             _perform_swaps(swap_edge_dependencies_sorter, existence_successor_sorter, existence_placeholder_sorter);
             _report_stats("_perform_swaps");
 
-            for (int i = 0; i < _num_threads; ++i) {
-                _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
+            for (auto &w : _swap_direction) {
+                w->clear();
             }
         }
 
@@ -283,7 +280,7 @@ namespace EdgeSwapParallelTFP {
 
             auto depchain_stream = _edge_state.get_stream(tid);
 
-            BoolVector::bufreader_type direction_reader(*_swap_direction[tid]);
+            auto &my_swap_direction =  *_swap_direction[tid];
 
             auto &dep = *dependencies[tid];
 
@@ -313,10 +310,10 @@ namespace EdgeSwapParallelTFP {
 
                     std::array<swapid_t, 2> successor_sid = {0, 0};
 
-                    assert(!direction_reader.empty());
+                    assert(!my_swap_direction.empty());
 
-                    bool direction = *direction_reader;
-                    ++direction_reader;
+                    bool direction = *my_swap_direction;
+                    ++my_swap_direction;
 
                     // fetch messages sent to this edge
                     for (unsigned int spos = 0; spos < 2; spos++) {
@@ -501,6 +498,8 @@ namespace EdgeSwapParallelTFP {
                 barrier_wait_time.start();
                 #pragma omp barrier
                 barrier_wait_time.stop();
+
+                my_swap_direction.rewind();
             } // finished processing all swaps of the current run
 
             existence_request_buffer.flush(); // make sure all requests are processed!
@@ -628,7 +627,7 @@ namespace EdgeSwapParallelTFP {
 
             RunsCreatorBuffer<decltype(edge_update_runs_creator)> edge_update_buffer(edge_update_runs_creator_thread, batch_size_per_thread * 2);
 
-            BoolVector::bufreader_type direction_reader(*_swap_direction[tid]);
+            auto & my_swap_direction = *_swap_direction[tid];
 
             swapid_t sid = tid;
 
@@ -669,10 +668,10 @@ namespace EdgeSwapParallelTFP {
 
                     std::array<edge_t, 2> new_edges;
 
-                    assert(!direction_reader.empty());
+                    assert(!my_swap_direction.empty());
 
-                    bool direction = *direction_reader;
-                    ++direction_reader;
+                    bool direction = *my_swap_direction;
+                    ++my_swap_direction;
 
 
                     for (unsigned int spos = 0; spos < 2; spos++) {

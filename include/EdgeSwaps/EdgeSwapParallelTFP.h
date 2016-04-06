@@ -251,10 +251,7 @@ namespace EdgeSwapParallelTFP {
 #endif
 
 // swap direction information
-        using BoolVector = stxxl::vector<bool>;
-        std::vector<std::unique_ptr<BoolVector>> _swap_direction;
-        std::vector<std::unique_ptr<BoolVector::bufwriter_type>> _swap_direction_writer;
-
+        std::vector<std::unique_ptr<BoolStream>> _swap_direction;
 
 // swap -> edge
         using EdgeLoadRequestSorter = stxxl::sorter<EdgeLoadRequest, GenericComparatorStruct<EdgeLoadRequest>::Ascending>;
@@ -328,7 +325,7 @@ namespace EdgeSwapParallelTFP {
         void run();
 
         void push(const swap_descriptor& swap) {
-            *(_swap_direction_writer[_thread(_num_swaps_in_run)]) << swap.direction();
+            _swap_direction[_thread(_num_swaps_in_run)]->push(swap.direction());
             _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[0], pack_swap_id_spos(_num_swaps_in_run, 0)});
             _edge_swap_sorter.push(EdgeLoadRequest {swap.edges()[1], pack_swap_id_spos(_num_swaps_in_run, 1)});
             ++_num_swaps_in_run;
