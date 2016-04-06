@@ -32,6 +32,7 @@ namespace EdgeSwapParallelTFP {
               _swap_direction(num_threads),
               _edge_swap_sorter(GenericComparatorStruct<EdgeLoadRequest>::Ascending(), _sorter_mem),
               _edge_state(num_threads),
+              _needs_writeback(false),
               _existence_info(num_threads),
               _edge_update_merger(EdgeUpdateComparator{}, _sorter_mem),
               _num_threads(num_threads) {
@@ -60,7 +61,7 @@ namespace EdgeSwapParallelTFP {
 
     void EdgeSwapParallelTFP::process_swaps() {
         // if we have no swaps to load and no edges to write back, do nothing (might happen by calling process_swaps several times)
-        if (_num_swaps_in_run == 0 && _used_edge_ids.empty()) return;
+        if (_num_swaps_in_run == 0 && !_needs_writeback) return;
         _report_stats("_push_swaps");
 
         std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> swap_edge_dependencies_sorter(_num_threads);
@@ -118,19 +119,16 @@ namespace EdgeSwapParallelTFP {
 
     void EdgeSwapParallelTFP::_load_and_update_edges(std::vector<std::unique_ptr<DependencyChainSuccessorSorter>> &dependency_output) {
         uint64_t numSwaps = _num_swaps_in_run;
-
-        // copy old edge ids for writing back
-        EdgeIdVector old_edge_ids;
-        old_edge_ids.swap(_used_edge_ids);
-        _used_edge_ids.reserve(_num_swaps_in_run * 2);
-        EdgeIdVector::bufwriter_type edge_id_writer(_used_edge_ids);
-
         _edge_swap_sorter.sort();
+
+        bool loaded_edges = !_edge_swap_sorter.empty();
 
 
         if (compute_stats) {
             std::cout << "Requesting " << _edge_swap_sorter.size() << " non-unique edges for internal swaps" << std::endl;
         }
+
+        BoolStream next_valid_edges;
 
 
         { // load edges from EM. Generates successor information and swap_edges information (for the first edge in the chain).
@@ -152,7 +150,7 @@ namespace EdgeSwapParallelTFP {
 
                 if (match_request()) {
                     assert(dependency_output[tid]);
-                    edge_id_writer << id;
+                    next_valid_edges.push(false);
                     _edge_state.push_sorter(DependencyChainEdgeMsg {sid, cur_e}, tid);
 
                     auto lastSid = sid;
@@ -167,59 +165,36 @@ namespace EdgeSwapParallelTFP {
                         lastSid = sid;
                         lastTid = tid;
                     }
+                } else {
+                    next_valid_edges.push(true);
                 }
             };
 
             edgeid_t id = 0;
-            typename edge_vector::bufreader_type edge_reader(_edges);
 
-            if (old_edge_ids.empty()) {
+            if (!_needs_writeback) {
                 // just read edges
+                typename edge_vector::bufreader_type edge_reader(_edges);
                 for (; !edge_reader.empty(); ++id, ++edge_reader) {
                     use_edge(*edge_reader, id);
                 }
             } else {
-                // read old edge vector and merge in updates, write out result
-                edge_vector output_vector;
-                output_vector.reserve(_edges.size());
-                typename edge_vector::bufwriter_type writer(output_vector);
+                EdgeVectorUpdateStream<edge_vector, BoolStream, EdgeUpdateMerger> edge_update_stream(_edges, _valid_edges, _edge_update_merger);
 
-                EdgeIdVector::bufreader_type old_e(old_edge_ids);
-                int_t read_id = 0;
-                edge_t cur_e;
-
-                for (; !edge_reader.empty() || !_edge_update_merger.empty(); ++id) {
-                    // Skip old edges
-                    while (!old_e.empty() && *old_e == read_id) {
-                        ++edge_reader;
-                        ++read_id;
-                        ++old_e;
-                    }
-
-                    // merge update edges and read edges
-                    if (!_edge_update_merger.empty() && (edge_reader.empty() || *_edge_update_merger < *edge_reader)) {
-                        cur_e = *_edge_update_merger;
-                        writer << cur_e;
-                        ++_edge_update_merger;
-                    } else {
-                        if (edge_reader.empty()) { // due to the previous while loop both could be empty now
-                            break; // abort the loop as we do not have any edges to process anymore.
-                        }
-
-                        cur_e = *edge_reader;
-                        writer << cur_e;
-                        ++read_id;
-                        ++edge_reader;
-                    }
-
-                    use_edge(cur_e, id);
+                for (; !edge_update_stream.empty(); ++id, ++edge_update_stream) {
+                    use_edge(*edge_update_stream, id);
                 }
 
-                writer.finish();
-                _edges.swap(output_vector);
+                assert(static_cast<std::size_t>(id) == _edges.size());
 
+                edge_update_stream.finish();
                 _edge_update_merger.deallocate();
             }
+
+            _needs_writeback = loaded_edges;
+
+            _valid_edges.swap(next_valid_edges);
+            _valid_edges.consume();
         }
 
 

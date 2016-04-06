@@ -267,8 +267,8 @@ namespace EdgeSwapParallelTFP {
         using DependencyChainSuccessorComparator = typename GenericComparatorStruct<DependencyChainSuccessorMsg>::Ascending;
         using DependencyChainSuccessorSorter = stxxl::sorter<DependencyChainSuccessorMsg, DependencyChainSuccessorComparator>;
 
-        using EdgeIdVector = stxxl::VECTOR_GENERATOR<edgeid_t>::result;
-        EdgeIdVector _used_edge_ids;
+        BoolStream _valid_edges;
+        bool _needs_writeback;
 
 // existence requests
         using ExistenceRequestComparator = typename GenericComparatorStruct<ExistenceRequestMsg>::Ascending;
