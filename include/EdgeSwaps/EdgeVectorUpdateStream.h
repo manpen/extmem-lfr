@@ -80,6 +80,10 @@ public:
     EdgeVectorUpdateStream& operator++() {
         assert(!empty());
 
+        _empty = _edge_reader.empty() && _updated_edges.empty();
+
+        if (UNLIKELY(_empty)) return *this;
+
         /*{
             std::cout << "UpdateStream vector: ";
             if (_edge_reader.empty())
@@ -119,7 +123,6 @@ public:
 
         //std::cout << " current: " << _current << std::endl;
 
-        _empty = _edge_reader.empty() && _updated_edges.empty();
         _edge_writer << _current;
 #ifndef NDEBUG
         ++_writer_eid;
