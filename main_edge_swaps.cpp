@@ -155,7 +155,7 @@ void benchmark(RunConfig & config) {
         swaps.resize(config.numSwaps);
 
         auto endIt = stxxl::stream::materialize(swap_gen, swaps.begin());
-        assert(endIt - swaps.begin() == static_cast<size_t>(config.numSwaps));
+        assert(static_cast<size_t>(endIt - swaps.begin()) == config.numSwaps);
 
     } else {
         std::cout << "Swap Algo accepts swaps as stream\n";
