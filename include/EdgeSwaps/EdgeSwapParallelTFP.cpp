@@ -245,7 +245,11 @@ namespace EdgeSwapParallelTFP {
 
             RunsCreatorBuffer<decltype(existence_request_runs_creator)> existence_request_buffer(existence_request_runs_creator_thread, existence_request_buffer_size);
 
+            stxxl::timer barrier_wait_time;
+
+            barrier_wait_time.start();
             #pragma omp barrier // make sure all data structures have been initialized before the algorithm starts
+            barrier_wait_time.stop();
 
             swapid_t loop_limit = _num_swaps_in_run;
             {
@@ -441,18 +445,26 @@ namespace EdgeSwapParallelTFP {
                     existence_request_buffer.finish();
                 }
 
+                barrier_wait_time.start();
+
                 #pragma omp barrier // TODO calculate wait time at this barrier as this is the first barrier after the processing of all swaps!
+
+                barrier_wait_time.stop();
 
                 // flush the buffers in the pq. note that during the flush no pushes must happen, therefore we need a barrier before and after the flush.
                 _edge_state.flush_pq_buffer(tid);
 
+                barrier_wait_time.start();
                 #pragma omp barrier
+                barrier_wait_time.stop();
             } // finished processing all swaps of the current run
 
             existence_request_buffer.flush(); // make sure all requests are processed!
 
             _edge_state.rewind_sorter(tid);
             dependencies[tid]->rewind();
+            #pragma omp critical
+            std::cout << barrier_wait_time << " wait time at barriers of thread " << tid << std::endl;
         } // end of parallel section
 
         requestOutputMerger.initialize(existence_request_runs_creator.result());
@@ -576,6 +588,8 @@ namespace EdgeSwapParallelTFP {
 
             swapid_t sid = tid;
 
+            stxxl::timer barrier_wait_time;
+
             swapid_t loop_limit = _num_swaps_in_run;
             {
                 swapid_t remainder = _num_swaps_in_run % _num_threads;
@@ -601,7 +615,9 @@ namespace EdgeSwapParallelTFP {
 
                 my_existence_information.finish_initialization();
 
+                barrier_wait_time.start();
                 #pragma omp barrier
+                barrier_wait_time.stop();
 
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
                     if (UNLIKELY(sid >= _num_swaps_in_run)) continue;
@@ -775,7 +791,11 @@ namespace EdgeSwapParallelTFP {
 
                 edge_update_buffer.finish();
 
+                barrier_wait_time.start();
+
                 #pragma omp barrier
+
+                barrier_wait_time.stop();
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
                 #pragma omp single
@@ -793,7 +813,9 @@ namespace EdgeSwapParallelTFP {
                 _edge_state.flush_pq_buffer(tid);
                 _existence_info.flush_pq_buffer(tid);
 
+                barrier_wait_time.start();
                 #pragma omp barrier
+                barrier_wait_time.stop();
 
             }
 
@@ -808,6 +830,9 @@ namespace EdgeSwapParallelTFP {
             //_existence_info_sorter.finish_clear();
 
             edge_update_buffer.flush();
+
+            #pragma omp critical
+            std::cout << barrier_wait_time << " in thread " << tid << std::endl;
         }// end of parallel region
 
 
