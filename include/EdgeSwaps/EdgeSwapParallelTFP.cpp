@@ -6,6 +6,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 #include <stx/btree_map>
 #include <stxxl/priority_queue>
@@ -215,7 +216,7 @@ namespace EdgeSwapParallelTFP {
         swapid_t batch_size_per_thread = SORTER_MEM/sizeof(ExistenceRequestMsg)/6/2; // assume 6 existence request messages per swap, 4 are minimum and two buffers
 
         struct edge_information_t {
-            std::array<int_t, 2> is_set;
+            std::array<std::atomic<bool>, 2> is_set;
             std::array<std::vector<edge_t>, 2> edges;
         };
 
@@ -289,7 +290,7 @@ namespace EdgeSwapParallelTFP {
 
 
                         // fetch possible edge state before swap
-                        while (!my_edge_information[i].is_set[spos] && !depchain_stream.empty()) {
+                        while (!depchain_stream.empty()) {
                             const auto & msg = *depchain_stream;
 
                             if (msg.sid != pack_swap_id_spos(sid, spos))
@@ -310,7 +311,7 @@ namespace EdgeSwapParallelTFP {
                         // ensure that we received at least one state of the edge before the swap
                         if (current_edges[spos].empty()) {
                             // TODO: find out if this is okay or if we should rather use some condition variable here in order to give the background output threads more cpu time (or wait e.g. 2ms)
-                            while (!my_edge_information[i].is_set[spos]) { // busy waiting for other thread to supply information
+                            while (!my_edge_information[i].is_set[spos].load(std::memory_order_seq_cst)) { // busy waiting for other thread to supply information
                                 std::this_thread::yield();
                             }
 
@@ -427,8 +428,8 @@ namespace EdgeSwapParallelTFP {
                         }
 
                         if (has_successor_in_batch) {
-                            #pragma omp atomic write seq_cst // make sure that the vector is flushed before is_set is updated!
-                            (*edge_information[successor_tid])[successor_pos].is_set[get_swap_spos(successor_sid[spos])] = 1;
+                            // make sure that the vector is flushed before is_set is updated!
+                            (*edge_information[successor_tid])[successor_pos].is_set[get_swap_spos(successor_sid[spos])].store(true, std::memory_order_seq_cst);
                         }
                     }
                 }
@@ -550,7 +551,7 @@ namespace EdgeSwapParallelTFP {
 
         struct edge_existence_info_t {
             std::vector<edge_t> edges;
-            size_t size;
+            std::atomic<size_t> size;
         };
 
         std::vector<std::unique_ptr<std::vector<edge_existence_info_t>>> existence_information(_num_threads);
@@ -634,6 +635,8 @@ namespace EdgeSwapParallelTFP {
                             // TODO: find out if this is okay or if we should rather use some condition variable here in order to give the background output threads more cpu time (or wait e.g. 2ms)
                             while (cur_edges[spos].first == -1 || cur_edges[spos].second == -1) { // busy waiting for other thread to supply information
                                 std::this_thread::yield();
+                                // this adds an empty assembler instruction that acts as memory fence and tells the compiler that all memory contents may be changed, i.e. forces it to re-load cur_edges
+                                __asm__ __volatile__ ("":::"memory");
                             }
                         }
                     }
@@ -657,7 +660,6 @@ namespace EdgeSwapParallelTFP {
 
                             size_t k;
 
-                            #pragma omp atomic capture
                             k = ex_info.size++;
 
                             assert(k < ex_info.edges.size());
@@ -665,7 +667,7 @@ namespace EdgeSwapParallelTFP {
                             ex_info.edges[k] = msg.edge;
                         }
 
-                        while (ex_info.size < ex_info.edges.size()) { // busy waiting for other thread to supply information
+                        while (ex_info.size.load(std::memory_order_seq_cst) < ex_info.edges.size()) { // busy waiting for other thread to supply information
                             std::this_thread::yield();
                         }
 
@@ -751,7 +753,8 @@ namespace EdgeSwapParallelTFP {
                             edge_existence_info_t &e_in = (*existence_information[successor_tid])[pos];
 
                             size_t s;
-                            #pragma omp atomic capture
+
+                            // e_in.size is std::atomic!
                             s = e_in.size++;
 
                             e_in.edges[s] = e;
