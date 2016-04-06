@@ -320,48 +320,12 @@ namespace EdgeSwapParallelTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector - ignored!
-        EdgeSwapParallelTFP(edge_vector &edges, swap_vector &, swapid_t swaps_per_iteration = 1000000) :
-              EdgeSwapParallelTFP(edges, swaps_per_iteration) { }
+        EdgeSwapParallelTFP(edge_vector &edges, swap_vector &, swapid_t swaps_per_iteration = 10000000);
 
-        EdgeSwapParallelTFP(edge_vector &edges, swapid_t swaps_per_iteration, int num_threads = omp_get_max_threads()) :
-              EdgeSwapBase(),
-              _edges(edges),
-              _num_swaps_per_iteration(swaps_per_iteration),
-              _num_swaps_in_run(0),
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-              _debug_vector_writer(_result),
-#endif
-
-              _swap_direction(num_threads),
-              _swap_direction_writer(num_threads),
-              _edge_swap_sorter(GenericComparatorStruct<EdgeLoadRequest>::Ascending(), _sorter_mem),
-              _edge_state(num_threads),
-              _existence_info(num_threads),
-              _edge_update_merger(EdgeUpdateComparator{}, _sorter_mem),
-              _num_threads(num_threads) {
-                _start_stats();
-                for (int i = 0; i < _num_threads; ++i) {
-                    _swap_direction[i].reset(new BoolVector);
-                    _swap_direction[i]->resize(swaps_per_iteration);
-                    _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
-                }
-                #pragma omp parallel num_threads(_num_threads)
-                {
-                    int tid = omp_get_thread_num();
-                    _edge_state.initialize(tid);
-                    _existence_info.initialize(tid);
-                }
-                _report_stats("_constructor");
-              } // FIXME actually _edge_update_merger isn't needed all the time. If memory is an issue, we could safe memory here
+        EdgeSwapParallelTFP(edge_vector &edges, swapid_t swaps_per_iteration, int num_threads = omp_get_max_threads());
 
         void process_swaps();
-        void run() {
-            process_swaps();
-            process_swaps();
-#ifdef EDGE_SWAP_DEBUG_VECTOR
-            _debug_vector_writer.finish();
-#endif
-        };
+        void run();
 
         void push(const swap_descriptor& swap) {
             *(_swap_direction_writer[_thread(_num_swaps_in_run)]) << swap.direction();

@@ -17,6 +17,50 @@
 #include <EdgeExistenceInformation.h>
 
 namespace EdgeSwapParallelTFP {
+
+    EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeSwapBase::edge_vector &edges, EdgeSwapBase::swap_vector &, swapid_t swaps_per_iteration) : EdgeSwapParallelTFP(edges, swaps_per_iteration) { }
+
+    EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeSwapBase::edge_vector &edges, swapid_t swaps_per_iteration, int num_threads) :
+              EdgeSwapBase(),
+              _edges(edges),
+              _num_swaps_per_iteration(swaps_per_iteration),
+              _num_swaps_in_run(0),
+#ifdef EDGE_SWAP_DEBUG_VECTOR
+              _debug_vector_writer(_result),
+#endif
+
+              _swap_direction(num_threads),
+              _swap_direction_writer(num_threads),
+              _edge_swap_sorter(GenericComparatorStruct<EdgeLoadRequest>::Ascending(), _sorter_mem),
+              _edge_state(num_threads),
+              _existence_info(num_threads),
+              _edge_update_merger(EdgeUpdateComparator{}, _sorter_mem),
+              _num_threads(num_threads) {
+
+        _start_stats();
+        for (int i = 0; i < _num_threads; ++i) {
+            _swap_direction[i].reset(new BoolVector);
+            _swap_direction[i]->resize(swaps_per_iteration);
+            _swap_direction_writer[i].reset(new BoolVector::bufwriter_type(*_swap_direction[i]));
+        }
+        #pragma omp parallel num_threads(_num_threads)
+        {
+            int tid = omp_get_thread_num();
+            _edge_state.initialize(tid);
+            _existence_info.initialize(tid);
+        }
+        _report_stats("_constructor");
+    } // FIXME actually _edge_update_merger isn't needed all the time. If memory is an issue, we could safe memory here
+
+    void EdgeSwapParallelTFP::run() {
+        process_swaps();
+        process_swaps();
+#ifdef EDGE_SWAP_DEBUG_VECTOR
+        _debug_vector_writer.finish();
+#endif
+    }
+
+
     void EdgeSwapParallelTFP::process_swaps() {
         // if we have no swaps to load and no edges to write back, do nothing (might happen by calling process_swaps several times)
         if (_num_swaps_in_run == 0 && _used_edge_ids.empty()) return;
