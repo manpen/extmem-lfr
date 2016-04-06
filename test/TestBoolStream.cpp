@@ -73,11 +73,14 @@ TEST_F(TestBoolStream, basicFillAndConsume) {
 }
 
 TEST_F(TestBoolStream, randomFillAndConsume) {
-    BoolStream bs;
+    BoolStream bs, bs2;
+
     stxxl::random_number32 rand;
     for(unsigned int round = 0; round < 100; round++) {
-        unsigned int write_items = rand(1 << 20);
+        unsigned int write_items = rand(1 << 24);
         unsigned int read_items = rand(write_items);
+
+        bs.clear();
 
         std::vector<bool> reference;
         reference.reserve(write_items);
@@ -106,6 +109,6 @@ TEST_F(TestBoolStream, randomFillAndConsume) {
             }
         }
 
-        bs.clear();
+        bs.swap(bs2);
     }
 }
