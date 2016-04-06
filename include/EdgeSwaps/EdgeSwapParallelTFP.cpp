@@ -14,6 +14,7 @@
 #include <ParallelBufferedPQSorterMerger.h>
 #include "PQSorterMerger.h"
 #include "EdgeVectorUpdateStream.h"
+#include <EdgeExistenceInformation.h>
 
 namespace EdgeSwapParallelTFP {
     void EdgeSwapParallelTFP::process_swaps() {
@@ -549,12 +550,7 @@ namespace EdgeSwapParallelTFP {
 
         std::vector<std::unique_ptr<std::vector<std::array<edge_t, 2>>>> source_edges(_num_threads);
 
-        struct edge_existence_info_t {
-            std::vector<edge_t> edges;
-            std::atomic<size_t> size;
-        };
-
-        std::vector<std::unique_ptr<std::vector<edge_existence_info_t>>> existence_information(_num_threads);
+        std::vector<std::unique_ptr<EdgeExistenceInformation>> existence_information(_num_threads);
 
 
         #pragma omp parallel num_threads(_num_threads)
@@ -564,8 +560,8 @@ namespace EdgeSwapParallelTFP {
             source_edges[tid].reset(new std::vector<std::array<edge_t, 2>>(batch_size_per_thread, std::array<edge_t, 2>{edge_t{-1, -1}, edge_t{-1, -1}}));
             auto &my_source_edges = *source_edges[tid];
 
-            existence_information[tid].reset(new std::vector<edge_existence_info_t>(batch_size_per_thread));
-            auto &my_existence_information = *existence_information[tid];
+            existence_information[tid].reset(new EdgeExistenceInformation(batch_size_per_thread));
+            EdgeExistenceInformation &my_existence_information = *existence_information[tid];
 
             auto &my_edge_dependencies = *edge_dependencies[tid];
 
@@ -589,7 +585,10 @@ namespace EdgeSwapParallelTFP {
                 swapid_t sid_in_batch_base = sid-tid;
                 swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
+                my_existence_information.start_initialization();
+
                 auto &my_existence_placeholder = *existence_placeholder[tid];
+
                 for (swapid_t s = sid, i = 0; i < batch_size_per_thread && s < _num_swaps_in_run; ++i, s += _num_threads) {
                     size_t c = 0;
                     while (!my_existence_placeholder.empty() && *my_existence_placeholder == s) {
@@ -597,15 +596,15 @@ namespace EdgeSwapParallelTFP {
                         ++my_existence_placeholder;
                     }
 
-                    my_existence_information[i].size = 0;
-                    my_existence_information[i].edges.resize(c);
+                    my_existence_information.add_possible_info(i, c);
                 }
+
+                my_existence_information.finish_initialization();
 
                 #pragma omp barrier
 
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
                     if (UNLIKELY(sid >= _num_swaps_in_run)) continue;
-                    auto & ex_info = my_existence_information[i];
                     auto & cur_edges = my_source_edges[i];
 
                     std::array<edge_t, 2> new_edges;
@@ -658,33 +657,20 @@ namespace EdgeSwapParallelTFP {
                         for (; !existence_info_stream.empty() && (*existence_info_stream).swap_id == sid; ++existence_info_stream) {
                             const auto &msg = *existence_info_stream;
 
-                            size_t k;
-
-                            k = ex_info.size++;
-
-                            assert(k < ex_info.edges.size());
-
-                            ex_info.edges[k] = msg.edge;
-                        }
-
-                        while (ex_info.size.load(std::memory_order_seq_cst) < ex_info.edges.size()) { // busy waiting for other thread to supply information
-                            std::this_thread::yield();
-                        }
-
-                        #ifndef NDEBUG
-                            if (_display_debug) {
-                                for (auto &k : ex_info.edges)
-                                    std::cout << sid << " " << k << " exists" << std::endl;
+                            if (msg.edge == edge_t{-1, -1}) {
+                                my_existence_information.push_missing(i);
+                            } else {
+                                my_existence_information.push_exists(i, msg.edge);
                             }
-                        #endif
+                        }
+
+                        my_existence_information.wait_for_missing(i);
                     }
 
                     // check if there's a conflicting edge
                     bool conflict_exists[2];
-                    for (unsigned int i = 0; i < 2; i++) {
-                        // check if linear search is okay here or if we need to sort the existence info
-                        bool exists = (std::find(ex_info.edges.begin(), ex_info.edges.end(), new_edges[i]) != ex_info.edges.end());
-                        conflict_exists[i] = exists;
+                    for (unsigned int spos = 0; spos < 2; spos++) {
+                        conflict_exists[spos] = my_existence_information.exists(i, new_edges[spos]);
                     }
 
                     // can we perform the swap?
@@ -750,14 +736,11 @@ namespace EdgeSwapParallelTFP {
 
                         if (target_sid < sid_in_batch_limit) {
                             auto pos = (target_sid - sid_in_batch_base)/_num_threads;
-                            edge_existence_info_t &e_in = (*existence_information[successor_tid])[pos];
-
-                            size_t s;
-
-                            // e_in.size is std::atomic!
-                            s = e_in.size++;
-
-                            e_in.edges[s] = e;
+                            if (exists) {
+                                existence_information[successor_tid]->push_exists(pos, e);
+                            } else {
+                                existence_information[successor_tid]->push_missing(pos);
+                            }
                         } else {
                             _existence_info.push_pq(tid, ExistenceInfoMsg{target_sid, e}, successor_tid);
                         }
@@ -779,7 +762,7 @@ namespace EdgeSwapParallelTFP {
                             push_existence_info(succ.successor, succ.edge, false);
                             DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << false << " to " << succ.successor);
                         } else {
-                            bool exists = (std::find(ex_info.edges.begin(), ex_info.edges.end(), succ.edge) != ex_info.edges.end());
+                            bool exists = my_existence_information.exists(i, succ.edge);
                             push_existence_info(succ.successor, succ.edge, exists);
                             DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << exists << " to " << succ.successor);
                         }
