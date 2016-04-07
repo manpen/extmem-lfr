@@ -57,18 +57,21 @@ namespace EdgeSwapParallelTFP {
 
     struct ExistenceRequestMsg {
         edge_t edge;
-        swapid_t swap_id;
-        bool forward_only;
+        swapid_t swap_id_forward_only;
 
         ExistenceRequestMsg() { }
 
         ExistenceRequestMsg(const edge_t &edge_, const swapid_t &swap_id_, const bool &forward_only_) :
-              edge(edge_), swap_id(swap_id_),  forward_only(forward_only_) { }
+              edge(edge_), swap_id_forward_only(pack_swap_id_spos(swap_id_, forward_only_)) { }
+
+        swapid_t get_swap_id() const { return EdgeSwapParallelTFP::get_swap_id(swap_id_forward_only); };
+
+        bool get_forward_only() const { return EdgeSwapParallelTFP::get_swap_spos(swap_id_forward_only); };
 
         bool operator< (const ExistenceRequestMsg& o) const {
-            return (edge < o.edge || (edge == o.edge && (swap_id > o.swap_id || (swap_id == o.swap_id && forward_only < o.forward_only))));
+            return (edge < o.edge || (edge == o.edge && (swap_id_forward_only > o.swap_id_forward_only)));
         }
-        DECL_TO_TUPLE(edge, swap_id, forward_only);
+        DECL_TO_TUPLE(edge, swap_id_forward_only);
         DECL_TUPLE_OS(ExistenceRequestMsg);
     };
 

@@ -515,23 +515,25 @@ namespace EdgeSwapParallelTFP {
             }
 
             // build depencency chain (i.e. inform earlier swaps about later ones) and find the earliest swap
-            swapid_t last_swap = request.swap_id;
+            swapid_t last_swap = request.get_swap_id();
             bool foundTargetEdge = false; // if we already found a swap where the edge is a target
             for (; !requestMerger.empty(); ++requestMerger) {
-                auto &request = *requestMerger;
+                const ExistenceRequestMsg &request = *requestMerger;
                 if (request.edge != current_edge)
                     break;
 
-                if (last_swap != request.swap_id && foundTargetEdge) {
+                swapid_t swap_id = request.get_swap_id();
+
+                if (last_swap != swap_id && foundTargetEdge) {
                     // inform an earlier swap about later swaps that need the new state
-                    assert(last_swap > request.swap_id);
-                    successor_output[_thread(request.swap_id)]->push(ExistenceSuccessorMsg{request.swap_id, current_edge, last_swap});
+                    assert(last_swap > swap_id);
+                    successor_output[_thread(swap_id)]->push(ExistenceSuccessorMsg{swap_id, current_edge, last_swap});
                     existence_placeholder_output[_thread(last_swap)]->push(last_swap);
-                    DEBUG_MSG(_display_debug, "Inform swap " << request.swap_id << " that " << last_swap << " is a successor for edge " << current_edge);
+                    DEBUG_MSG(_display_debug, "Inform swap " << swap_id << " that " << last_swap << " is a successor for edge " << current_edge);
                 }
 
-                last_swap = request.swap_id;
-                foundTargetEdge = (foundTargetEdge || !request.forward_only);
+                last_swap = swap_id;
+                foundTargetEdge = (foundTargetEdge || !request.get_forward_only());
             }
 
             // inform earliest swap whether edge exists
