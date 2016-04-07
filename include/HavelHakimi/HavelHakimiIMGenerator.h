@@ -52,7 +52,7 @@ protected:
     const PushDirection _push_direction;
     const node_t _initial_node;
     node_t _push_current_node;
-    node_t _max_number_of_edges;
+    edgeid_t _max_number_of_edges;
 
     //! Generation phase
     bool _empty;            //!< The last generation step failed (or in Push-Mode)
@@ -258,7 +258,6 @@ public:
             assert(_blocks.back().node_lower == _initial_node);
             assert(_blocks.front().node_upper == _push_current_node-1);
 
-            // _verify_deque_invariants(); not necessary since checked in _fetch_next_edge
         }
         #endif
 
@@ -290,7 +289,7 @@ public:
         return _empty;
     }
 
-    node_t maxEdges() const {
+    edgeid_t maxEdges() const {
         assert(_mode == Generate);
         return _max_number_of_edges;
     }
