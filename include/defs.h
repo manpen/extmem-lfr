@@ -11,6 +11,7 @@
 #include <utility>
 #include <limits>
 #include <ostream>
+#include <stxxl/bits/common/uint_types.h>
 
 #ifndef SEQPAR
     #if 1
@@ -37,8 +38,11 @@ using int_t = std::int64_t;
  */
 using uint_t = std::uint64_t;
 
-using node_t = int_t; ///< Type for every node id used in this project
-using degree_t = int_t; ///< Type for node degrees
+//using node_t = int_t; ///< Type for every node id used in this project
+using node_t = int32_t;
+constexpr node_t INVALID_NODE = node_t(~0llu);
+
+using degree_t = node_t; ///< Type for node degrees
 using edgeid_t = int_t; ///< Type used to address edges
 using community_t = int32_t; ///< Type used to address communities
 
@@ -47,6 +51,10 @@ struct edge_t : public std::pair<node_t, node_t> {
     edge_t() : std::pair<node_t, node_t>() {}
     edge_t(const std::pair<node_t, node_t> & edge) : std::pair<node_t, node_t>(edge) {}
     edge_t(const node_t & v1, const node_t & v2) : std::pair<node_t, node_t>(v1, v2) {}
+
+    static edge_t invalid() {
+        return edge_t(INVALID_NODE, INVALID_NODE);
+    }
 
     //! Enforces first<=second
     void normalize() {
@@ -57,6 +65,11 @@ struct edge_t : public std::pair<node_t, node_t> {
     //! Returns true if edge represents a self-loop
     bool is_loop() const {
         return first == second;
+    }
+
+    //! Returns true if edge is equal to edge_t::invalid()
+    bool is_invalid() const {
+        return (*this == invalid());
     }
 };
 
@@ -124,6 +137,6 @@ using DblScale = Scale<double>;
 #define DEBUG_MSG(show, msg) {}
 #endif
 
-constexpr uint_t SORTER_MEM = 1 * IntScale::Gi; // default bytes used for interal storage of  sorter
-constexpr uint_t PQ_INT_MEM = 1 * IntScale::Gi; // default bytes used for internal storage of a PQ
-constexpr uint_t PQ_POOL_MEM = 1 * IntScale::Gi; // default bytes used for internal storage of a PQ
+constexpr uint_t SORTER_MEM = 512 * IntScale::Mi; // default bytes used for interal storage of  sorter
+constexpr uint_t PQ_INT_MEM = 512 * IntScale::Mi; // default bytes used for internal storage of a PQ
+constexpr uint_t PQ_POOL_MEM = 128 * IntScale::Mi; // default bytes used for internal storage of a PQ

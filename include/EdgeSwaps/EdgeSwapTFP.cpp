@@ -242,7 +242,7 @@ namespace EdgeSwapTFP {
 
                 // send the hard cases (target edges)
                 {
-                    edge_t send_edge = {-1,-1};
+                    edge_t send_edge = edge_t::invalid();
                     for (auto it = dd.cbegin(); it != dd.cend(); ++it) {
                         if (UNLIKELY(send_edge == *it))
                             continue;
