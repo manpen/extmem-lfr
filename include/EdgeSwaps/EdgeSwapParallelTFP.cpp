@@ -474,8 +474,9 @@ namespace EdgeSwapParallelTFP {
                 #pragma omp barrier
                 barrier_wait_time.stop();
 
-                my_swap_direction.rewind();
             } // finished processing all swaps of the current run
+
+            my_swap_direction.rewind();
 
             existence_request_buffer.flush(); // make sure all requests are processed!
 
