@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <defs.h>
 #include <atomic>
 #include <thread>
@@ -44,6 +45,7 @@ public:
         swap_info_t &si = _swap_info[swap_id];
         uint32_t i = si.num_existing_entries++;
         _edges[si.start_index + i] = e;
+        assert(si.start_index + i < _edges.size() && (static_cast<std::size_t>(swap_id + 1) == _swap_info.size() || si.start_index + i < _swap_info[swap_id + 1].start_index));
         --si.num_missing_entries;
     };
 
@@ -58,6 +60,7 @@ public:
     };
 
     bool exists(const swapid_t swap_id, const edge_t& e) {
+        assert(_swap_info[swap_id].num_missing_entries == 0);
         auto begin_it = _edges.begin() + _swap_info[swap_id].start_index;
         auto end_it = begin_it + _swap_info[swap_id].num_existing_entries;
         // check if linear search is okay here or if we need to sort the existence info

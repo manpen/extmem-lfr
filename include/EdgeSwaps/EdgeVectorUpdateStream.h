@@ -103,12 +103,14 @@ public:
             ++_updated_edges;
 
         } else if(_updated_edges.empty() || *_updated_edges > *_edge_reader) {
+            assert(!_edge_valid_stream.empty() && *_edge_valid_stream);
             _current = *_edge_reader;
             ++_edge_reader;
             ++_edge_valid_stream;
             _skip_invalid_edges();
 
         } else {
+            assert(!_edge_valid_stream.empty() && *_edge_valid_stream);
             // check for parallel edges
             #ifndef NDEBUG
             if (*_updated_edges == *_edge_reader) {
