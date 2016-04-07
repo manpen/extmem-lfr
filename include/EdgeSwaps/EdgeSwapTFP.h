@@ -13,6 +13,7 @@
 
 #include "EdgeSwapBase.h"
 #include "BoolStream.h"
+#include <stxxl/priority_queue>
 
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
@@ -150,6 +151,23 @@ namespace EdgeSwapTFP {
         EdgeUpdateSorter _edge_update_sorter;
         std::unique_ptr<std::thread> _edge_update_sorter_thread;
 
+// PQ used internally in _compute_conflicts and _perform_swaps
+        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
+        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
+        using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
+
+        stxxl::read_write_pool<DependencyChainEdgePQBlock> _dependency_chain_pq_pool;
+        DependencyChainEdgePQ _dependency_chain_pq;
+
+// PQ used internally in _perform_swaps
+        // we need to use a desc-comparator since the pq puts the largest element on top
+        using ExistenceInfoPQComparator = typename GenericComparatorStruct<ExistenceInfoMsg>::Descending;
+        using ExistenceInfoPQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<ExistenceInfoMsg, ExistenceInfoPQComparator, _pq_mem, 1 << 20>::result;
+        using ExistenceInfoPQBlock = typename ExistenceInfoPQ::block_type;
+
+        stxxl::read_write_pool<ExistenceInfoPQBlock> _existence_info_pq_pool;
+        ExistenceInfoPQ _existence_info_pq;
+
 // algos
         void _gather_edges();
 
@@ -188,7 +206,15 @@ namespace EdgeSwapTFP {
               _existence_request_sorter(ExistenceRequestComparator{}, _sorter_mem),
               _existence_info_sorter(ExistenceInfoComparator{}, _sorter_mem),
               _existence_successor_sorter(ExistenceSuccessorComparator{}, _sorter_mem),
-              _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem) { }
+              _edge_update_sorter(EdgeUpdateComparator{}, _sorter_mem),
+
+              _dependency_chain_pq_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size, _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size),
+              _dependency_chain_pq(_dependency_chain_pq_pool),
+
+              _existence_info_pq_pool(_pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size, _pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size),
+              _existence_info_pq(_existence_info_pq_pool)
+
+        { }
 
         void run(uint64_t swaps_per_iteration = 0);
     };

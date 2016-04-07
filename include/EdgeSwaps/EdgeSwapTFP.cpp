@@ -5,7 +5,6 @@
 #include <vector>
 
 #include <stx/btree_map>
-#include <stxxl/priority_queue>
 
 #include "PQSorterMerger.h"
 #include "EdgeVectorUpdateStream.h"
@@ -115,7 +114,7 @@ namespace EdgeSwapTFP {
      * the set contains at least two configurations, i.e. the original state
      * (in case the swap cannot be performed) and the swapped state.
      *
-     * These configurations are kept in depchain_edge_pq: Each swap receives
+     * These configurations are kept in _dependency_chain_pq: Each swap receives
      * the complete state set of both edges and computes the cartesian product
      * of both. If there exists a successor swap (info stored in
      * _depchain_successor_sorter), i.e. a swap that will be  affect by the
@@ -126,17 +125,11 @@ namespace EdgeSwapTFP {
      */
     void EdgeSwapTFP::_compute_conflicts() {
         swapid_t sid = 0;
-        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
-        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
-        using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
 
         // use pq in addition to _depchain_edge_sorter to pass messages between swaps
-        stxxl::read_write_pool<DependencyChainEdgePQBlock>
-              pq_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size,
-                      _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size);
-        DependencyChainEdgePQ depchain_edge_pq(pq_pool);
+        assert(_dependency_chain_pq.empty());
         PQSorterMerger<DependencyChainEdgePQ, DependencyChainEdgeSorter, compute_stats>
-              depchain_pqsort(depchain_edge_pq, _depchain_edge_sorter);
+              depchain_pqsort(_dependency_chain_pq, _depchain_edge_sorter);
 
         // statistics
         stx::btree_map<uint_t, uint_t> state_sizes;
@@ -249,7 +242,7 @@ namespace EdgeSwapTFP {
 
                 // send the hard cases (target edges)
                 {
-                    edge_t send_edge = edge_t(-1, -1);
+                    edge_t send_edge = edge_t::invalid();
                     for (auto it = dd.cbegin(); it != dd.cend(); ++it) {
                         if (UNLIKELY(send_edge == *it))
                             continue;
@@ -260,7 +253,7 @@ namespace EdgeSwapTFP {
                         //    continue;
 
                         if (UNLIKELY(successors[i])) {
-                            depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], edgeid, send_edge});
+                            _dependency_chain_pq.push(DependencyChainEdgeMsg{successors[i], edgeid, send_edge});
                         }
 
                         _existence_request_sorter.push(ExistenceRequestMsg{send_edge, sid, false});
@@ -274,7 +267,7 @@ namespace EdgeSwapTFP {
                         continue;
 
                     if (UNLIKELY(successors[i] && edge != edges[i].front())) {
-                        depchain_edge_pq.push(DependencyChainEdgeMsg{successors[i], edgeid, edge});
+                        _dependency_chain_pq.push(DependencyChainEdgeMsg{successors[i], edgeid, edge});
                     }
 
                     _existence_request_sorter.push(ExistenceRequestMsg{edge, sid, true});
@@ -285,9 +278,10 @@ namespace EdgeSwapTFP {
             if (UNLIKELY(successors[0] || successors[1])) {
                 depchain_pqsort.update();
                 if (compute_stats)
-                    max_elems_in_pq = std::max<uint_t>(depchain_edge_pq.size(), max_elems_in_pq);
+                    max_elems_in_pq = std::max<uint_t>(_dependency_chain_pq.size(), max_elems_in_pq);
             }
         }
+
 
         if (compute_stats) {
             for (const auto &it : state_sizes) {
@@ -390,25 +384,11 @@ namespace EdgeSwapTFP {
         debug_vector::bufwriter_type debug_vector_writer(_result);
 #endif
 
-        // we need to use a desc-comparator since the pq puts the largest element on top
-        using ExistenceInfoComparator = typename GenericComparatorStruct<ExistenceInfoMsg>::Descending;
-        using ExistenceInfoPQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<ExistenceInfoMsg, ExistenceInfoComparator, _pq_mem, 1 << 20>::result;
-        using ExistenceInfoPQBlock = typename ExistenceInfoPQ::block_type;
-        stxxl::read_write_pool<ExistenceInfoPQBlock> existence_info_pool(_pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size,
-                                                                          _pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size);
-        ExistenceInfoPQ existence_info_pq(existence_info_pool);
-        PQSorterMerger<ExistenceInfoPQ, ExistenceInfoSorter> existence_info_pqsort(existence_info_pq, _existence_info_sorter);
+        assert(_dependency_chain_pq.empty());
+        PQSorterMerger<DependencyChainEdgePQ, DependencyChainEdgeSorter> edge_state_pqsort(_dependency_chain_pq, _depchain_edge_sorter);
 
-        // use pq in addition to _depchain_edge_sorter to pass messages between swaps
-        using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
-        using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
-        using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
-
-        stxxl::read_write_pool<DependencyChainEdgePQBlock>
-              pq_pool(_pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size,
-                      _pq_pool_mem / 2 / DependencyChainEdgePQBlock::raw_size);
-        DependencyChainEdgePQ edge_state_pq(pq_pool);
-        PQSorterMerger<DependencyChainEdgePQ, DependencyChainEdgeSorter> edge_state_pqsort(edge_state_pq, _depchain_edge_sorter);
+        assert(_existence_info_pq.empty());
+        PQSorterMerger<ExistenceInfoPQ, ExistenceInfoSorter> existence_info_pqsort(_existence_info_pq, _existence_info_sorter);
 
         swapid_t sid = 0;
 
@@ -541,7 +521,7 @@ namespace EdgeSwapTFP {
 
                 int successor = (succ.edge_id == edgeids[0] ? 0 : 1);
                 if (perform_swap || edge_prev_updated[successor]) {
-                    edge_state_pq.push(DependencyChainEdgeMsg{succ.successor, succ.edge_id, edges[successor + 2*perform_swap]});
+                    _dependency_chain_pq.push(DependencyChainEdgeMsg{succ.successor, succ.edge_id, edges[successor + 2*perform_swap]});
                 }
 
                 successor_found[successor] = true;
@@ -565,25 +545,25 @@ namespace EdgeSwapTFP {
                     (!perform_swap && (succ.edge == edges[0] || succ.edge == edges[1]))) {
                     // target edges always exist (or source if no swap has been performed)
                     #ifdef NDEBUG
-                        existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
+                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
                     #else
-                        existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, true});
+                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, true});
                         DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << true << " to " << succ.successor);
                     #endif
                 } else if (succ.edge == edges[0] || succ.edge == edges[1]) {
                     // source edges never exist (if no swap has been performed, this has been handled above)
                     #ifndef NDEBUG
-                        existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, false});
+                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, false});
                         DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << false << " to " << succ.successor);
                     #endif
                 } else {
                     #ifdef NDEBUG
                         if (std::binary_search(existence_infos.begin(), existence_infos.end(), succ.edge)) {
-                            existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
+                            _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
                         }
                     #else
                     bool exists = std::binary_search(existence_infos.begin(), existence_infos.end(), succ.edge);
-                    existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, exists});
+                    _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, exists});
                     if (!exists) {
                         assert(std::binary_search(missing_infos.begin(), missing_infos.end(), succ.edge));
                     }
@@ -617,7 +597,7 @@ namespace EdgeSwapTFP {
         assert(_existence_successor_sorter.empty());
         //_existence_successor_sorter.finish_clear();
 
-        assert(existence_info_pq.empty());
+        assert(_existence_info_pq.empty());
         //_existence_info_sorter.finish_clear();
 
         if (_async_processing) {
