@@ -18,28 +18,27 @@
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
         swapid_t swap_id;
-        edgeid_t edge_id;
+        // edgeid_t edge_id; is not used any more; we rather encode in the LSB of swap_id whether to target the first or second edge
         edge_t edge;
 
         DependencyChainEdgeMsg() { }
 
-        DependencyChainEdgeMsg(const swapid_t &swap_id_, const edgeid_t &edge_id_, const edge_t &edge_)
-              : swap_id(swap_id_), edge_id(edge_id_), edge(edge_) { }
+        DependencyChainEdgeMsg(const swapid_t &swap_id_, const edge_t &edge_)
+              : swap_id(swap_id_), edge(edge_) { }
 
-        DECL_LEX_COMPARE_OS(DependencyChainEdgeMsg, swap_id, edge_id, edge);
+        DECL_LEX_COMPARE_OS(DependencyChainEdgeMsg, swap_id, edge);
     };
 
     struct DependencyChainSuccessorMsg {
         swapid_t swap_id;
-        edgeid_t edge_id;
         swapid_t successor;
 
         DependencyChainSuccessorMsg() { }
 
-        DependencyChainSuccessorMsg(const swapid_t &swap_id_, const edgeid_t &edge_id_, const swapid_t &successor_) :
-              swap_id(swap_id_), edge_id(edge_id_), successor(successor_) { }
+        DependencyChainSuccessorMsg(const swapid_t &swap_id_, const swapid_t &successor_) :
+              swap_id(swap_id_), successor(successor_) { }
 
-        DECL_LEX_COMPARE_OS(DependencyChainSuccessorMsg, swap_id, edge_id, successor);
+        DECL_LEX_COMPARE_OS(DependencyChainSuccessorMsg, swap_id, successor);
     };
 
     struct ExistenceRequestMsg {
