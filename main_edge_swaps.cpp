@@ -140,7 +140,7 @@ void benchmark(RunConfig & config) {
     using edge_vector_t = stxxl::VECTOR_GENERATOR<edge_t>::result;
     edge_vector_t edges;
 
-    bool use_edge_stream = (config.edgeSwapAlgo == TFP);
+    bool use_edge_stream = (config.edgeSwapAlgo == TFP) || (config.edgeSwapAlgo == PTFP);
     EdgeStream edge_stream;
     {
         IOStatistics hh_report("HHEdges");
@@ -208,7 +208,7 @@ void benchmark(RunConfig & config) {
             }
 
             case PTFP: {
-                EdgeSwapParallelTFP::EdgeSwapParallelTFP swap_algo(edges, config.runSize);
+                EdgeSwapParallelTFP::EdgeSwapParallelTFP swap_algo(edge_stream, config.runSize);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
                 break;

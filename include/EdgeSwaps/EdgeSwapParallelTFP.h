@@ -18,6 +18,7 @@
 
 #include "EdgeSwapBase.h"
 #include "BoolStream.h"
+#include "EdgeStream.h"
 #include <omp.h>
 #include <ParallelBufferedPQSorterMerger.h>
 
@@ -245,7 +246,7 @@ namespace EdgeSwapParallelTFP {
         constexpr static bool compute_stats = false;
         constexpr static bool produce_debug_vector=true;
 
-        edge_vector &_edges;
+        EdgeStream &_edges;
         swapid_t _num_swaps_per_iteration;
         swapid_t _num_swaps_in_run;
 
@@ -318,11 +319,11 @@ namespace EdgeSwapParallelTFP {
         EdgeSwapParallelTFP(const EdgeSwapParallelTFP &) = delete;
 
         //! Swaps are performed during constructor.
-        //! @param edges  Edge vector changed in-place
+        //! @param edges  Edge stream changed in-place
         //! @param swaps  Read-only swap vector - ignored!
-        EdgeSwapParallelTFP(edge_vector &edges, swap_vector &, swapid_t swaps_per_iteration = 10000000);
+        EdgeSwapParallelTFP(EdgeStream &edges, swap_vector &, swapid_t swaps_per_iteration = 10000000);
 
-        EdgeSwapParallelTFP(edge_vector &edges, swapid_t swaps_per_iteration, int num_threads = omp_get_max_threads());
+        EdgeSwapParallelTFP(EdgeStream &edges, swapid_t swaps_per_iteration, int num_threads = omp_get_max_threads());
 
         void process_swaps();
         void run();

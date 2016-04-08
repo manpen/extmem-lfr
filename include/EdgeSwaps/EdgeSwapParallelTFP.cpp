@@ -18,9 +18,9 @@
 
 namespace EdgeSwapParallelTFP {
 
-    EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeSwapBase::edge_vector &edges, EdgeSwapBase::swap_vector &, swapid_t swaps_per_iteration) : EdgeSwapParallelTFP(edges, swaps_per_iteration) { }
+    EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeStream &edges, EdgeSwapBase::swap_vector &, swapid_t swaps_per_iteration) : EdgeSwapParallelTFP(edges, swaps_per_iteration) { }
 
-    EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeSwapBase::edge_vector &edges, swapid_t swaps_per_iteration, int num_threads) :
+    EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeStream &edges, swapid_t swaps_per_iteration, int num_threads) :
               EdgeSwapBase(),
               _edges(edges),
               _num_swaps_per_iteration(swaps_per_iteration),
@@ -169,12 +169,12 @@ namespace EdgeSwapParallelTFP {
 
             if (!_needs_writeback) {
                 // just read edges
-                typename edge_vector::bufreader_type edge_reader(_edges);
-                for (; !edge_reader.empty(); ++id, ++edge_reader) {
-                    use_edge(*edge_reader, id);
+                for (; !_edges.empty(); ++id, ++_edges) {
+                    use_edge(*_edges, id);
                 }
+                _edges.rewind();
             } else {
-                EdgeVectorUpdateStream<edge_vector, BoolStream, EdgeUpdateMerger> edge_update_stream(_edges, _valid_edges, _edge_update_merger);
+                EdgeVectorUpdateStream<EdgeStream, BoolStream, EdgeUpdateMerger> edge_update_stream(_edges, _valid_edges, _edge_update_merger);
 
                 for (; !edge_update_stream.empty(); ++id, ++edge_update_stream) {
                     use_edge(*edge_update_stream, id);
@@ -184,6 +184,7 @@ namespace EdgeSwapParallelTFP {
 
                 edge_update_stream.finish();
                 _edge_update_merger.deallocate();
+                _edges.rewind();
             }
 
             _needs_writeback = loaded_edges;
@@ -484,16 +485,14 @@ namespace EdgeSwapParallelTFP {
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistenceSuccessorSorter > > &successor_output,
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > &existence_placeholder_output) {
 
-        typename edge_vector::bufreader_type edge_reader(_edges);
-
         while (!requestMerger.empty()) {
             auto &request = *requestMerger;
             edge_t current_edge = request.edge;
 
             // find edge in graph
             bool exists = false;
-            for (; !edge_reader.empty(); ++edge_reader) {
-                const auto &edge = *edge_reader;
+            for (; !_edges.empty(); ++_edges) {
+                const auto &edge = *_edges;
                 if (edge > current_edge) break;
                 exists = (edge == current_edge);
             }
@@ -530,6 +529,8 @@ namespace EdgeSwapParallelTFP {
         }
 
         _existence_info.finish_sorter_input();
+        _edges.rewind();
+
 
         #pragma omp parallel num_threads(_num_threads)
         {
