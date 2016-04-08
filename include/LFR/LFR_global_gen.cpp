@@ -3,8 +3,10 @@
 #include <LFR/GlobalRewiringSwapGenerator.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
+#include <EdgeSwaps/EdgeSwapParallelTFP.h>
 #include <SwapGenerator.h>
 #include <Utils/AsyncStream.h>
+#include <Utils/StreamPusher.h>
 
 namespace LFR {
     void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {
@@ -33,44 +35,27 @@ namespace LFR {
 
             gen.generate();
 
-            // FIXME this sort might also be eliminated if edges are produced in the right order
-            { // writes edges sorted in _inter_community_edges
-                stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+            _inter_community_edges.resize(degree_sum/2);
+            auto endIt = stxxl::stream::materialize(gen, _inter_community_edges.begin());
+            _inter_community_edges.resize(endIt - _inter_community_edges.begin());
 
-                _inter_community_edges.resize(degree_sum/2);
-
-                while (!gen.empty()) {
-                    edge_t e(gen->first, gen->second);
-                    e.normalize();
-                    intra_edgeSorter.push(e);
-
-                    ++gen;
-                }
-
-                intra_edgeSorter.sort();
-                auto endIt = stxxl::stream::materialize(intra_edgeSorter, _inter_community_edges.begin());
-
-                _inter_community_edges.resize(endIt - _inter_community_edges.begin());
-            }
         }
 
 
-        EdgeSwapInternalSwaps swapAlgo(_inter_community_edges, globalSwapsPerIteration);
 
         { // regular edge swaps
+            EdgeSwapParallelTFP::EdgeSwapParallelTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
             // Generate swaps
             uint_t numSwaps = 10*_inter_community_edges.size();
             SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
 
-            // perform swaps
-            AsyncStream<SwapGenerator> astream(swapGen, true, globalSwapsPerIteration, 2);
-
-            for(; !astream.empty(); astream.nextBuffer())
-                swapAlgo.swap_buffer(astream.readBuffer());
-            swapAlgo.flush();
+            StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
+            swapAlgo.run();
         }
 
         { // rewiring in order to not to generate new intra-community edges
+            EdgeSwapInternalSwaps swapAlgo(_inter_community_edges, globalSwapsPerIteration);
+
             GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, _inter_community_edges.size());
             rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(_inter_community_edges));
             rewiringSwapGenerator.generate();
@@ -97,10 +82,11 @@ namespace LFR {
                     rewiringSwapGenerator.generate();
                 }
             }
-        }
 
-        // flush any swaps that have not been processed yet, writes edges vector
-        swapAlgo.run();
+            // flush any swaps that have not been processed yet, writes edges vector
+            swapAlgo.run();
+
+        }
     }
 
 }
