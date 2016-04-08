@@ -262,7 +262,7 @@ namespace EdgeSwapParallelTFP {
             swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
             { // todo: put in extra thread!
-                _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t::invalid()});
+                _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t{-1, -1}});
                 for (swapid_t swap_id = sid_in_batch_base, pos = 0; swap_id < sid_in_batch_limit; ++pos) {
                     for (int tid = 0; tid < _num_threads; ++tid, ++swap_id) {
                         edge_information_t& current_edge_info = (*edge_information[tid])[pos];
@@ -611,8 +611,8 @@ namespace EdgeSwapParallelTFP {
             }
 
             {
-                _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t::invalid()});
-                _existence_info.start_batch(ExistenceInfoMsg {sid_in_batch_limit, edge_t::invalid()});
+                _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t{-1, -1}});
+                _existence_info.start_batch(ExistenceInfoMsg {sid_in_batch_limit, edge_t{-1, -1}});
 
                 for (swapid_t swap_id = sid_in_batch_base, pos = 0; swap_id < sid_in_batch_limit; ++pos) {
                     for (int tid = 0; tid < _num_threads; ++tid, ++swap_id) {
