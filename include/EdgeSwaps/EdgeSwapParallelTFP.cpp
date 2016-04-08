@@ -227,6 +227,7 @@ namespace EdgeSwapParallelTFP {
         // FIXME make sure that this leads to useful sort buffer sizes!
         const auto existence_request_buffer_size = SORTER_MEM/sizeof(ExistenceRequestMsg)/2;
         swapid_t batch_size_per_thread = SORTER_MEM/sizeof(ExistenceRequestMsg)/6/2; // assume 6 existence request messages per swap, 4 are minimum and two buffers
+        STXXL_MSG("Batch size per thread in _compute_conflicts: " << batch_size_per_thread);
 
         struct edge_information_t {
             std::array<std::atomic<bool>, 2> is_set;
@@ -550,6 +551,7 @@ namespace EdgeSwapParallelTFP {
 
         // FIXME make sure that this leads to useful sort buffer sizes!
         swapid_t batch_size_per_thread = SORTER_MEM/sizeof(edge_t)/4; // buffer size should be SORTER_MEM/2 and each swap produces up to two edge updates
+        STXXL_MSG("Batch size per thread in _perform_swaps: " << batch_size_per_thread);
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
         // debug only
