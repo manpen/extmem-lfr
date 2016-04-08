@@ -81,7 +81,7 @@ public:
     };
 
     void push_pq(int tid, const value_type& v) {
-        assert(v < _limit);
+        assert(v > _limit);
         _pq.limit_push(v, tid);
     }
 

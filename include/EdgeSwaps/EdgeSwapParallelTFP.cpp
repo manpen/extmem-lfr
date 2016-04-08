@@ -275,13 +275,13 @@ namespace EdgeSwapParallelTFP {
 
                 #pragma omp single
                 { // todo: put in extra thread!
-                    _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 1), edge_t::invalid()});
+                    _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t::invalid()});
                     for (swapid_t swap_id = sid_in_batch_base, pos = 0; swap_id < sid_in_batch_limit; ++pos) {
                         for (int tid = 0; tid < _num_threads; ++tid, ++swap_id) {
                             edge_information_t& current_edge_info = (*edge_information[tid])[pos];
                             for (unsigned char spos = 0; spos < 2; ++spos) {
                                 assert(_edge_state.empty() || get_swap_id(_edge_state->sid) > swap_id || (get_swap_id(_edge_state->sid) == swap_id && get_swap_spos(_edge_state->sid) >= spos));
-                                if (!_edge_state.empty() && _edge_state->sid == pack_swap_id_spos(swap_id, spos)) {
+                                while (!_edge_state.empty() && _edge_state->sid == pack_swap_id_spos(swap_id, spos)) {
                                     current_edge_info.edges[spos].push_back(_edge_state->edge);
                                     current_edge_info.is_set[spos] = true;
                                     ++_edge_state;
@@ -289,6 +289,8 @@ namespace EdgeSwapParallelTFP {
                             }
                         }
                     }
+
+                    assert(_edge_state.empty());
                 }
 
                 for (swapid_t i = 0; i < batch_size_per_thread && sid < loop_limit; ++i, sid += _num_threads) {
@@ -621,7 +623,7 @@ namespace EdgeSwapParallelTFP {
 
                 #pragma omp single
                 {
-                    _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 1), edge_t::invalid()});
+                    _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t::invalid()});
                     _existence_info.start_batch(ExistenceInfoMsg {sid_in_batch_limit, edge_t::invalid()});
 
                     for (swapid_t swap_id = sid_in_batch_base, pos = 0; swap_id < sid_in_batch_limit; ++pos) {
