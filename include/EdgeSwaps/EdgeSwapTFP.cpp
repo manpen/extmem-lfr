@@ -314,7 +314,12 @@ namespace EdgeSwapTFP {
      * by informing every swap about the next one requesting the info.
      */
     void EdgeSwapTFP::_process_existence_requests() {
+#ifdef TFP_EDGE_STREAM
+        _edges.rewind();
+        auto & edge_reader = _edges;
+#else
         typename edge_vector::bufreader_type edge_reader(_edges);
+#endif
 
         while (!_existence_request_sorter.empty()) {
             auto &request = *_existence_request_sorter;
@@ -612,7 +617,11 @@ namespace EdgeSwapTFP {
         _swaps_begin = _swaps.begin();
         bool first_iteration = true;
 
+        #ifdef TFP_EDGE_STREAM
+        using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
+        #else
         using UpdateStream = EdgeVectorUpdateStream<edge_vector, BoolStream, decltype(_edge_update_sorter)>;
+        #endif
 
         const auto initial_edge_size = _edges.size();
 
@@ -635,12 +644,21 @@ namespace EdgeSwapTFP {
             // in the first iteration, we only need to read edges, while in all further
             // we also have to write out changes from the previous iteration
             if (first_iteration) {
-                typename edge_vector::bufreader_type reader(_edges);
+                #ifdef TFP_EDGE_STREAM
+                    auto & reader = _edges;
+                #else
+                    typename edge_vector::bufreader_type reader(_edges);
+                #endif
                 _compute_dependency_chain(reader, new_update_mask);
                 first_iteration = false;
             } else {
                 if (_edge_update_sorter_thread)
                     _edge_update_sorter_thread->join();
+
+                #ifdef TFP_EDGE_STREAM
+                    _edges.rewind();
+                #endif
+
                 UpdateStream update_stream(_edges, last_update_mask, _edge_update_sorter);
                 _compute_dependency_chain(update_stream, new_update_mask);
                 update_stream.finish();
@@ -654,7 +672,13 @@ namespace EdgeSwapTFP {
 
 #ifndef NDEBUG
             {
-                typename edge_vector::bufreader_type reader(_edges);
+                #ifdef TFP_EDGE_STREAM
+                    _edges.rewind();
+                    auto & reader = _edges;
+                #else
+                    typename edge_vector::bufreader_type reader(_edges);
+                #endif
+
                 edge_t last_edge = *reader;
                 ++reader;
                 assert(!last_edge.is_loop());
@@ -686,6 +710,9 @@ namespace EdgeSwapTFP {
         if (_edge_update_sorter_thread)
             _edge_update_sorter_thread->join();
 
+        #ifdef TFP_EDGE_STREAM
+        _edges.rewind();
+        #endif
         UpdateStream update_stream(_edges, last_update_mask, _edge_update_sorter);
         update_stream.finish();
 

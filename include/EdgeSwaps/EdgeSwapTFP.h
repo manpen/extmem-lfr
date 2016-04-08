@@ -15,6 +15,10 @@
 #include "BoolStream.h"
 #include <stxxl/priority_queue>
 
+#include <EdgeStream.h>
+
+#define TFP_EDGE_STREAM
+
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
         swapid_t swap_id;
@@ -106,7 +110,13 @@ namespace EdgeSwapTFP {
         constexpr static bool produce_debug_vector=true;
         constexpr static bool _async_processing = false;
 
-        edge_vector &_edges;
+#ifdef TFP_EDGE_STREAM
+        using edge_buffer_t = EdgeStream;
+#else
+        using edge_buffer_t = edge_vector;
+#endif
+
+        edge_buffer_t &_edges;
         swap_vector &_swaps;
 
         typename swap_vector::iterator _swaps_begin;
@@ -196,7 +206,7 @@ namespace EdgeSwapTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector
-        EdgeSwapTFP(edge_vector &edges, swap_vector &swaps) :
+        EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps) :
               EdgeSwapBase(),
               _edges(edges),
               _swaps(swaps),
