@@ -329,7 +329,7 @@ namespace EdgeSwapTFP {
             }
 
             // build depencency chain (i.e. inform earlier swaps about later ones) and find the earliest swap
-            swapid_t last_swap = request.swap_id;
+            swapid_t last_swap = request.swap_id();
             bool foundTargetEdge = false; // if we already found a swap where the edge is a target
 
             // observe that existence requests are ordered desc so we iterate over a dependency chain backwards
@@ -338,15 +338,15 @@ namespace EdgeSwapTFP {
                 if (request.edge != current_edge)
                     break;
 
-                if (last_swap != request.swap_id && foundTargetEdge) {
+                if (last_swap != request.swap_id() && foundTargetEdge) {
                     // inform an earlier swap about later swaps that need the new state
-                    assert(last_swap > request.swap_id);
-                    _existence_successor_sorter.push(ExistenceSuccessorMsg{request.swap_id, current_edge, last_swap});
-                    DEBUG_MSG(_display_debug, "Inform swap " << request.swap_id << " that " << last_swap << " is a successor for edge " << current_edge);
+                    assert(last_swap > request.swap_id());
+                    _existence_successor_sorter.push(ExistenceSuccessorMsg{request.swap_id(), current_edge, last_swap});
+                    DEBUG_MSG(_display_debug, "Inform swap " << request.swap_id() << " that " << last_swap << " is a successor for edge " << current_edge);
                 }
 
-                last_swap = request.swap_id;
-                foundTargetEdge = (foundTargetEdge || !request.forward_only);
+                last_swap = request.swap_id();
+                foundTargetEdge = (foundTargetEdge || !request.forward_only());
             }
 
             // inform earliest swap whether edge exists
