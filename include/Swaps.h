@@ -10,7 +10,7 @@
 #include <cassert>
 #include <tuple>
 
-using swapid_t = int64_t;
+using swapid_t = uint32_t;
 
 /**
  * @brief Store edge ids and direction describing a swap
@@ -50,7 +50,9 @@ public:
         return std::tie(_edges[0], _edges[1], _direction) ==
                std::tie(o._edges[0], o._edges[1], o._direction);
     }
-};
+}
+__attribute__ ((packed))
+;
 
 inline std::ostream &operator<<(std::ostream &os, SwapDescriptor const &m) {
     return os << "{swap edges " << m.edges()[0] << " and " << m.edges()[1] << " dir " << m.direction() << "}";

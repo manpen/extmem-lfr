@@ -109,6 +109,6 @@ TEST_F(TestBoolStream, randomFillAndConsume) {
             }
         }
 
-        bs.swap(bs2);
+        std::swap(bs, bs2);
     }
 }

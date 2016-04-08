@@ -15,47 +15,52 @@
 #include "BoolStream.h"
 #include <stxxl/priority_queue>
 
+#include <EdgeStream.h>
+
+#define TFP_EDGE_STREAM
+
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
         swapid_t swap_id;
-        edgeid_t edge_id;
+        // edgeid_t edge_id; is not used any more; we rather encode in the LSB of swap_id whether to target the first or second edge
         edge_t edge;
 
         DependencyChainEdgeMsg() { }
 
-        DependencyChainEdgeMsg(const swapid_t &swap_id_, const edgeid_t &edge_id_, const edge_t &edge_)
-              : swap_id(swap_id_), edge_id(edge_id_), edge(edge_) { }
+        DependencyChainEdgeMsg(const swapid_t &swap_id_, const edge_t &edge_)
+              : swap_id(swap_id_), edge(edge_) { }
 
-        DECL_LEX_COMPARE_OS(DependencyChainEdgeMsg, swap_id, edge_id, edge);
+        DECL_LEX_COMPARE_OS(DependencyChainEdgeMsg, swap_id, edge);
     };
 
     struct DependencyChainSuccessorMsg {
         swapid_t swap_id;
-        edgeid_t edge_id;
         swapid_t successor;
 
         DependencyChainSuccessorMsg() { }
 
-        DependencyChainSuccessorMsg(const swapid_t &swap_id_, const edgeid_t &edge_id_, const swapid_t &successor_) :
-              swap_id(swap_id_), edge_id(edge_id_), successor(successor_) { }
+        DependencyChainSuccessorMsg(const swapid_t &swap_id_, const swapid_t &successor_) :
+              swap_id(swap_id_), successor(successor_) { }
 
-        DECL_LEX_COMPARE_OS(DependencyChainSuccessorMsg, swap_id, edge_id, successor);
+        DECL_LEX_COMPARE_OS(DependencyChainSuccessorMsg, swap_id, successor);
     };
 
     struct ExistenceRequestMsg {
         edge_t edge;
-        swapid_t swap_id;
-        bool forward_only;
+        swapid_t flagged_swap_id;
+
+        swapid_t swap_id() const {return flagged_swap_id >> 1;}
+        bool forward_only() const {return !(flagged_swap_id & 1);}
 
         ExistenceRequestMsg() { }
 
         ExistenceRequestMsg(const edge_t &edge_, const swapid_t &swap_id_, const bool &forward_only_) :
-              edge(edge_), swap_id(swap_id_),  forward_only(forward_only_) { }
+              edge(edge_), flagged_swap_id( (swap_id_<<1) | (!forward_only_)) { }
 
         bool operator< (const ExistenceRequestMsg& o) const {
-            return (edge < o.edge || (edge == o.edge && (swap_id > o.swap_id || (swap_id == o.swap_id && forward_only < o.forward_only))));
+            return (edge < o.edge || (edge == o.edge && (flagged_swap_id > o.flagged_swap_id)));
         }
-        DECL_TO_TUPLE(edge, swap_id, forward_only);
+        DECL_TO_TUPLE(edge, flagged_swap_id);
         DECL_TUPLE_OS(ExistenceRequestMsg);
     };
 
@@ -105,7 +110,13 @@ namespace EdgeSwapTFP {
         constexpr static bool produce_debug_vector=true;
         constexpr static bool _async_processing = false;
 
-        edge_vector &_edges;
+#ifdef TFP_EDGE_STREAM
+        using edge_buffer_t = EdgeStream;
+#else
+        using edge_buffer_t = edge_vector;
+#endif
+
+        edge_buffer_t &_edges;
         swap_vector &_swaps;
 
         typename swap_vector::iterator _swaps_begin;
@@ -195,7 +206,7 @@ namespace EdgeSwapTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector
-        EdgeSwapTFP(edge_vector &edges, swap_vector &swaps) :
+        EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps) :
               EdgeSwapBase(),
               _edges(edges),
               _swaps(swaps),

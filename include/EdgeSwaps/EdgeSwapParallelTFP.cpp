@@ -188,7 +188,7 @@ namespace EdgeSwapParallelTFP {
 
             _needs_writeback = loaded_edges;
 
-            _valid_edges.swap(next_valid_edges);
+            std::swap(_valid_edges, next_valid_edges);
             _valid_edges.consume();
         }
 
