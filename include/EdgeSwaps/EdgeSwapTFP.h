@@ -17,8 +17,6 @@
 
 #include <EdgeStream.h>
 
-#define TFP_EDGE_STREAM
-
 namespace EdgeSwapTFP {
     struct DependencyChainEdgeMsg {
         swapid_t swap_id;
@@ -110,11 +108,7 @@ namespace EdgeSwapTFP {
         constexpr static bool produce_debug_vector=true;
         constexpr static bool _async_processing = false;
 
-#ifdef TFP_EDGE_STREAM
         using edge_buffer_t = EdgeStream;
-#else
-        using edge_buffer_t = edge_vector;
-#endif
 
         edge_buffer_t &_edges;
         swap_vector &_swaps;

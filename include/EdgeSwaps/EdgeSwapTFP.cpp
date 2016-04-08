@@ -9,6 +9,9 @@
 #include "PQSorterMerger.h"
 #include "EdgeVectorUpdateStream.h"
 
+#define TFP_EDGE_STREAM
+
+
 namespace EdgeSwapTFP {
     void EdgeSwapTFP::_gather_edges() {
         // Every swap k to edges i, j sends one message (edge-id, swap-id) to each edge.
@@ -617,11 +620,7 @@ namespace EdgeSwapTFP {
         _swaps_begin = _swaps.begin();
         bool first_iteration = true;
 
-        #ifdef TFP_EDGE_STREAM
         using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
-        #else
-        using UpdateStream = EdgeVectorUpdateStream<edge_vector, BoolStream, decltype(_edge_update_sorter)>;
-        #endif
 
         const auto initial_edge_size = _edges.size();
 
@@ -644,25 +643,18 @@ namespace EdgeSwapTFP {
             // in the first iteration, we only need to read edges, while in all further
             // we also have to write out changes from the previous iteration
             if (first_iteration) {
-                #ifdef TFP_EDGE_STREAM
-                    auto & reader = _edges;
-                #else
-                    typename edge_vector::bufreader_type reader(_edges);
-                #endif
-                _compute_dependency_chain(reader, new_update_mask);
+                _compute_dependency_chain(_edges, new_update_mask);
+                _edges.rewind();
                 first_iteration = false;
             } else {
                 if (_edge_update_sorter_thread)
                     _edge_update_sorter_thread->join();
 
-                #ifdef TFP_EDGE_STREAM
-                    _edges.rewind();
-                #endif
-
                 UpdateStream update_stream(_edges, last_update_mask, _edge_update_sorter);
                 _compute_dependency_chain(update_stream, new_update_mask);
                 update_stream.finish();
                 _edge_update_sorter.clear();
+                _edges.rewind();
             }
 
             {
@@ -710,11 +702,9 @@ namespace EdgeSwapTFP {
         if (_edge_update_sorter_thread)
             _edge_update_sorter_thread->join();
 
-        #ifdef TFP_EDGE_STREAM
-        _edges.rewind();
-        #endif
         UpdateStream update_stream(_edges, last_update_mask, _edge_update_sorter);
         update_stream.finish();
+        _edges.rewind();
 
         if (_result_thread) _result_thread->join();
     }
