@@ -118,5 +118,6 @@ struct EdgeSwapTrait {
     static bool swapVector() {return true;}
     static bool pushableSwaps() {return false;}
     static bool pushableSwapBuffers() {return false;}
+    static bool edgeStream() {return false;}
 };
 
