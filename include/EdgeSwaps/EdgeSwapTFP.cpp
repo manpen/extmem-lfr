@@ -317,21 +317,14 @@ namespace EdgeSwapTFP {
      * by informing every swap about the next one requesting the info.
      */
     void EdgeSwapTFP::_process_existence_requests() {
-#ifdef TFP_EDGE_STREAM
-        _edges.rewind();
-        auto & edge_reader = _edges;
-#else
-        typename edge_vector::bufreader_type edge_reader(_edges);
-#endif
-
         while (!_existence_request_sorter.empty()) {
             auto &request = *_existence_request_sorter;
             edge_t current_edge = request.edge;
 
             // find edge in graph
             bool exists = false;
-            for (; !edge_reader.empty(); ++edge_reader) {
-                const auto &edge = *edge_reader;
+            for (; !_edges.empty(); ++_edges) {
+                const auto &edge = *_edges;
                 if (edge > current_edge) break;
                 exists = (edge == current_edge);
             }
@@ -380,6 +373,8 @@ namespace EdgeSwapTFP {
             _existence_successor_sorter.sort();
             _existence_info_sorter.sort();
         }
+
+        _edges.rewind();
     }
 
     /*
@@ -407,6 +402,10 @@ namespace EdgeSwapTFP {
         #ifndef NDEBUG
             std::vector<edge_t> missing_infos;
         #endif
+
+        swapid_t counter_performed = 0;
+        swapid_t counter_not_performed = 0;
+        swapid_t counter_loop = 0;
 
         for (typename swap_vector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
             auto &swap = *reader;
@@ -495,6 +494,10 @@ namespace EdgeSwapTFP {
             const bool loop = new_edges[0].is_loop() || new_edges[1].is_loop();
             const bool perform_swap = !(conflict_exists[0] || conflict_exists[1] || loop);
 
+            counter_performed += perform_swap;
+            counter_not_performed += !perform_swap;
+            counter_loop += loop;
+
             // write out debug message
             if (produce_debug_vector) {
                 SwapResult res;
@@ -535,7 +538,7 @@ namespace EdgeSwapTFP {
             // send current state of edge iff there are no successors to this edge
             for(unsigned int i=0; i<2; i++) {
                 if (!successor_found[i]) {
-                    _edge_update_sorter.push(edges[i + 2 * perform_swap]);
+                    _edge_update_sorter.push(edges[i + 2*perform_swap]);
                 }
             }
 
@@ -583,6 +586,10 @@ namespace EdgeSwapTFP {
             #endif
 
         }
+
+        std::cout << "Swaps performed: " << counter_performed
+                  << " not performed: " << counter_not_performed
+                  << " due to loops: " << counter_loop << std::endl;
 
         if (_result_thread) _result_thread->join();
 #ifdef EDGE_SWAP_DEBUG_VECTOR
@@ -664,22 +671,16 @@ namespace EdgeSwapTFP {
 
 #ifndef NDEBUG
             {
-                #ifdef TFP_EDGE_STREAM
-                    _edges.rewind();
-                    auto & reader = _edges;
-                #else
-                    typename edge_vector::bufreader_type reader(_edges);
-                #endif
-
-                edge_t last_edge = *reader;
-                ++reader;
+                edge_t last_edge = *_edges;
+                ++_edges;
                 assert(!last_edge.is_loop());
-                for(;!reader.empty();++reader) {
-                    auto & edge = *reader;
+                for(;!_edges.empty();++_edges) {
+                    auto & edge = *_edges;
                     assert(!edge.is_loop());
                     assert(last_edge < edge);
                     last_edge = edge;
                 }
+                _edges.rewind();
             }
 #endif
 

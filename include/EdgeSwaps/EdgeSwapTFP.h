@@ -224,3 +224,11 @@ namespace EdgeSwapTFP {
         void run(uint64_t swaps_per_iteration = 0);
     };
 }
+
+template <>
+struct EdgeSwapTrait<EdgeSwapTFP::EdgeSwapTFP> {
+    static bool swapVector() {return false;}
+    static bool pushableSwaps() {return false;}
+    static bool pushableSwapBuffers() {return false;}
+    static bool edgeStream() {return true;}
+};
