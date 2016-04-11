@@ -117,32 +117,18 @@ namespace LFR {
         _compute_community_size();
         _compute_community_assignments();
 
-        // the swap implementation needs a sorter + the merging of the communities needs a sorter + the global rewiring needs at least one sorter
-        _max_memory_usage -= 3*SORTER_MEM;
+        // the merging of the communities needs a sorter
+        _max_memory_usage -= SORTER_MEM;
         STXXL_MSG("Remaining memory for actual swaps is " << _max_memory_usage << " bytes");
         STXXL_MSG("Degree sum is " << _degree_sum);
 
-        // set global swaps per iteration to the minimum of the number of inter-community-edges divided by 8 and the memory available per thread
-        // the swaps need about 100 Byte/swap
-        int_t localCores = std::max<int_t>(omp_get_max_threads() - 1, 1);
-        int_t min_local_memory = localCores * SORTER_MEM * 1.3; // locally, we need at least a sorter and something more per thread to be able to do anything
-        int_t max_global_memory = std::min(_max_memory_usage - min_local_memory, _max_memory_usage/2); // give the global algorithm at maximum half of the memory, but make sure we have still enough for all local phases
-
-        int_t globalSwapsPerIteration = std::min<int_t>((_degree_sum/2 * _mixing) / 4, (max_global_memory)/100);
+        int_t globalSwapsPerIteration = (_degree_sum/2 * _mixing) / 4;
         STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
         // subtract actually used amount of memory (so more memory is possibly available for communities)
-        _max_memory_usage -= (globalSwapsPerIteration * 100);
-        STXXL_MSG("Remaining memory for per-community swaps is " << _max_memory_usage << " bytes");
-        assert(_max_memory_usage >= min_local_memory);
 
-        #pragma omp parallel num_threads(2)
-        #pragma omp single
-        {
-        #pragma omp task
         _generate_community_graphs();
-        #pragma omp task
         _generate_global_graph(globalSwapsPerIteration);
-        }
+
         _merge_community_and_global_graph();
 
         std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " << _inter_community_edges.size() << " of them are inter-community edges" << std::endl;

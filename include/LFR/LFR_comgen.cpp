@@ -13,7 +13,7 @@
 namespace LFR {
     void LFR::_generate_community_graphs() {
         stxxl::sorter<CommunityEdge, GenericComparatorStruct<CommunityEdge>::Ascending> edgeSorter(GenericComparatorStruct<CommunityEdge>::Ascending(), SORTER_MEM);
-        const uint_t n_threads = std::max<uint_t>(1, omp_get_max_threads() - 1);
+        const uint_t n_threads = omp_get_max_threads();
         const uint_t memory_per_thread = _max_memory_usage / n_threads;
 
         #pragma omp parallel shared(edgeSorter), num_threads(n_threads)
