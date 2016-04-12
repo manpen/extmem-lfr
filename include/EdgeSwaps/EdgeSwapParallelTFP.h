@@ -342,7 +342,8 @@ namespace EdgeSwapParallelTFP {
 
 template <>
 struct EdgeSwapTrait<EdgeSwapParallelTFP::EdgeSwapParallelTFP> {
-    static bool swapVector() {return false;}
-    static bool pushableSwaps() {return true;}
-    static bool pushableSwapBuffers() {return false;}
+    static bool swapVector() { return false; }
+    static bool pushableSwaps() { return true; }
+    static bool pushableSwapBuffers() { return false; }
+    static bool edgeStream() { return true; }
 };
