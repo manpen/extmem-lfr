@@ -12,6 +12,7 @@ template <typename StreamIn, typename T = typename StreamIn::value_type>
 class AsyncStream {
 public:
     using BufferType = std::vector<T>;
+    using value_type = T;
 
 protected:
     std::vector<BufferType> _buffers;
