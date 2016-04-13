@@ -23,6 +23,11 @@
  */
 template <typename EdgeVector, typename EdgeValidStream, typename UpdatedEdgeStream>
 class EdgeVectorUpdateStream {
+public:
+    using value_type = edge_t;
+
+protected:
+
     // read port
     EdgeVector& _edges;
     typename EdgeVector::bufreader_type _edge_reader;
@@ -164,6 +169,10 @@ public:
 
 template <typename EdgeValidStream, typename UpdatedEdgeStream>
 class EdgeVectorUpdateStream<EdgeStream, EdgeValidStream, UpdatedEdgeStream> {
+public:
+    using value_type = edge_t;
+
+protected:
     // read port
     EdgeStream& _edges;
     EdgeValidStream& _edge_valid_stream;
