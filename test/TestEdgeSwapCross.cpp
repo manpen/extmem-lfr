@@ -98,7 +98,13 @@ namespace {
       this->_print_list(edges, debug_this_test);
 
       EdgeSwapFullyInternal<EdgeVector, SwapVector> es_ref(edges_ref, swaps_ref);
-      EdgeSwapAlgoUnderTest es_test(edges, swaps);
+
+      EdgeStream edge_stream;
+      for(EdgeVector::bufreader_type r(edges); !r.empty(); ++r)
+         edge_stream.push(*r);
+      edge_stream.consume();
+
+      EdgeSwapAlgoUnderTest es_test(edge_stream, swaps);
       es_test.setDisplayDebug(debug_this_test);
       es_ref.run();
 
@@ -107,6 +113,13 @@ namespace {
             es_test.push(s);
       }
       es_test.run();
+
+      {
+         EdgeVector::bufwriter_type w(edges);
+         for(;!edge_stream.empty(); ++edge_stream)
+            w << *edge_stream;
+         w.finish();
+      }
 
       auto & res_ref = es_ref.debugVector();
       auto & res_test = es_test.debugVector();

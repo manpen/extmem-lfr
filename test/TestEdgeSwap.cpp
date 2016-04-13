@@ -23,35 +23,53 @@ namespace {
          for(auto &e : list)
             std::cout << i++ << " " << e << std::endl;
       }
+
+      void _list_to_stream(EdgeVector & in, EdgeStream & out) {
+        for(auto & e : in) {
+            out.push(e);
+        }
+        out.consume();
+      }
+
+       void _stream_to_list(EdgeStream & in, EdgeVector & out) {
+          out.clear();
+          for(; !in.empty(); ++in)
+             out.push_back(*in);
+       }
    };
 
    using TestEdgeSwapImplementations = ::testing::Types <
       EdgeSwapInternalSwaps,
       EdgeSwapTFP::EdgeSwapTFP,
       EdgeSwapParallelTFP::EdgeSwapParallelTFP,
-      EdgeSwapFullyInternal<EdgeVector, SwapVector>,
+//      EdgeSwapFullyInternal<EdgeVector, SwapVector>,
       IMEdgeSwap
    >;
 
    TYPED_TEST_CASE(TestEdgeSwap, TestEdgeSwapImplementations);
 
    TYPED_TEST(TestEdgeSwap, noConflicts) {
-      bool debug_this_test = false;
+      bool debug_this_test = true;
       using EdgeSwapAlgo = TypeParam;
 
       EdgeVector edge_list;
+      EdgeStream edge_stream;
       edge_list.push_back({0, 1});
       edge_list.push_back({1, 3});
       edge_list.push_back({2, 3});
       edge_list.push_back({3, 4});
 
+      this->_list_to_stream(edge_list, edge_stream);
+
+
       SwapVector swap_list;
       swap_list.push_back({0, 2, true});
-      swap_list.push_back({0, 3, true});
+      /*swap_list.push_back({0, 3, true});
       swap_list.push_back({2, 3, false});
-      swap_list.push_back({0, 2, true});
+      swap_list.push_back({0, 2, true});*/
 
-      EdgeSwapAlgo algo(edge_list, swap_list);
+
+      EdgeSwapAlgo algo(edge_stream, swap_list);
       algo.setDisplayDebug(debug_this_test);
 
       if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
@@ -60,6 +78,8 @@ namespace {
       }
 
       algo.run();
+      this->_stream_to_list(edge_stream, edge_list);
+
 
       this->_print_list(edge_list, debug_this_test);
  
@@ -75,7 +95,7 @@ namespace {
       ASSERT_EQ(edge_list[2], edge_t(1, 3));
       ASSERT_EQ(edge_list[3], edge_t(3, 4));
    }
-   
+
    /*
     * This test is only useful for debugging the dependency chain
     * as it has a very clean dependency structure:
@@ -88,11 +108,14 @@ namespace {
       bool debug_this_test = false;
       using EdgeSwapAlgo = TypeParam;
       EdgeVector edge_list;
+      EdgeStream edge_stream;
 
       edge_list.push_back({0, 1});
       edge_list.push_back({2, 3});
       edge_list.push_back({4, 5});
       edge_list.push_back({6, 7});
+
+      this->_list_to_stream(edge_list, edge_stream);
 
       SwapVector swap_list;
 
@@ -101,19 +124,24 @@ namespace {
       swap_list.push_back({0, 2, true});
       swap_list.push_back({1, 3, true});
 
-      EdgeSwapAlgo algo(edge_list, swap_list);
-      algo.setDisplayDebug(debug_this_test);
+      std::unique_ptr<EdgeSwapAlgo> algo;
+      algo.reset(new EdgeSwapAlgo(edge_stream, swap_list));
+
+
+      algo->setDisplayDebug(debug_this_test);
 
       if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
          for (auto &s : swap_list)
-            algo.push(s);
+            algo->push(s);
       }
 
-      algo.run();
+      algo->run();
+      this->_stream_to_list(edge_stream, edge_list);
+
 
       this->_print_list(edge_list, debug_this_test);
 
-      auto & debug = algo.debugVector();
+      auto & debug = algo->debugVector();
       this->_print_list(debug, debug_this_test);
 
       ASSERT_TRUE(debug[0].performed);
@@ -132,11 +160,14 @@ namespace {
       using EdgeSwapAlgo = TypeParam;
 
       EdgeVector edge_list;
+      EdgeStream edge_stream;
+
       edge_list.push_back({0, 1});
       edge_list.push_back({1, 2});
       edge_list.push_back({2, 3});
       edge_list.push_back({3, 4});
 
+      this->_list_to_stream(edge_list, edge_stream);
 
       SwapVector swap_list;
 
@@ -144,16 +175,15 @@ namespace {
       swap_list.push_back({0, 2, true});
       swap_list.push_back({0, 2, false});
 
-      EdgeSwapAlgo algo(edge_list, swap_list);
+      EdgeSwapAlgo algo(edge_stream, swap_list);
       algo.setDisplayDebug(debug_this_test);
 
       if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
          for (auto &s : swap_list)
             algo.push(s);
       }
-
-
       algo.run();
+      this->_stream_to_list(edge_stream, edge_list);
 
       this->_print_list(edge_list, debug_this_test);
 
@@ -172,17 +202,21 @@ namespace {
        using EdgeSwapAlgo = TypeParam;
 
        EdgeVector edge_list;
+       EdgeStream edge_stream;
+
        edge_list.push_back({0, 2});
        edge_list.push_back({1, 2});
        edge_list.push_back({2, 3});
        edge_list.push_back({4, 5});
+
+       this->_list_to_stream(edge_list, edge_stream);
 
        SwapVector swap_list;
 
        swap_list.push_back({2, 3, true});
        swap_list.push_back({0, 1, true});
 
-       EdgeSwapAlgo algo(edge_list, swap_list);
+       EdgeSwapAlgo algo(edge_stream, swap_list);
        algo.setDisplayDebug(debug_this_test);
 
        if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
@@ -190,6 +224,7 @@ namespace {
             algo.push(s);
        }
        algo.run();
+       this->_stream_to_list(edge_stream, edge_list);
 
        this->_print_list(edge_list, debug_this_test);
 
@@ -201,7 +236,8 @@ namespace {
        ASSERT_TRUE(debug[1].conflictDetected[0]);
        ASSERT_TRUE(debug[1].conflictDetected[1]);
    }
-}
+
+ }
 #else
     class TestEdgeSwap : public ::testing::Test {};
     TEST_F(TestEdgeSwap, warning) {
