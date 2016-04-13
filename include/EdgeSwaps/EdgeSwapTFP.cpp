@@ -13,18 +13,18 @@
 
 
 namespace EdgeSwapTFP {
-    void EdgeSwapTFP::_gather_edges() {
+    void EdgeSwapTFP::push(const SwapDescriptor & swap) {
         // Every swap k to edges i, j sends one message (edge-id, swap-id) to each edge.
         // We then sort the messages lexicographically to gather all requests to an edge
         // at the same place.
-        swapid_t sid = 0;
-        for (typename swap_vector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader) {
-            auto &swap_desc = *reader;
-            _edge_swap_sorter.push(EdgeSwapMsg(swap_desc.edges()[0], sid++));
-            _edge_swap_sorter.push(EdgeSwapMsg(swap_desc.edges()[1], sid++));
-        }
-        _edge_swap_sorter.sort();
-    };
+
+        _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[0], _next_swap_id_pushing++));
+        _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
+        _swap_directions_pushing.push(swap.direction());
+
+        if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
+            _start_processing();
+    }
 
     template<class EdgeReader>
     void EdgeSwapTFP::_compute_dependency_chain(EdgeReader & edge_reader, BoolStream & edge_remains_valid) {
@@ -43,10 +43,11 @@ namespace EdgeSwapTFP {
         // through the original edge list and the sorted request list in parallel
         // (i.e. by "merging" them). If there are multiple requests to an edge, we
         // send each predecessor the id of the next swap possibly affecting this edge.
-        for (; !_edge_swap_sorter.empty(); ++_edge_swap_sorter) {
+        auto & edge_swap_sorter = *_edge_swap_sorter;
+        for (; !edge_swap_sorter.empty(); ++edge_swap_sorter) {
             edgeid_t requested_edge;
             swapid_t requesting_swap;
-            std::tie(requested_edge, requesting_swap) = *_edge_swap_sorter;
+            std::tie(requested_edge, requesting_swap) = *edge_swap_sorter;
 
             // move reader buffer until we found the edge
             for (; eid < requested_edge; ++eid, ++edge_reader) {
@@ -142,9 +143,7 @@ namespace EdgeSwapTFP {
 
         std::array<std::vector<edge_t>, 2> dd_new_edges;
 
-        for (typename swap_vector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
-            auto &swap = *reader;
-
+        for (; !_swap_directions.empty(); ++_swap_directions, ++sid) {
             swapid_t successors[2];
 
             // fetch messages sent to this edge
@@ -223,7 +222,7 @@ namespace EdgeSwapTFP {
             for (auto &e1 : edges[0]) {
                 for (auto &e2 : edges[1]) {
                     edge_t new_edges[2];
-                    std::tie(new_edges[0], new_edges[1]) = _swap_edges(e1, e2, swap.direction());
+                    std::tie(new_edges[0], new_edges[1]) = _swap_edges(e1, e2, *_swap_directions);
 
                     for (unsigned int i = 0; i < 2; i++) {
                         auto &new_edge = new_edges[i];
@@ -297,6 +296,7 @@ namespace EdgeSwapTFP {
         }
 
         _existence_request_sorter.sort();
+        _swap_directions.rewind();
 
         if (_async_processing) {
             _depchain_thread.reset(new std::thread([&]() {
@@ -407,9 +407,7 @@ namespace EdgeSwapTFP {
         swapid_t counter_not_performed = 0;
         swapid_t counter_loop = 0;
 
-        for (typename swap_vector::bufreader_type reader(_swaps_begin, _swaps_end); !reader.empty(); ++reader, ++sid) {
-            auto &swap = *reader;
-
+        for (; !_swap_directions.empty(); ++_swap_directions, ++sid) {
             edge_state_pqsort.update();
 
             // collect the current state of the edge to be swapped
@@ -439,7 +437,7 @@ namespace EdgeSwapTFP {
             }
 
             // compute swapped edges
-            std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], swap.direction());
+            std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], *_swap_directions);
 
             #ifndef NDEBUG
                 if (_display_debug) {
@@ -621,6 +619,105 @@ namespace EdgeSwapTFP {
         }
     }
 
+    void EdgeSwapTFP::_process_swaps() {
+        constexpr bool show_stats = true;
+
+        using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
+
+        if (!_edge_swap_sorter->size()) {
+            // there are no swaps - let's see whether there are pending updates
+            if ( !_edge_update_sorter.empty()) {
+                UpdateStream update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
+                update_stream.finish();
+                _edges.rewind();
+            }
+
+            return;
+        }
+
+        if (_first_run) {
+            // first iteration
+            _compute_dependency_chain(_edges, _edge_update_mask);
+            _edges.rewind();
+            _first_run = false;
+
+        } else {
+            if (_edge_update_sorter_thread)
+                _edge_update_sorter_thread->join();
+
+            UpdateStream update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
+            _compute_dependency_chain(update_stream, _edge_update_mask);
+            update_stream.finish();
+
+            _edge_update_sorter.clear();
+            _edges.rewind();
+
+        }
+
+#ifndef NDEBUG
+        // test that input is lexicographically ordered and loop free
+        {
+            edge_t last_edge = *_edges;
+            ++_edges;
+            assert(!last_edge.is_loop());
+            for(;!_edges.empty();++_edges) {
+                auto & edge = *_edges;
+                assert(!edge.is_loop());
+                assert(last_edge < edge);
+                last_edge = edge;
+            }
+            _edges.rewind();
+        }
+#endif
+
+        std::swap(_edge_update_mask, _last_edge_update_mask);
+
+        _report_stats("_compute_dependency_chain: ", show_stats);
+        _compute_conflicts();
+        _report_stats("_compute_conflicts: ", show_stats);
+        _process_existence_requests();
+        _report_stats("_process_existence_requests: ", show_stats);
+        _perform_swaps();
+        _report_stats("_perform_swaps: ", show_stats);
+
+        _reset();
+    }
+
+
+    void EdgeSwapTFP::_start_processing(bool async) {
+        // prepare new structures
+        _edge_swap_sorter_pushing->sort();
+        _swap_directions_pushing.consume();
+
+        // wait for compution to finish (if there is some)
+        if (_process_thread.joinable())
+            _process_thread.join();
+
+        // reset old data structures
+        _swap_directions.clear();
+        _next_swap_id_pushing = 0;
+
+        // swap staging and processing area
+        std::swap(_edge_swap_sorter_pushing, _edge_swap_sorter);
+        std::swap(_swap_directions_pushing, _swap_directions);
+
+        if (async) {
+            // start worker thread
+            _process_thread = std::thread(&EdgeSwapTFP::_process_swaps, this);
+        } else {
+            // do it ourselves
+            _process_swaps();
+        }
+    }
+
+    void EdgeSwapTFP::run() {
+        _start_processing();
+        _start_processing(false);
+    }
+
+
+/*
+
     void EdgeSwapTFP::run(uint64_t swaps_per_iteration) {
         bool show_stats = true;
 
@@ -709,4 +806,5 @@ namespace EdgeSwapTFP {
 
         if (_result_thread) _result_thread->join();
     }
+*/
 };

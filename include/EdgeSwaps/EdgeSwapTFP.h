@@ -3,7 +3,7 @@
 #include <stxxl/vector>
 #include <stxxl/sorter>
 #include <stxxl/bits/unused.h>
-
+#include <memory>
 #include <thread>
 
 #include <defs.h>
@@ -110,17 +110,20 @@ namespace EdgeSwapTFP {
 
         using edge_buffer_t = EdgeStream;
 
+        const swapid_t _run_length;
         edge_buffer_t &_edges;
-        swap_vector &_swaps;
 
-        typename swap_vector::iterator _swaps_begin;
-        typename swap_vector::iterator _swaps_end;
         std::unique_ptr<std::thread> _result_thread;
 
 // swap -> edge
         using EdgeSwapMsg = std::tuple<edgeid_t, swapid_t>;
         using EdgeSwapSorter = stxxl::sorter<EdgeSwapMsg, GenericComparatorTuple<EdgeSwapMsg>::Ascending>;
-        EdgeSwapSorter _edge_swap_sorter;
+        std::unique_ptr<EdgeSwapSorter> _edge_swap_sorter;
+        BoolStream _swap_directions;
+
+        swapid_t _next_swap_id_pushing;
+        std::unique_ptr<EdgeSwapSorter> _edge_swap_sorter_pushing;
+        BoolStream _swap_directions_pushing;
 
 // dependency chain
         // we need to use a desc-comparator since the pq puts the largest element on top
@@ -173,6 +176,9 @@ namespace EdgeSwapTFP {
         stxxl::read_write_pool<ExistenceInfoPQBlock> _existence_info_pq_pool;
         ExistenceInfoPQ _existence_info_pq;
 
+        BoolStream _edge_update_mask;
+        BoolStream _last_edge_update_mask;
+
 // algos
         void _gather_edges();
 
@@ -185,13 +191,19 @@ namespace EdgeSwapTFP {
         void _apply_updates();
 
         void _reset() {
-            _edge_swap_sorter.clear();
+            _edge_swap_sorter->clear();
             _depchain_edge_sorter.clear();
             _depchain_successor_sorter.clear();
             _existence_request_sorter.clear();
             _existence_info_sorter.clear();
             _existence_successor_sorter.clear();
         }
+
+        bool _first_run;
+        void _process_swaps();
+
+        void _start_processing(bool async = true);
+        std::thread _process_thread;
 
     public:
         EdgeSwapTFP() = delete;
@@ -200,12 +212,15 @@ namespace EdgeSwapTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector
-        EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps) :
+        EdgeSwapTFP(edge_buffer_t &edges, swapid_t run_length = 1000000) :
               EdgeSwapBase(),
+              _run_length(run_length),
               _edges(edges),
-              _swaps(swaps),
 
-              _edge_swap_sorter(GenericComparatorTuple<EdgeSwapMsg>::Ascending(), _sorter_mem),
+              _edge_swap_sorter(new EdgeSwapSorter(GenericComparatorTuple<EdgeSwapMsg>::Ascending(), _sorter_mem)),
+              _next_swap_id_pushing(0),
+              _edge_swap_sorter_pushing(new EdgeSwapSorter(GenericComparatorTuple<EdgeSwapMsg>::Ascending(), _sorter_mem)),
+
               _depchain_edge_sorter(DependencyChainEdgeComparatorSorter{}, _sorter_mem),
               _depchain_successor_sorter(DependencyChainSuccessorComparator{}, _sorter_mem),
               _existence_request_sorter(ExistenceRequestComparator{}, _sorter_mem),
@@ -217,18 +232,30 @@ namespace EdgeSwapTFP {
               _dependency_chain_pq(_dependency_chain_pq_pool),
 
               _existence_info_pq_pool(_pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size, _pq_pool_mem / 2 / ExistenceInfoPQBlock::raw_size),
-              _existence_info_pq(_existence_info_pq_pool)
+              _existence_info_pq(_existence_info_pq_pool),
+
+              _first_run(true)
 
         { }
 
-        void run(uint64_t swaps_per_iteration = 0);
+        EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps, swapid_t run_length = 1000000) :
+            EdgeSwapTFP(edges, run_length)
+        {
+            stxxl::STXXL_UNUSED(swaps);
+        }
+
+
+
+        void push(const SwapDescriptor &);
+
+        void run();
     };
 }
 
 template <>
 struct EdgeSwapTrait<EdgeSwapTFP::EdgeSwapTFP> {
     static bool swapVector() {return false;}
-    static bool pushableSwaps() {return false;}
+    static bool pushableSwaps() {return true;}
     static bool pushableSwapBuffers() {return false;}
     static bool edgeStream() {return true;}
 };
