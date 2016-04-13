@@ -14,12 +14,13 @@
 #include <iterator>
 #include <functional>
 #include <EdgeSwaps/EdgeSwapInternalSwapsBase.h>
+#include <EdgeStream.h>
 
 class EdgeSwapInternalSwaps : public EdgeSwapInternalSwapsBase {
 public:
     using updated_edges_callback_t = std::function<void(const std::vector<edge_t> &)>;
 protected:
-    edge_vector & _edges;
+    EdgeStream & _edges;
 
     int_t _num_swaps_per_iteration;
     std::vector<swap_descriptor> _current_swaps;
@@ -54,7 +55,7 @@ public:
 
     //! Swaps are performed during constructor.
     //! @param edges  Edge vector changed in-place
-    EdgeSwapInternalSwaps(edge_vector & edges, int_t num_swaps_per_iteration = 1000000) :
+    EdgeSwapInternalSwaps(EdgeStream & edges, int_t num_swaps_per_iteration = 1000000) :
         EdgeSwapInternalSwapsBase()
         , _edges(edges)
         , _num_swaps_per_iteration(num_swaps_per_iteration)
@@ -68,7 +69,7 @@ public:
     //! Swaps are performed during constructor.
     //! @param edges  Edge vector changed in-place
     //! @param swaps  IGNORED - use push interface
-    EdgeSwapInternalSwaps(edge_vector & edges, swap_vector &, int_t num_swaps_per_iteration = 1000000) :
+    EdgeSwapInternalSwaps(EdgeStream & edges, swap_vector &, int_t num_swaps_per_iteration = 1000000) :
         EdgeSwapInternalSwaps(edges, num_swaps_per_iteration) {}
 
     void setUpdatedEdgesCallback(updated_edges_callback_t callback) {
@@ -139,4 +140,5 @@ struct EdgeSwapTrait<EdgeSwapInternalSwaps> {
     static bool swapVector() {return false;}
     static bool pushableSwaps() {return true;}
     static bool pushableSwapBuffers() {return true;}
+    static bool edgeStream() {return true;}
 };

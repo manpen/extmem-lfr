@@ -78,7 +78,6 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
         int_t int_eid = 0;
         edgeid_t id = 0;
 
-        typename edge_vector::bufreader_type edge_reader(_edges);
         auto request_it = edgeIdLoadRequests.begin();
         auto semi_loaded_request_it = edgeLoadRequests.begin();
 
@@ -128,15 +127,14 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
 
         if (updated_edges.empty()) {
             // just read edges
-            for (; !edge_reader.empty(); ++id, ++edge_reader) {
-                use_edge(*edge_reader);
+            for (; !_edges.empty(); ++id, ++_edges) {
+                use_edge(*_edges);
             }
+            _edges.rewind();
 
         } else {
             // read old edge vector and merge in updates, write out result
-            edge_vector output_vector;
-            output_vector.reserve(_edges.size());
-            typename edge_vector::bufwriter_type writer(output_vector);
+            EdgeStream writer;
 
             auto old_e = old_edge_ids.begin();
             auto new_e = updated_edges.begin();
@@ -144,35 +142,35 @@ void EdgeSwapInternalSwaps::updateEdgesAndLoadSwapsWithEdgesAndSuccessors() {
             int_t read_id = 0;
             edge_t cur_e;
 
-            for (; !edge_reader.empty() || new_e != updated_edges.end(); ++id) {
+            for (; !_edges.empty() || new_e != updated_edges.end(); ++id) {
                 // Skip old edges
                 while (old_e != old_edge_ids.end() && *old_e == read_id) {
-                    ++edge_reader;
+                    ++_edges;
                     ++read_id;
                     ++old_e;
                 }
 
                 // merge update edges and read edges
-                if (new_e != updated_edges.end() && (edge_reader.empty() || *new_e < *edge_reader)) {
+                if (new_e != updated_edges.end() && (_edges.empty() || *new_e < *_edges)) {
                     cur_e = *new_e;
-                    writer << cur_e;
+                    writer.push(cur_e);
                     ++new_e;
                 } else {
-                    if (edge_reader.empty()) { // due to the previous while loop both could be empty now
+                    if (_edges.empty()) { // due to the previous while loop both could be empty now
                         break; // abort the loop as we do not have any edges to process anymore.
                     }
 
-                    cur_e = *edge_reader;
-                    writer << cur_e;
+                    cur_e = *_edges;
+                    writer.push(cur_e);
                     ++read_id;
-                    ++edge_reader;
+                    ++_edges;
                 }
 
                 use_edge(cur_e);
             }
 
-            writer.finish();
-            _edges.swap(output_vector);
+            std::swap(_edges, writer);
+            _edges.consume();
         }
     }
 };
@@ -191,9 +189,8 @@ void EdgeSwapInternalSwaps::process_buffer() {
 
     _report_stats("load swaps", show_stats);
 
-    typename edge_vector::bufreader_type edgeReader(_edges);
-
-    executeSwaps(_current_swaps, _edges_in_current_swaps, _swap_has_successor, edgeReader);
+    executeSwaps(_current_swaps, _edges_in_current_swaps, _swap_has_successor, _edges);
+    _edges.rewind();
 
     SEQPAR::sort(_edges_in_current_swaps.begin(), _edges_in_current_swaps.end());
 

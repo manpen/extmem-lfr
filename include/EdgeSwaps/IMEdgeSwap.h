@@ -2,6 +2,7 @@
 
 #include <IMGraph.h>
 #include <EdgeSwaps/EdgeSwapBase.h>
+#include <EdgeStream.h>
 class IMGraphWrapper;
 
 class IMEdgeSwap : public EdgeSwapBase {
@@ -21,9 +22,9 @@ public:
      * @param edges The given edge vector
      * @param swaps IGNORED, use push() instead
      */
-    IMEdgeSwap(stxxl::vector<edge_t> &edges, const stxxl::vector<SwapDescriptor>&);
+    IMEdgeSwap(EdgeStream &edges, const stxxl::vector<SwapDescriptor>&);
 
-    IMEdgeSwap(stxxl::vector<edge_t> &edges);
+    IMEdgeSwap(EdgeStream &edges);
 
     ~IMEdgeSwap();
 
@@ -42,4 +43,5 @@ struct EdgeSwapTrait<IMEdgeSwap> {
     static bool swapVector() {return false;}
     static bool pushableSwaps() {return true;}
     static bool pushableSwapBuffers() {return false;}
+    static bool edgeStream() {return true;}
 };

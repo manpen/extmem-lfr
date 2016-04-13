@@ -11,10 +11,10 @@ IMEdgeSwap::IMEdgeSwap(IMGraph &graph) : _graph_wrapper(0), _graph(graph)
 { }
 
 
-IMEdgeSwap::IMEdgeSwap(stxxl::vector< edge_t > &edges, const stxxl::vector< SwapDescriptor > &) : IMEdgeSwap(edges)
+IMEdgeSwap::IMEdgeSwap(EdgeStream &edges, const stxxl::vector< SwapDescriptor > &) : IMEdgeSwap(edges)
 {}
 
-IMEdgeSwap::IMEdgeSwap(stxxl::vector< edge_t > &edges) : _graph_wrapper(new IMGraphWrapper(edges)), _graph(_graph_wrapper->getGraph())
+IMEdgeSwap::IMEdgeSwap(EdgeStream &edges) : _graph_wrapper(new IMGraphWrapper(edges)), _graph(_graph_wrapper->getGraph())
 #ifdef EDGE_SWAP_DEBUG_VECTOR
         , _debug_vector_writer(_result)
 #endif

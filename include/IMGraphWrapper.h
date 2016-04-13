@@ -1,41 +1,46 @@
 #pragma once
 
 #include <IMGraph.h>
-#include <stxxl/vector>
-#include <stxxl/sort>
+#include <stxxl/sorter>
 #include <GenericComparator.h>
+#include <EdgeStream.h>
 
 class IMGraphWrapper {
 private:
-    stxxl::vector<edge_t>& _edges;
+    EdgeStream& _edges;
+
     std::vector<degree_t> _degrees;
     IMGraph* _graph;
 public:
-    IMGraphWrapper(stxxl::vector<edge_t> &edges) : _edges(edges), _graph(0) {
+    IMGraphWrapper(EdgeStream &edges) : _edges(edges), _graph(0) {
         {
-            stxxl::vector<edge_t>::bufreader_type edge_reader(edges);
             node_t maxId = -1;
-            while (!edge_reader.empty()) {
-                node_t m = std::max(edge_reader->first, edge_reader->second);
+            while (!edges.empty()) {
+                auto & edge = *edges;
+
+                node_t m = std::max(edge.first, edge.second);
                 if (m > maxId) {
                     _degrees.resize(m+1);
                     maxId = m;
                 }
 
-                ++_degrees[edge_reader->first];
-                ++_degrees[edge_reader->second];
-                ++edge_reader;
+                ++_degrees[edge.first];
+                ++_degrees[edge.second];
+                ++edges;
             }
+
+            edges.rewind();
         }
 
         _graph = new IMGraph(_degrees);
 
         {
-            stxxl::vector<edge_t>::bufreader_type edge_reader(edges);
-            while (!edge_reader.empty()) {
-                _graph->addEdge(*edge_reader);
-                ++edge_reader;
+            while (!edges.empty()) {
+                _graph->addEdge(*edges);
+                ++edges;
             }
+
+            edges.rewind();
         }
     };
 
@@ -48,14 +53,16 @@ public:
     IMGraph& getGraph() { return *_graph; };
 
     void updateEdges() {
-        _edges.clear();
-        stxxl::vector<edge_t>::bufwriter_type writer(_edges);
-        for (auto it = _graph->getEdges(); !it.empty(); ++it) {
-            writer << *it;
-        }
-        writer.finish();
-        // sort edge vector
         using comp = typename GenericComparator<edge_t>::Ascending;
-        stxxl::sort(_edges.begin(), _edges.end(), comp(), 512 * IntScale::Mi);
+        stxxl::sorter<edge_t, comp> edge_sorter(comp(), SORTER_MEM);
+        for (auto it = _graph->getEdges(); !it.empty(); ++it) {
+            edge_sorter.push(*it);
+        }
+        edge_sorter.sort();
+
+        _edges.clear();
+        for(; !edge_sorter.empty(); ++edge_sorter)
+            _edges.push(*edge_sorter);
+        _edges.consume();
     };
 };
