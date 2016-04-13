@@ -22,9 +22,9 @@
 #include "SwapGenerator.h"
 
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
-//#include <EdgeSwaps/EdgeSwapInternalSwaps.h>
+#include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
-//#include <EdgeSwaps/IMEdgeSwap.h>
+#include <EdgeSwaps/IMEdgeSwap.h>
 
 enum EdgeSwapAlgo {
     IM,
@@ -49,6 +49,9 @@ struct RunConfig {
 
     bool verbose;
 
+    double factorNoSwaps;
+    unsigned int noRuns;
+
     RunConfig() 
         : numNodes(10 * IntScale::Mi)
         , minDeg(2)
@@ -60,6 +63,8 @@ struct RunConfig {
         , batchSize(IntScale::Mi)
 
         , verbose(false)
+        , factorNoSwaps(-1)
+        , noRuns(0)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -94,6 +99,10 @@ struct RunConfig {
 
             cp.add_flag(CMDLINE_COMP('v', "verbose", verbose, "Include debug information selectable at runtime"));
             
+            cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
+            cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
+
+
             if (!cp.process(argc, argv)) {
                 cp.print_usage();
                 return false;
@@ -137,10 +146,6 @@ void benchmark(RunConfig & config) {
     stxxl::stats_data stats_begin(*stats);
 
     // Build edge list
-    using edge_vector_t = stxxl::VECTOR_GENERATOR<edge_t>::result;
-    edge_vector_t edges;
-
-    bool use_edge_stream = (config.edgeSwapAlgo == TFP) || (config.edgeSwapAlgo == PTFP);
     EdgeStream edge_stream;
     {
         IOStatistics hh_report("HHEdges");
@@ -151,59 +156,48 @@ void benchmark(RunConfig & config) {
         StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
         hh_gen.generate();
 
-        if (use_edge_stream) {
-            StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
-            edge_stream.consume();
-        } else {
-            // materialize stream
-            std::cout << "Up to " << hh_gen.maxEdges() << " edges expected" << std::endl;
-            edges.resize(hh_gen.maxEdges());
-            auto endIt = stxxl::stream::materialize(hh_gen, edges.begin());
-            edges.resize(endIt - edges.begin());
-        }
+        StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
+        edge_stream.consume();
 
     }
-    edgeid_t number_of_edges = use_edge_stream ? edge_stream.size() : edges.size();
-    std::cout << "Generated " << number_of_edges << " edges\n";
+    std::cout << "Generated " << edge_stream.size() << " edges\n";
+    
+    if (config.factorNoSwaps > 0) {
+       config.numSwaps = edge_stream.size() * config.factorNoSwaps;
+       std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
+    }   
+
+    if (config.noRuns > 0) {
+       config.runSize = config.numSwaps / config.noRuns + 1;
+       std::cout << "Set runSize = " << config.runSize << std::endl;
+    }
 
     // Build swaps
-    SwapGenerator swap_gen(config.numSwaps, number_of_edges);
-    using swap_vector_t = stxxl::VECTOR_GENERATOR<SwapDescriptor>::result;
-    swap_vector_t swaps;
-    if (config.edgeSwapAlgo == TFP) {
-        IOStatistics swap_report("SwapGenerator");
-        swaps.resize(config.numSwaps);
-
-        auto endIt = stxxl::stream::materialize(swap_gen, swaps.begin());
-        assert(static_cast<size_t>(endIt - swaps.begin()) == config.numSwaps);
-
-    } else {
-        std::cout << "Swap Algo accepts swaps as stream\n";
-    }
+    SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
 
     // Perform edge swaps
     {
 
         IOStatistics swap_report("SwapStats");
         switch (config.edgeSwapAlgo) {
-/*            case IM: {
-                IMEdgeSwap swap_algo(edges);
+            case IM: {
+                IMEdgeSwap swap_algo(edge_stream);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
                 break;
             }
 
             case SEMI: {
-                EdgeSwapInternalSwaps swap_algo(edges, config.runSize);
+                EdgeSwapInternalSwaps swap_algo(edge_stream, config.runSize);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
                 break;
-            } */
+            }
 
             case TFP: {
-                EdgeSwapTFP::EdgeSwapTFP TFPSwaps(edge_stream, swaps);
-                if (config.verbose) TFPSwaps.setDisplayDebug(true);
-                TFPSwaps.run(config.runSize);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize);
+                StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
+                swap_algo.run();
                 break;
             }
 
