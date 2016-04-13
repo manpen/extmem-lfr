@@ -225,8 +225,9 @@ namespace EdgeSwapParallelTFP {
 
         // FIXME make sure that this leads to useful sort buffer sizes!
         const auto existence_request_buffer_size = SORTER_MEM/sizeof(ExistenceRequestMsg)/2;
-        swapid_t batch_size_per_thread = SORTER_MEM/sizeof(ExistenceRequestMsg)/6/2; // assume 6 existence request messages per swap, 4 are minimum and two buffers
-        STXXL_MSG("Batch size per thread in _compute_conflicts: " << batch_size_per_thread);
+        swapid_t batch_size_per_thread = IntScale::Mi;
+        swapid_t num_batches_till_sorter_run = std::max<swapid_t>(1, existence_request_buffer_size / (batch_size_per_thread * 6)); // assume 6 messages per swap - 4 are minimum
+        STXXL_MSG("Batch size per thread in _compute_conflicts: " << batch_size_per_thread << ", perform sorter run every " << num_batches_till_sorter_run << " batches");
 
         struct edge_information_t {
             std::array<std::atomic<bool>, 2> is_set;
@@ -259,7 +260,7 @@ namespace EdgeSwapParallelTFP {
             if (remainder != 0) loop_limit += (_num_threads - remainder);
         }
 
-        for (swapid_t sid_in_batch_base = 0; sid_in_batch_base < loop_limit; sid_in_batch_base += batch_size_per_thread * _num_threads) { // execution of batch starts
+        for (swapid_t sid_in_batch_base = 0, batch_num = 0; sid_in_batch_base < loop_limit; sid_in_batch_base += batch_size_per_thread * _num_threads, ++batch_num) { // execution of batch starts
             swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
             { // todo: put in extra thread!
@@ -449,7 +450,8 @@ namespace EdgeSwapParallelTFP {
                 // finished batch.
 
                 // sort buffer and enqueue sorted buffer to be written out
-                my_existence_request_buffer.finish();
+                if (batch_num % num_batches_till_sorter_run == 0 || sid_in_batch_limit == _num_swaps_in_run)
+                    my_existence_request_buffer.finish();
 
             } // end of parallel section
 
@@ -457,6 +459,10 @@ namespace EdgeSwapParallelTFP {
 
         } // finished processing all swaps of the current run
 
+        #pragma omp parallel
+        {
+            edge_information[omp_get_thread_num()].reset(nullptr);
+        }
 
         for (int tid = 0; tid < _num_threads; ++tid) {
             assert(_swap_direction[tid]->empty());
@@ -465,6 +471,7 @@ namespace EdgeSwapParallelTFP {
 
             dependencies[tid]->rewind();
         }
+
 
         _edge_state.rewind_sorter();
 
@@ -546,8 +553,10 @@ namespace EdgeSwapParallelTFP {
         std::vector< std::unique_ptr< EdgeSwapParallelTFP::ExistencePlaceholderSorter > > &existence_placeholder) {
 
         // FIXME make sure that this leads to useful sort buffer sizes!
-        swapid_t batch_size_per_thread = SORTER_MEM/sizeof(edge_t)/4; // buffer size should be SORTER_MEM/2 and each swap produces up to two edge updates
-        STXXL_MSG("Batch size per thread in _perform_swaps: " << batch_size_per_thread);
+        const auto merger_buffer_size = SORTER_MEM/sizeof(edge_t)/2; // buffer size should be SORTER_MEM/2 and each swap produces up to two edge updates
+        constexpr swapid_t batch_size_per_thread = IntScale::Mi;
+        swapid_t num_batches_till_sorter_run = std::max<swapid_t>(1, (merger_buffer_size * 2) / batch_size_per_thread);
+        STXXL_MSG("Batch size per thread in _perform_swaps: " << batch_size_per_thread << ", perform sorter run every " << num_batches_till_sorter_run << " batches");
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
         // debug only
@@ -577,7 +586,7 @@ namespace EdgeSwapParallelTFP {
 
             source_edges[tid].reset(new std::vector<std::array<edge_t, 2>>(batch_size_per_thread, std::array<edge_t, 2>{edge_t::invalid(), edge_t::invalid()}));
             existence_information[tid].reset(new EdgeExistenceInformation(batch_size_per_thread));
-            edge_update_buffer[tid].reset(new runs_creator_buffer_t(edge_update_runs_creator_thread, batch_size_per_thread * 2));
+            edge_update_buffer[tid].reset(new runs_creator_buffer_t(edge_update_runs_creator_thread, merger_buffer_size));
         }
 
         swapid_t loop_limit = _num_swaps_in_run;
@@ -586,7 +595,7 @@ namespace EdgeSwapParallelTFP {
             if (remainder != 0) loop_limit += (_num_threads - remainder);
         }
 
-        for (swapid_t sid_in_batch_base = 0; sid_in_batch_base < loop_limit; sid_in_batch_base += batch_size_per_thread * _num_threads) { // execution of batch starts
+        for (swapid_t sid_in_batch_base = 0, batch_num = 0; sid_in_batch_base < loop_limit; sid_in_batch_base += batch_size_per_thread * _num_threads, ++batch_num) { // execution of batch starts
             swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
             #pragma omp parallel num_threads(_num_threads)
@@ -802,7 +811,8 @@ namespace EdgeSwapParallelTFP {
                 }
                 // finished batch
 
-                my_edge_update_buffer.finish();
+                if (batch_num % num_batches_till_sorter_run == 0 ||  sid_in_batch_limit == _num_swaps_in_run)
+                        my_edge_update_buffer.finish();
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
                 #pragma omp barrier
