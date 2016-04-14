@@ -18,6 +18,89 @@
 
 namespace EdgeSwapParallelTFP {
 
+        struct edge_information_t {
+            std::array<std::atomic<bool>, 2> is_set;
+            std::array<edge_t, 2> edge;
+            std::array<edge_t*, 2> edges_begin;
+            std::array<edge_t*, 2> edges_end;
+
+            template <typename F>
+            void forEach(unsigned char spos, F f) {
+                assert(is_set[spos]);
+
+                if (edges_begin[spos] == nullptr) {
+                    f(edge[spos]);
+                } else {
+                    for (edge_t* e = edges_begin[spos]; e < edges_end[spos]; ++e) {
+                        f(*e);
+                    }
+                }
+            };
+
+            std::size_t num_edges(unsigned char spos) {
+                assert(is_set[spos]);
+
+                if (edges_begin[spos] == nullptr) {
+                    return 1;
+                } else {
+                    return edges_end[spos] - edges_begin[spos];
+                }
+            };
+
+            void reset(unsigned char spos) {
+                is_set[spos] = false;
+                edge[spos] = edge_t::invalid();
+                edges_begin[spos] = nullptr;
+                edges_end[spos] = nullptr;
+            };
+
+            void wait(unsigned char spos) {
+                while (!is_set[spos].load(std::memory_order_seq_cst)) {
+                    std::this_thread::yield();
+                }
+            };
+        };
+
+
+        struct edge_buffer_t {
+            std::vector<std::vector<edge_t>> buffers;
+            std::size_t cur_buffer, cur_pos;
+            std::size_t buffer_size;
+
+            edge_buffer_t(size_t buffer_size) : cur_buffer(0), cur_pos(0), buffer_size(buffer_size) {
+                buffers.emplace_back(buffer_size);
+            };
+
+            void reset() {
+                cur_buffer = 0;
+                cur_pos = 0;
+            };
+
+            edge_t* start_push(std::size_t num_items) {
+                if (UNLIKELY(cur_pos + num_items > buffers[cur_buffer].size())) {
+                    ++cur_buffer;
+                    cur_pos = 0;
+                    if (buffers.size() > cur_buffer) {
+                        if (UNLIKELY(buffers[cur_buffer].size() < num_items)) {
+                            buffers[cur_buffer].resize(num_items);
+                        }
+                    } else {
+                        buffers.emplace_back(std::max(buffer_size, num_items));
+                    }
+                }
+                return &buffers[cur_buffer][cur_pos];
+            };
+
+            void push(const edge_t& e) {
+                assert(buffers[cur_buffer].size() > cur_pos);
+                buffers[cur_buffer][cur_pos++] = e;
+            };
+
+            edge_t* end_push() {
+                return &buffers[cur_buffer][cur_pos];
+            };
+        };
+
     EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeStream &edges, EdgeSwapBase::swap_vector &, swapid_t swaps_per_iteration) : EdgeSwapParallelTFP(edges, swaps_per_iteration) { }
 
     EdgeSwapParallelTFP::EdgeSwapParallelTFP(EdgeStream &edges, swapid_t swaps_per_iteration, int num_threads) :
@@ -229,10 +312,12 @@ namespace EdgeSwapParallelTFP {
         swapid_t num_batches_till_sorter_run = std::max<swapid_t>(1, existence_request_buffer_size / (batch_size_per_thread * 6)); // assume 6 messages per swap - 4 are minimum
         STXXL_MSG("Batch size per thread in _compute_conflicts: " << batch_size_per_thread << ", perform sorter run every " << num_batches_till_sorter_run << " batches");
 
-        struct edge_information_t {
-            std::array<std::atomic<bool>, 2> is_set;
-            std::array<std::vector<edge_t>, 2> edges;
-        };
+
+        std::vector<DependencyChainEdgeMsg> pq_output_buffer;
+        pq_output_buffer.reserve(batch_size_per_thread * _num_threads * 2); // set an initial size which hopefully prevents some resize operations
+        std::vector<edge_t> pq_edge_buffer;
+
+        std::vector<std::unique_ptr<edge_buffer_t>> edge_forward_buffer(_num_threads);
 
         // pointers are used to make sure that everything is in the memory region of the specific thread
         std::vector<std::unique_ptr<std::vector<edge_information_t>>> edge_information(_num_threads);
@@ -252,6 +337,7 @@ namespace EdgeSwapParallelTFP {
 
             edge_information[tid].reset(new std::vector<edge_information_t>(batch_size_per_thread));
             existence_request_buffer[tid].reset(new runs_creator_buffer_t(existence_request_runs_creator_thread, existence_request_buffer_size));
+            edge_forward_buffer[tid].reset(new edge_buffer_t(batch_size_per_thread));
         }
 
         swapid_t loop_limit = _num_swaps_in_run;
@@ -264,22 +350,64 @@ namespace EdgeSwapParallelTFP {
             swapid_t sid_in_batch_limit = std::min<swapid_t>(_num_swaps_in_run, sid_in_batch_base + batch_size_per_thread * _num_threads);
 
             { // todo: put in extra thread!
-                _edge_state.start_batch(DependencyChainEdgeMsg {pack_swap_id_spos(sid_in_batch_limit, 0), edge_t{-1, -1}});
+                DependencyChainEdgeMsg limit({pack_swap_id_spos(sid_in_batch_limit, 0), edge_t{-1, -1}});
+
+                // read information from sorter, should be most edges
                 for (swapid_t swap_id = sid_in_batch_base, pos = 0; swap_id < sid_in_batch_limit; ++pos) {
                     for (int tid = 0; tid < _num_threads; ++tid, ++swap_id) {
                         edge_information_t& current_edge_info = (*edge_information[tid])[pos];
                         for (unsigned char spos = 0; spos < 2; ++spos) {
-                            assert(_edge_state.empty() || get_swap_id(_edge_state->sid) > swap_id || (get_swap_id(_edge_state->sid) == swap_id && get_swap_spos(_edge_state->sid) >= spos));
-                            while (!_edge_state.empty() && _edge_state->sid == pack_swap_id_spos(swap_id, spos)) {
-                                current_edge_info.edges[spos].push_back(_edge_state->edge);
+                            assert(_edge_state._sorter.empty() || _edge_state._sorter->sid >= pack_swap_id_spos(swap_id, spos));
+
+                            if (!_edge_state._sorter.empty() && _edge_state._sorter->sid == pack_swap_id_spos(swap_id, spos)) {
+                                current_edge_info.edge[spos] = _edge_state._sorter->edge;
                                 current_edge_info.is_set[spos] = true;
-                                ++_edge_state;
+                                ++_edge_state._sorter;
                             }
                         }
                     }
                 }
 
-                assert(_edge_state.empty());
+                assert(_edge_state._sorter.empty() || _edge_state._sorter->sid >= pack_swap_id_spos(sid_in_batch_limit, 0));
+
+                // read information from PQ
+                _edge_state._pq.bulk_pop_limit(pq_output_buffer, limit);
+
+                if (pq_output_buffer.size() > 0) {
+                    pq_edge_buffer.resize(pq_output_buffer.capacity());
+
+                    pq_edge_buffer[0] = pq_output_buffer.front().edge;
+
+                    edge_t* cur_begin = pq_edge_buffer.data();
+                    swapid_t last_sid = pq_output_buffer.front().sid;
+
+                    auto end_buffer = [&](edge_t * endpos) {
+                        swapid_t swap_id = get_swap_id(last_sid);
+                        unsigned char spos = get_swap_spos(last_sid);
+                        int tid = _thread(swap_id);
+                        swapid_t pos = (swap_id - sid_in_batch_base) / _num_threads;
+
+                        edge_information_t & cur_info = (*edge_information[tid])[pos];
+                        cur_info.edges_begin[spos] = cur_begin;
+                        cur_info.edges_end[spos] = endpos;
+                        cur_info.is_set[spos] = true;
+
+                        cur_begin = endpos;
+                    };
+
+                    for (std::size_t i = 1; i < pq_output_buffer.size(); ++i) {
+                        pq_edge_buffer[i] = pq_output_buffer[i].edge;
+
+                        if (last_sid != pq_output_buffer[i].sid) {
+                            end_buffer(pq_edge_buffer.data() + i);
+                            last_sid = pq_output_buffer[i].sid;
+                        }
+                    }
+
+                    end_buffer(pq_edge_buffer.data() + pq_output_buffer.size());
+                }
+
+                _edge_state._pq.bulk_push_begin(100);
             }
 
             #pragma omp parallel num_threads(_num_threads)
@@ -293,6 +421,8 @@ namespace EdgeSwapParallelTFP {
                 auto &dep = *dependencies[tid];
 
                 auto &my_existence_request_buffer = *existence_request_buffer[tid];
+
+                edge_buffer_t & my_edge_forward_buffer = *edge_forward_buffer[tid];
 
                 std::array<std::vector<edge_t>, 2> dd_new_edges;
 
@@ -329,14 +459,11 @@ namespace EdgeSwapParallelTFP {
 
 
                         // ensure that we received at least one state of the edge before the swap
-                        while (!current_edge_info.is_set[spos].load(std::memory_order_seq_cst)) { // busy waiting for other thread to supply information
-                            std::this_thread::yield();
-                        }
+                        current_edge_info.wait(spos);
 
+                        DEBUG_MSG(_display_debug, "SWAP " << sid << " Edge " << spos << " Successor: " << successor_sid[spos] << " States: " << current_edge_info.num_edges(spos));
 
-                        DEBUG_MSG(_display_debug, "SWAP " << sid << " Edge " << spos << " Successor: " << successor_sid[spos] << " States: " << current_edge_info.edges[spos].size());
-
-                        assert(!current_edge_info.edges[spos].empty());
+                        assert(current_edge_info.num_edges(spos) > 0);
 
                         // ensure that dependent swap is in fact a successor (i.e. has larger index)
                         assert(!successor_sid[spos] || get_swap_id(successor_sid[spos]) > sid);
@@ -345,9 +472,13 @@ namespace EdgeSwapParallelTFP {
                     #ifndef NDEBUG
                         if (_display_debug) {
                             std::cout << "Swap " << sid << " edges[0] = [";
-                            for (auto &e : current_edge_info.edges[0]) std::cout << e << " ";
+                            current_edge_info.forEach(0, [&](const edge_t&e) {
+                                std::cout << e << " ";
+                            });
                             std::cout << "] edges[1]= [";
-                            for (auto &e : current_edge_info.edges[1]) std::cout << e << " ";
+                            current_edge_info.forEach(1, [&](const edge_t&e) {
+                                std::cout << e << " ";
+                            });
                             std::cout << "]" << std::endl;
                         }
                     #endif
@@ -356,8 +487,8 @@ namespace EdgeSwapParallelTFP {
                     dd_new_edges[0].clear();
                     dd_new_edges[1].clear();
 
-                    for (auto &e1 : current_edge_info.edges[0]) {
-                        for (auto &e2 : current_edge_info.edges[1]) {
+                    current_edge_info.forEach(0, [&](const edge_t&e1) {
+                        current_edge_info.forEach(1, [&](const edge_t&e2) {
                             edge_t new_edges[2];
                             std::tie(new_edges[0], new_edges[1]) = _swap_edges(e1, e2, direction);
 
@@ -369,8 +500,8 @@ namespace EdgeSwapParallelTFP {
 
                                 DEBUG_MSG(_display_debug, "Swap " << sid << " may yield " << new_edge << " at " << i);
                             }
-                        }
-                    }
+                        });
+                    });
 
                     for (unsigned char spos = 0; spos < 2; spos++) {
                         auto & dd = dd_new_edges[spos];
@@ -382,7 +513,8 @@ namespace EdgeSwapParallelTFP {
 
                         bool has_successor_in_batch = false;
                         bool has_successor_in_other_batch = false;
-                        std::vector<edge_t>* t_edges = nullptr;
+                        edge_information_t* t_information = nullptr;
+                        unsigned char successor_spos = 0;
                         swapid_t successor_pos = 0;
                         int_t successor_tid = 0;
                         if (successor_sid[spos]) {
@@ -391,61 +523,76 @@ namespace EdgeSwapParallelTFP {
                                 has_successor_in_batch = true;
 
                                 successor_pos = (get_swap_id(successor_sid[spos]) - sid_in_batch_base)/_num_threads;
-                                t_edges = &(*edge_information[successor_tid])[successor_pos].edges[get_swap_spos(successor_sid[spos])];
+                                successor_spos = get_swap_spos(successor_sid[spos]);
+                                t_information = &(*edge_information[successor_tid])[successor_pos];
 
-                                t_edges->clear();
-                                t_edges->reserve(current_edge_info.edges[spos].size() + dd.size());
+                                t_information->edges_begin[successor_spos] = my_edge_forward_buffer.start_push(current_edge_info.num_edges(spos) + dd.size());
                             } else {
                                 has_successor_in_other_batch = true;
                             }
                         }
 
-                        auto cur_it = current_edge_info.edges[spos].begin(), cur_end = current_edge_info.edges[spos].end();
                         auto new_it = dd.begin(), new_end = dd.end();
 
                         auto forward_edge = [&](const edge_t &e, bool is_source) {
                             my_existence_request_buffer.push(ExistenceRequestMsg {e, sid, is_source});
 
                             if (UNLIKELY(has_successor_in_other_batch)) {
-                                _edge_state.push_pq(tid, DependencyChainEdgeMsg {successor_sid[spos], e});
+                                _edge_state._pq.bulk_push(DependencyChainEdgeMsg {successor_sid[spos], e}, tid);
                             }
                             if (UNLIKELY(has_successor_in_batch)) {
-                                assert(t_edges != nullptr);
-                                t_edges->push_back(e);
+                                my_edge_forward_buffer.push(e);
                             }
                         };
 
-                        assert(std::is_sorted(cur_it, cur_end));
-                        assert(std::is_sorted(new_it, new_end));
-                        assert(std::unique(cur_it, cur_end) == cur_end);
+                        if (current_edge_info.edges_begin[spos] != nullptr) {
+                            assert(std::is_sorted(current_edge_info.edges_begin[spos], current_edge_info.edges_end[spos]));
+                            assert(std::unique(current_edge_info.edges_begin[spos], current_edge_info.edges_end[spos]) == current_edge_info.edges_end[spos]);
+                        }
 
-                        while (cur_it != cur_end || new_it != new_end) {
-                            if (new_it == new_end || (cur_it != cur_end && *cur_it < *new_it)) {
-                                forward_edge(*cur_it, true);
-                                ++cur_it;
-                            } else {
+                        assert(std::is_sorted(new_it, new_end));
+
+                        current_edge_info.forEach(spos, [&](const edge_t& e) {
+                            auto last_e = edge_t::invalid();
+
+                            while (new_it != new_end && *new_it <= e) {
                                 forward_edge(*new_it, false);
-                                auto last_e = *new_it;
+
+                                last_e = *new_it;
 
                                 do {
                                     ++new_it;
-                                } while (new_it != new_end && *new_it == last_e);
-
-                                if (cur_it != cur_end && *cur_it == last_e) {
-                                    ++cur_it;
-                                }
+                                } while (new_it != new_end && *new_it == last_e); // skip duplicates
                             }
+
+                            if (e != last_e) { // do not forward current edge if equivalent to target edge
+                                forward_edge(e, true);
+                            }
+                        });
+
+                        // forward new edges past the current edges
+                        while (new_it != new_end) {
+                            forward_edge(*new_it, false);
+
+                            auto last_e = *new_it;
+
+                            do {
+                                ++new_it;
+                            } while (new_it != new_end && *new_it == last_e); // skip duplicates
                         }
 
                         if (has_successor_in_batch) {
                             // make sure that the vector is flushed before is_set is updated!
-                            (*edge_information[successor_tid])[successor_pos].is_set[get_swap_spos(successor_sid[spos])].store(true, std::memory_order_seq_cst);
+                            t_information->edges_end[successor_spos] = my_edge_forward_buffer.end_push();
+                            t_information->is_set[successor_spos].store(true, std::memory_order_seq_cst);
                         }
 
-                        current_edge_info.is_set[spos] = false;
-                        current_edge_info.edges[spos].clear();
+                        current_edge_info.reset(spos);
                     }
+
                 }
+
+                my_edge_forward_buffer.reset(); // reset doesn't delete any data, so we do not invalidate data of other threads
 
                 // finished batch.
 
@@ -455,7 +602,7 @@ namespace EdgeSwapParallelTFP {
 
             } // end of parallel section
 
-            _edge_state.end_batch();
+            _edge_state._pq.bulk_push_end();
 
         } // finished processing all swaps of the current run
 

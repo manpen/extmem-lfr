@@ -14,8 +14,11 @@ public:
     using PQ = stxxl::parallel_priority_queue<value_type, pq_comparator_t>;
 private:
     const int _num_threads;
+public:
     PQ _pq;
     sorter_t _sorter;
+
+private:
 
     value_type _cur;
     value_type _limit;
@@ -57,10 +60,11 @@ public:
         _sorter.clear();
     }
 
-    void start_batch(const value_type& limit) {
+    void start_batch(const value_type& limit, bool fetch_data = true) {
         _limit = limit;
         _pq.limit_begin(_limit, 200);
-        fetch_next();
+        if (fetch_data)
+            fetch_next();
     };
 
     bool empty() {
