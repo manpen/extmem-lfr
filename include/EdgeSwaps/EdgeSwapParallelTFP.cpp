@@ -702,7 +702,7 @@ namespace EdgeSwapParallelTFP {
         // FIXME make sure that this leads to useful sort buffer sizes!
         const auto merger_buffer_size = SORTER_MEM/sizeof(edge_t)/2; // buffer size should be SORTER_MEM/2 and each swap produces up to two edge updates
         constexpr swapid_t batch_size_per_thread = IntScale::Mi;
-        swapid_t num_batches_till_sorter_run = std::max<swapid_t>(1, (merger_buffer_size * 2) / batch_size_per_thread);
+        swapid_t num_batches_till_sorter_run = std::max<swapid_t>(1, merger_buffer_size / (batch_size_per_thread * 2));
         STXXL_MSG("Batch size per thread in _perform_swaps: " << batch_size_per_thread << ", perform sorter run every " << num_batches_till_sorter_run << " batches");
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
