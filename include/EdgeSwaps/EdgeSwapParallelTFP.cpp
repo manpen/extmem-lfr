@@ -318,8 +318,9 @@ namespace EdgeSwapParallelTFP {
 
         stxxl::stream::runs_creator<stxxl::stream::from_sorted_sequences<ExistenceRequestMsg>,
         ExistenceRequestComparator, STXXL_DEFAULT_BLOCK_SIZE(ExistenceRequestMsg), STXXL_DEFAULT_ALLOC_STRATEGY> existence_request_runs_creator (ExistenceRequestComparator(), SORTER_MEM);
+        using runs_creator_thread_t = RunsCreatorThread<decltype(existence_request_runs_creator)>;
 
-        RunsCreatorThread<decltype(existence_request_runs_creator)> existence_request_runs_creator_thread(existence_request_runs_creator);
+        std::unique_ptr<runs_creator_thread_t> existence_request_runs_creator_thread(new runs_creator_thread_t(existence_request_runs_creator));
         using runs_creator_buffer_t = RunsCreatorBuffer<decltype(existence_request_runs_creator)>;
 
         std::vector<std::unique_ptr<runs_creator_buffer_t>> existence_request_buffer(_num_threads);
@@ -330,7 +331,7 @@ namespace EdgeSwapParallelTFP {
             int tid = omp_get_thread_num();
 
             edge_information[tid].reset(new std::vector<edge_information_t>(batch_size_per_thread));
-            existence_request_buffer[tid].reset(new runs_creator_buffer_t(existence_request_runs_creator_thread, existence_request_buffer_size));
+            existence_request_buffer[tid].reset(new runs_creator_buffer_t(*existence_request_runs_creator_thread, existence_request_buffer_size));
             edge_forward_buffer[tid].reset(new edge_buffer_t(batch_size_per_thread));
         }
 
@@ -604,12 +605,16 @@ namespace EdgeSwapParallelTFP {
             assert(_swap_direction[tid]->empty());
             _swap_direction[tid]->rewind();
             existence_request_buffer[tid]->flush(); // make sure all requests are processed!
+            existence_request_buffer[tid].reset(nullptr);
 
             dependencies[tid]->rewind();
         }
 
+        existence_request_runs_creator_thread.reset(nullptr);
 
         _edge_state.rewind_sorter();
+
+        #pragma omp flush
 
         requestOutputMerger.initialize(existence_request_runs_creator.result());
     }
@@ -706,7 +711,9 @@ namespace EdgeSwapParallelTFP {
         stxxl::stream::runs_creator<stxxl::stream::from_sorted_sequences<edge_t>,
         EdgeUpdateComparator, STXXL_DEFAULT_BLOCK_SIZE(edge_t), STXXL_DEFAULT_ALLOC_STRATEGY> edge_update_runs_creator (EdgeUpdateComparator(), SORTER_MEM);
 
-        RunsCreatorThread<decltype(edge_update_runs_creator)> edge_update_runs_creator_thread(edge_update_runs_creator);
+        using runs_creator_thread_t = RunsCreatorThread<decltype(edge_update_runs_creator)>;
+
+        std::unique_ptr<runs_creator_thread_t> edge_update_runs_creator_thread(new runs_creator_thread_t(edge_update_runs_creator));
 
         std::vector<std::unique_ptr<std::vector<std::array<edge_t, 2>>>> source_edges(_num_threads);
 
@@ -722,7 +729,7 @@ namespace EdgeSwapParallelTFP {
 
             source_edges[tid].reset(new std::vector<std::array<edge_t, 2>>(batch_size_per_thread, std::array<edge_t, 2>{edge_t::invalid(), edge_t::invalid()}));
             existence_information[tid].reset(new EdgeExistenceInformation(batch_size_per_thread));
-            edge_update_buffer[tid].reset(new runs_creator_buffer_t(edge_update_runs_creator_thread, merger_buffer_size));
+            edge_update_buffer[tid].reset(new runs_creator_buffer_t(*edge_update_runs_creator_thread, merger_buffer_size));
         }
 
         swapid_t loop_limit = _num_swaps_in_run;
@@ -977,12 +984,17 @@ namespace EdgeSwapParallelTFP {
 
         for (int tid = 0; tid < _num_threads; ++tid) {
             edge_update_buffer[tid]->flush();
+            edge_update_buffer[tid].reset(nullptr);
 
             // check message data structures are empty
             assert(edge_dependencies[tid]->empty());
             assert(existence_successor[tid]->empty());
             assert(_swap_direction[tid]->empty());
         }
+
+        edge_update_runs_creator_thread.reset(nullptr);
+
+        #pragma omp flush
 
         _edge_update_merger.initialize(edge_update_runs_creator.result());
     }
