@@ -14,27 +14,29 @@ public:
     using PQ = stxxl::parallel_priority_queue<value_type, pq_comparator_t>;
 private:
     const int _num_threads;
-public:
     PQ _pq;
     sorter_t _sorter;
-
-private:
 
     value_type _cur;
     value_type _limit;
     bool _empty;
 
     void fetch_next() {
-        if (LIKELY(!_sorter.empty()) && *_sorter < _pq.limit_top()) {
+        if (LIKELY(!_sorter.empty()) && (_pq.empty() || *_sorter < _pq.top())) {
             _cur = *_sorter;
-            ++_sorter;
-            _empty = false;
-        } else {
-            _cur = _pq.limit_top();
-            _empty = (_cur == _limit);
+            _empty = (_cur >= _limit);
+
             if (LIKELY(!_empty)) {
-                _pq.limit_pop();
+                ++_sorter;
             }
+        } else if (LIKELY(!_pq.empty())) {
+            _cur = _pq.top();
+            _empty = (_cur >= _limit);
+            if (LIKELY(!_empty)) {
+                _pq.pop();
+            }
+        } else {
+            _empty = true;
         }
     };
 public:
@@ -60,11 +62,13 @@ public:
         _sorter.clear();
     }
 
-    void start_batch(const value_type& limit, bool fetch_data = true) {
+    void start_batch(const value_type& limit) {
         _limit = limit;
-        _pq.limit_begin(_limit, 200);
-        if (fetch_data)
-            fetch_next();
+        fetch_next();
+    };
+
+    void start_push() {
+        _pq.limit_begin(_limit, 100);
     };
 
     bool empty() {
