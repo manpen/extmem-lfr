@@ -3,202 +3,193 @@
 #include <stxxl/bits/common/utils.h>
 
 #include <thread>
-#include <mutex>
-#include <condition_variable>
-
+#include <future>
+#include <chrono>
 #include <vector>
+#include <iostream>
+
+#define ASYNC_STREAM_STATS
 
 template <typename StreamIn, typename T = typename StreamIn::value_type>
 class AsyncStream {
 public:
-    using BufferType = std::vector<T>;
     using value_type = T;
 
 protected:
-    std::vector<BufferType> _buffers;
-    const size_t _buffer_size;
-    std::condition_variable _buffer_cv;
-    std::mutex _buffer_mutex;
+    using BufferType = std::vector<T>;
+    using Iterator = typename BufferType::const_iterator;
+
+    constexpr static double initial_batch_time_factor = 0.2;
+    constexpr static double dampening_factor = 8.0;
 
     // producer port
     StreamIn &  _producing_stream;
-    uint32_t _producing_buffer_index;
-    bool _producing_done;
-    // consumer port
-    uint32_t _consume_buffer_index;
+    BufferType _produce_buffer;
 
-    typename BufferType::const_iterator _consume_read_iterator;
-    typename BufferType::const_iterator _consume_end_iterator;
-    bool _consume_acquired;
+    const double _target_batch_time;
+    double _batch_time;
+    double _last_rate;
+    std::future<std::pair<Iterator, double>> _producer_future;
+
+    // consume port
+    BufferType _consume_buffer;
+    Iterator _consume_iter;
+    Iterator _consume_end;
     bool _consume_empty;
-    bool _consume_empty_when_consumed;
-    bool _consume_done;
 
-    std::thread _producing_thread;
+#ifdef ASYNC_STREAM_STATS
+    uint64_t _stat_wait_for_future;
+    uint64_t _stat_received_buffers;
+    uint64_t _stat_received_elements;
+#endif
 
-    unsigned int _next_buffer_index(unsigned int i) const {
-        return (i+1) % _buffers.size();
+
+    // only directly called in the constructor; otherwise invoked in _receive_buffer
+    void _start_producing() {
+       if (UNLIKELY(_producing_stream.empty())) {
+          _consume_empty = true;
+          return;
+       }
+
+       size_t elements = std::min<size_t>(1 + _last_rate * _batch_time, _produce_buffer.size());
+       _batch_time = _target_batch_time;
+       //std::cout << "Request " << elements << " elements to be produced async" << std::endl;
+
+       _producer_future =  std::async(std::launch::async, [] (StreamIn& stream, BufferType & buf, size_t num) {
+           auto begin = std::chrono::high_resolution_clock::now();
+
+           auto it = buf.begin();
+           for(auto counter=num; counter && !stream.empty(); --counter, ++stream, ++it)
+              *it = *stream;
+
+           auto end = std::chrono::high_resolution_clock::now();
+
+
+           return std::make_pair(Iterator(it), double(num) * 1.0e9 / std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count());
+       }, std::ref(_producing_stream), std::ref(_produce_buffer), elements);
     }
 
-    void _producer_copy_to_buffers() {
-        while(1) {
-            // fill buffer
-            auto & buffer = _buffers[_producing_buffer_index];
-            buffer.reserve(_buffer_size);
-            for(unsigned int i=0; i<_buffer_size && !_producing_stream.empty(); ++i, ++_producing_stream) {
-                buffer.push_back(*_producing_stream);
-            }
+    void _receive_buffer() {
+       if (UNLIKELY(_consume_empty))
+          return;
 
-            // advance to next index (indicate, that the recently filled buffer
-            // is available for consumption)
-            {
-                std::unique_lock<std::mutex> lock(_buffer_mutex);
-                auto next_idx = _next_buffer_index(_producing_buffer_index);
-                _buffer_cv.wait(lock, [&]() {
-                    return _buffers[next_idx].empty() || _consume_done;
-                });
+       double rate;
+       {
+         #ifdef ASYNC_STREAM_STATS
+            auto begin = std::chrono::high_resolution_clock::now();
+         #endif
 
-                if (_consume_done)
-                    break;
+          // wait for produer
+          std::tie(_consume_end, rate) = _producer_future.get();
 
-                if (_producing_stream.empty()) {
-                    _producing_done = true;
-                    _buffer_cv.notify_one();
-                    break;
-                }
+          #ifdef ASYNC_STREAM_STATS
+             auto end = std::chrono::high_resolution_clock::now();
+             _stat_wait_for_future += std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count();
 
-                _producing_buffer_index = next_idx;
-                _buffer_cv.notify_one();
-            }
-        }
+            _stat_received_buffers++;
+            _stat_received_elements += (_consume_end - _produce_buffer.begin());
+          #endif
+       }
+
+
+
+       _last_rate = ((dampening_factor-1) * _last_rate + rate) / dampening_factor;
+       //std::cout << "Got buffer produced at rate " << _last_rate << std::endl;
+
+       // swap buffers and begin reading the consume side
+       std::swap(_consume_buffer, _produce_buffer);
+       _consume_iter = _consume_buffer.cbegin();
+
+       // request the generation of the next buffer
+       _start_producing();
     }
-
-    static void _producer_main(AsyncStream* o) {
-        o->_producer_copy_to_buffers();
-    }
-
-    void _consume_acquire_buffer() {
-        std::unique_lock<std::mutex> lock(_buffer_mutex);
-
-        if (_consume_acquired) {
-            // underfull buffers are only allowed, if the input stream ended
-            if (_consume_empty_when_consumed) {
-                _consume_empty = true;
-                _consume_done = true;
-                return;
-            }
-
-            // indicated, that buffer may be used again
-            _buffers[_consume_buffer_index].clear();
-            _buffer_cv.notify_one();
-
-            // since we are currently holding a buffer, let's give it back
-            // by advancing the consuming index
-            _consume_buffer_index = _next_buffer_index(_consume_buffer_index);
-        }
-
-        _buffer_cv.wait(lock, [&]() {
-            return (_consume_buffer_index != _producing_buffer_index) || _producing_done;
-        });
-
-        _consume_acquired = true;
-
-        _consume_read_iterator = _buffers[_consume_buffer_index].begin();
-        _consume_end_iterator  = _buffers[_consume_buffer_index].end();
-
-        _consume_empty = _buffers[_consume_buffer_index].empty();
-        _consume_empty_when_consumed = _buffers[_consume_buffer_index].size() < _buffer_size;
-
-
-        _buffer_cv.notify_one();
-    }
-
-
-
 
 public:
-    /**
-     * @param stream        The stream producing data
-     * @param auto_acquire  Calls acquire() in constructor and hence offers
-     *                      a STXXL conform streaming interface. Slow!
-     * @param number_of_buffers  Must be >2
-     */
-    AsyncStream(StreamIn & stream,
-                bool auto_acquire = true,
-                unsigned int elements_in_buffer = (1<<20) / sizeof(T),
-                unsigned int number_of_buffers = 3)
-        : _buffers(number_of_buffers)
-        , _buffer_size(elements_in_buffer)
-
-        , _producing_stream(stream)
-        , _producing_buffer_index(0)
-        , _producing_done(false)
-
-        , _consume_buffer_index(0)
-        , _consume_acquired(false)
-        , _consume_empty(false)
-        , _consume_empty_when_consumed(false)
-        , _consume_done(false)
-
-        , _producing_thread(_producer_main, this)
+    //! The block size of every async computation is defined by batch_time in seconds.
+    //! We try to slowly approach it, but a resonably good estimation should be provided.
+    //! The memory for the two blocks is allocated in the constructor and is by default 
+    //! twice the size requiered to fill a buffer at estimated_rate.
+    AsyncStream(StreamIn& stream, bool auto_acquire = true, double estimated_rate = 1.0e7, double batch_time = 0.5, size_t max_buffer_size = 0)
+            : _producing_stream(stream)
+            , _target_batch_time(batch_time)
+            , _batch_time(initial_batch_time_factor * batch_time)
+            , _last_rate(estimated_rate)
+            , _consume_empty(false)
     {
-        assert(number_of_buffers >= 2);
-        if (auto_acquire) acquire();
+       if (!max_buffer_size)
+          max_buffer_size = 2 *  estimated_rate * batch_time;
+
+       _consume_buffer.resize(max_buffer_size);
+       _produce_buffer.resize(max_buffer_size);
+
+       _start_producing();
+       if (auto_acquire)
+          acquire();
     }
 
     ~AsyncStream() {
-        if (_producing_thread.joinable()) {
-            // producer is still running, so stop it
-            {
-                std::unique_lock<std::mutex> lock(_buffer_mutex);
-                _consume_done = true;
-            }
-
-            _buffer_cv.notify_one();
-            _producing_thread.join();
-        }
+       if (_producer_future.valid())
+          _producer_future.wait();
     }
 
-    /**
-     * Call this function BEFORE the first access to the public streaming interface.
-     * Since this operator is blocking, you want to do it as late as possible in order
-     * to give the producer enough time to offer a buffer.
-     */
+    //! Needs to be called before the first access to the streaming interface
     void acquire() {
-        assert(!_consume_acquired);
-        _consume_acquire_buffer();
+       _receive_buffer();
     }
 
-    bool empty() const {
-        assert(_consume_acquired);
-        return _consume_empty;
-    }
+    //! Intended to be use when input stream run empty and was restarted externally
+    //! Behavior only define if empty() == true. Then, the stream is restarted.
+    //! Otherwise it is stopped somewhere and restarted.
+    //! @warning You have to call acquire again
+    void restart(bool auto_acquire) {
+       if (_producer_future.valid())
+          _producer_future.wait();
 
-    const T&operator*() const {
-        assert(_consume_acquired);
-        return *_consume_read_iterator;
+       _batch_time = _target_batch_time * initial_batch_time_factor;
+       _start_producing();
+       _consume_empty = false;
+
+
+       if (auto_acquire)
+          acquire();
     }
 
     AsyncStream& operator++() {
-        if (UNLIKELY(!_consume_acquired))
-            _consume_acquire_buffer();
+       ++_consume_iter;
 
-        if (UNLIKELY(++_consume_read_iterator == _consume_end_iterator)) {
-            _consume_acquire_buffer();
-        }
+       if (UNLIKELY(_consume_iter == _consume_end)) {
+          _receive_buffer();
+       }
 
-        return *this;
+       return *this;
     }
 
+    const value_type & operator*() const {
+       assert(!_consume_empty);
+       assert(_consume_iter != _consume_end);
 
-    BufferType & readBuffer() {
-        if (UNLIKELY(!_consume_acquired))
-            _consume_acquire_buffer();
-
-        return _buffers[_consume_buffer_index];
+       return *_consume_iter;
     }
 
-    void nextBuffer() {
-        _consume_acquire_buffer();
+    bool empty() {
+       return _consume_empty && _consume_iter == _consume_end;
+    }
+
+    void report_stats(const std::string & name) {
+#ifdef ASYNC_STREAM_STATS
+        std::cout << name << ": ";
+        report_stats();
+#endif
+    }
+
+    void report_stats() {
+#ifdef ASYNC_STREAM_STATS
+        std::cout << "AsyncStream received " << _stat_received_elements << " elements in "
+                  << _stat_received_buffers << " buffers. Waited for future " << _stat_wait_for_future << "ms. "
+                     "Last rate: " << _last_rate
+        << std::endl;
+#endif
     }
 };
+
+      
