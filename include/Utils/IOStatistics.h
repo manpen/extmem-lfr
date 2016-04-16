@@ -17,7 +17,9 @@ public:
 
     IOStatistics(const std::string& prefix, stxxl::stats & stats = *stxxl::stats::get_instance())
           : _prefix(prefix), _stats(stats), _begin(stats)
-    {}
+    {
+
+    }
 
     ~IOStatistics() {
         if (!_prefix.empty())

@@ -41,7 +41,8 @@ private:
         } else if (UNLIKELY(_sorter.empty())) {
             _value = _pq.top();
             _value_src = SrcPriorityQueue;
-        } else if (_comp(_pq.top(), *_sorter)) {
+        } else if (LIKELY(_comp(_pq.top(), *_sorter))) {
+           // in typical use-case, the PQ is used less than the sorter
             _value = *_sorter;
             _value_src = SrcSorter;
         } else {

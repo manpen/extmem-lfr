@@ -59,7 +59,7 @@ public:
 
     //! Clear structure and switch into write mode
     void clear() {
-        _em_buffer.reset(new em_buffer_t);
+        _em_buffer.reset(new em_buffer_t(16, 16));
         _reader.release();
 
         _mode = WRITING;
@@ -75,7 +75,7 @@ public:
         _remaining_bits--;
         _items_consumable++;
 
-        if (!_remaining_bits) {
+        if (UNLIKELY(!_remaining_bits)) {
             _em_buffer->push_back(_buffered_word);
             _remaining_bits = _max_bits_buffer;
         }

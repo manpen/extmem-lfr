@@ -77,7 +77,7 @@ public:
         _mode = WRITING;
         _current_out_node = 0;
         _number_of_edges = 0;
-        _em_buffer.reset(new em_buffer_t);
+        _em_buffer.reset(new em_buffer_t(16, 16));
         _em_reader.release();
     }
 
