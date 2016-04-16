@@ -104,7 +104,7 @@ namespace EdgeSwapTFP {
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
-        constexpr static bool compute_stats = false;
+        constexpr static bool compute_stats = true;
         constexpr static bool produce_debug_vector=true;
         constexpr static bool _async_processing = false;
 
@@ -246,7 +246,20 @@ namespace EdgeSwapTFP {
 
 
 
-        void push(const SwapDescriptor &);
+        void push(const SwapDescriptor & swap) {
+           // Every swap k to edges i, j sends one message (edge-id, swap-id) to each edge.
+           // We then sort the messages lexicographically to gather all requests to an edge
+           // at the same place.
+
+           _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[0], _next_swap_id_pushing++));
+           _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
+           _swap_directions_pushing.push(swap.direction());
+
+           if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
+               _start_processing();
+        }
+
+
 
         void run();
     };
