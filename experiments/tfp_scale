@@ -1,0 +1,36 @@
+#!/bin/bash
+export OMP_NUM_THREADS=6
+
+for i in 1 2 3 4 5; do
+for n in 10m 16m 31m 56m 100m 160m 310m; do
+    echo $n
+    ./pa_edge_swaps -n $n -a 18 -b 5000 -e TFP -s 1 -x 1 -y 8 > tfp_scale/run${n}_${i}.orig
+done
+done
+
+cd tfp_scale
+
+buildf=$(mktemp -p.)
+sortf=$(mktemp -p.)
+
+
+for f in run*.orig; do
+   nnodes=$(grep '\-\-num\-nodes' -m1 $f | perl -pe 's/^\D*(\d+(\.\d+)?).*$/$1/g')
+   nswaps=$(grep "Set numSwaps =" $f | perl -pe 's/^\D*(\d+(\.\d+)?).*$/$1/g')
+   hhtime=$(grep "HHEdges:  Time since the last reset" $f | perl -pe 's/^\D*(\d+(\.\d+)?).*$/$1/g')
+   tfptime=$(grep "SwapStats:  Time since the last reset" $f | perl -pe 's/^\D*(\d+(\.\d+)?).*$/$1/g')
+ 
+   chkstr="|$nnodes|$nswaps|$hhtime|$tfptime|" 
+   echo $chkstr
+
+   if [[ $chkstr == *"||"* ]]; then
+      echo "$f looks incomplete; skip";
+   else
+      echo "$nnodes $nswaps $hhtime $tfptime" >> $buildf
+   fi
+done
+
+sort -n $buildf > $sortf
+cat $sortf | ../../tools/stat.pl 0 0.1 > runtime_sweep_tfp.dat
+
+rm $buildf $sortf
