@@ -123,6 +123,8 @@ namespace EdgeSwapParallelTFP {
                 }
                 runs_creator.finish();
 
+                #pragma omp flush
+
                 promise.set_value(std::move(requests));
             };
 
@@ -216,6 +218,8 @@ namespace EdgeSwapParallelTFP {
 
             // make sure the old buffer has been written
             flush();
+
+            #pragma omp flush
 
             auto f = _runs_creator_thread.enqueue_task(std::move(_buffer));
             if (_future.valid()) {
