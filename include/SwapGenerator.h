@@ -7,7 +7,7 @@
  */
 
 #pragma once
-#include <random>
+#include <stxxl/random>
 #include "Swaps.h"
 
 class SwapGenerator {
@@ -21,20 +21,15 @@ protected:
     int64_t _current_number_of_swaps;
     value_type _current_swap;
 
-
-    std::default_random_engine  _random_gen;
-    std::uniform_int_distribution<edgeid_t> _random_edge;
-
-    using flag_word_t = std::default_random_engine::result_type;
     unsigned int _flag_bits_remaining = 0;
-    flag_word_t _flag_bits;
+    uint64_t _flag_bits;
+    stxxl::random_number64 _random_integer;
 
 public:
     SwapGenerator(int64_t number_of_swaps, int64_t edges_in_graph)
         : _number_of_edges_in_graph(edges_in_graph)
         , _requested_number_of_swaps(number_of_swaps)
         , _current_number_of_swaps(0)
-        , _random_edge(0, edges_in_graph-1)
     {
         assert(_number_of_edges_in_graph > 1);
         ++(*this);
@@ -51,9 +46,9 @@ public:
     SwapGenerator& operator++() {
         _current_number_of_swaps++;
 
-        if (!UNLIKELY(_flag_bits_remaining)) {
-            _flag_bits_remaining = 8 * sizeof(flag_word_t);
-            _flag_bits = _random_gen();
+        if (!_flag_bits_remaining) {
+            _flag_bits_remaining = 8 * sizeof(_flag_bits);
+            _flag_bits = _random_integer();
         } else {
             _flag_bits >>= 1;
             --_flag_bits_remaining;
@@ -61,8 +56,8 @@ public:
 
         while (1) {
             // generate two disjoint random edge ids
-            edgeid_t e1 = _random_edge(_random_gen);
-            edgeid_t e2 = _random_edge(_random_gen);
+            edgeid_t e1 = _random_integer(_number_of_edges_in_graph);
+            edgeid_t e2 = _random_integer(_number_of_edges_in_graph);
             if (e1 == e2) continue;
 
             // direction flag
