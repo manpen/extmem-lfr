@@ -45,7 +45,14 @@ sub print_stats {
    print (scalar @{$points->[0]});
 
    for my $col (@$points) {
-      printf("     %15.2f %5.2f", mean($col), stddev($col));
+      my $m = mean($col);
+      my $s = stddev($col);
+      if ( abs($m) > 10.0 ) {
+        printf("     %15.2f %5.2f", $m, $s);
+      } else {
+        printf("     %1.16f %1.6f", $m, $s);
+      }      
+        
    }
 
    print "\n"
