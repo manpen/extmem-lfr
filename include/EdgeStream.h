@@ -33,8 +33,8 @@ public:
 
     ~EdgeStream() {
         // in this order ;)
-        _em_reader.release();
-        _em_buffer.release();
+        _em_reader.reset(nullptr);
+        _em_buffer.reset(nullptr);
     }
 
     EdgeStream(EdgeStream&&) = default;
@@ -77,8 +77,8 @@ public:
         _mode = WRITING;
         _current_out_node = 0;
         _number_of_edges = 0;
+        _em_reader.reset(nullptr);
         _em_buffer.reset(new em_buffer_t(16, 16));
-        _em_reader.release();
     }
 
     //! Number of edges available if rewind was called
