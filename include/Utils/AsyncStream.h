@@ -165,13 +165,12 @@ public:
     }
 
     const value_type & operator*() const {
-       assert(!_consume_empty);
-       assert(_consume_iter != _consume_end);
+       assert(!empty());
 
        return *_consume_iter;
     }
 
-    bool empty() {
+    bool empty() const {
        return _consume_empty && _consume_iter == _consume_end;
     }
 
