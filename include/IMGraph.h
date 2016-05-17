@@ -156,7 +156,7 @@ public:
         if (v >= _h && degree(u) > degree(v)) std::swap(u, v);
 
         for (edgeid_t i = _first_head[u-_h]; i < _last_head[u-_h]; ++i) {
-            if (UNLIKELY(_head[i] == v)) {
+            if (UNLIKELY(static_cast<node_t>(_head[i]) == v)) {
                 return true;
             }
         }
