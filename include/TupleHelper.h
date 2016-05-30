@@ -76,7 +76,7 @@ class GenericComparatorStruct {
    using tuple_with_removed_refs = std::tuple<typename std::remove_reference<Ts>::type...>;
 
    template <typename... Ts>
-   static tuple_with_removed_refs<Ts...> remove_ref_from_tuple_members(std::tuple<Ts...> const& t) {
+   static tuple_with_removed_refs<Ts...> remove_ref_from_tuple_members(std::tuple<Ts...> const&) {
       return tuple_with_removed_refs<Ts...> { };
    }
 
