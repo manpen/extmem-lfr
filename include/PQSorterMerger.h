@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <cassert>
 
 enum PQSorterMergerSourceType {SrcPriorityQueue, SrcSorter};
 
@@ -14,13 +15,13 @@ enum PQSorterMergerSourceType {SrcPriorityQueue, SrcSorter};
  *
  * The value type and comparator are derived from the PQ.
  */
-template <class PQ, class Sorter, bool compute_stats = false>
+template <class PQ, class Sorter, bool compute_stats = false, class comp_type = typename PQ::comparator_type>
 class PQSorterMerger {
 public:
     using value_type = typename PQ::value_type;
 
 private:
-    using Comp = typename PQ::comparator_type;
+    using Comp = comp_type;
     PQ& _pq;
     Sorter& _sorter;
     Comp _comp;
