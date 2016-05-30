@@ -61,7 +61,8 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
                     // generate swap with random partner
                     edgeid_t eid1 = _random_integer(_num_edges);
 
-                    _swap = SemiLoadedSwapDescriptor {edge_t {(*_edge_community_output_sorter)->tail, (*_edge_community_output_sorter)->head}, eid1, _random_flag(2)};
+                    _swap = SemiLoadedSwapDescriptor {edge_t {(*_edge_community_output_sorter)->tail, (*_edge_community_output_sorter)->head}, eid1, *_bool_stream};
+                    ++_bool_stream;
 
                     while (!(*_edge_community_output_sorter).empty() && edgeComIsCurrentEdge()) {
                         ++(*_edge_community_output_sorter);

@@ -5,6 +5,7 @@
 #include <GenericComparator.h>
 #include <memory>
 #include <stxxl/sequence>
+#include <Utils/RandomBoolStream.h>
 
 class GlobalRewiringSwapGenerator {
 public:
@@ -30,7 +31,8 @@ private:
     std::unique_ptr<edge_community_sorter_t> _edge_community_input_sorter;
     std::unique_ptr<edge_community_sorter_t> _edge_community_output_sorter;
     edgeid_t _num_edges;
-    stxxl::random_number32 _random_flag;
+
+    RandomBoolStream _bool_stream;
     stxxl::random_number64 _random_integer;
     std::vector<community_t> _current_communities;
     node_t _current_node;
