@@ -3,7 +3,7 @@
 #include <LFR/GlobalRewiringSwapGenerator.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
-#include <EdgeSwaps/EdgeSwapParallelTFP.h>
+#include <EdgeSwaps/EdgeSwapTFP.h>
 #include <SwapGenerator.h>
 #include <Utils/AsyncStream.h>
 #include <Utils/StreamPusher.h>
@@ -35,16 +35,15 @@ namespace LFR {
 
             gen.generate();
 
-            _inter_community_edges.resize(degree_sum/2);
-            auto endIt = stxxl::stream::materialize(gen, _inter_community_edges.begin());
-            _inter_community_edges.resize(endIt - _inter_community_edges.begin());
-
+            _inter_community_edges.clear();
+            StreamPusher<decltype(gen), decltype(_inter_community_edges)> (gen, _inter_community_edges);
+            _inter_community_edges.consume();
         }
 
 
 
         { // regular edge swaps
-            EdgeSwapParallelTFP::EdgeSwapParallelTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
+            EdgeSwapTFP::EdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
             // Generate swaps
             uint_t numSwaps = 10*_inter_community_edges.size();
             SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
@@ -57,7 +56,9 @@ namespace LFR {
             EdgeSwapInternalSwaps swapAlgo(_inter_community_edges, globalSwapsPerIteration);
 
             GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, _inter_community_edges.size());
-            rewiringSwapGenerator.pushEdges(stxxl::vector<edge_t>::bufreader_type(_inter_community_edges));
+            _inter_community_edges.rewind();
+            rewiringSwapGenerator.pushEdges(_inter_community_edges);
+            _inter_community_edges.rewind();
             rewiringSwapGenerator.generate();
 
             swapAlgo.setUpdatedEdgesCallback([&rewiringSwapGenerator](const std::vector<edge_t> & updatedEdges) {

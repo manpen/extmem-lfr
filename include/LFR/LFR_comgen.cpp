@@ -1,7 +1,6 @@
 #include "LFR.h"
 #include "CommunityEdgeRewiringSwaps.h"
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
-#include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <SwapGenerator.h>
 #include <stxxl/vector>
 #include <stxxl/sorter>
@@ -9,6 +8,8 @@
 #include <EdgeSwaps/IMEdgeSwap.h>
 #include <Utils/AsyncStream.h>
 #include <omp.h>
+#include <EdgeSwaps/EdgeSwapTFP.h>
+#include <Utils/StreamPusher.h>
 
 namespace LFR {
     void LFR::_generate_community_graphs() {
@@ -98,56 +99,35 @@ namespace LFR {
                         edgeSorter.push(CommunityEdge(com, e));
                     }
                 } else {
-                    stxxl::vector<edge_t> intra_edges(degree_sum/2);
+                    EdgeStream intra_edges;
 
-                    available_memory -= SORTER_MEM; // internal swaps need a sorter! and we made sure there is memory for one.
-
-                    // FIXME check if this can be eliminated, i.e. if output is already sorted!
-                    {
-                        stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
-
-                        while (!gen.empty()) {
-                            if (gen->first < gen->second) {
-                                intra_edgeSorter.push(edge_t {gen->first, gen->second});
-                            } else {
-                                intra_edgeSorter.push(edge_t {gen->second, gen->first});
-                            }
-
-                            ++gen;
-                        }
-
-                        intra_edgeSorter.sort();
-                        auto endIt = stxxl::stream::materialize(intra_edgeSorter, intra_edges.begin());
-                        intra_edges.resize(endIt - intra_edges.begin());
-                    }
-
-                    int_t swapsPerIteration = std::min<int_t>(intra_edges.size() / 4, (available_memory)/100);
-                    if (swapsPerIteration*100 < static_cast<int_t>(intra_edges.size())) {
-                        STXXL_ERRMSG("With the given memory, more than 1000 swap iterations are required! Consider increasing the amount of available memory.");
+                    for (; !gen.empty(); ++gen) {
+                        assert(gen->first < gen->second);
+                        intra_edges.push(*gen);
                     }
 
                     // Generate swaps
                     uint_t numSwaps = 10*intra_edges.size();
-                    SwapGenerator swapGen(numSwaps, intra_edges.size());
+                    SwapGenerator swap_gen(numSwaps, intra_edges.size());
+
+                    uint_t run_length = intra_edges.size() / 8;
 
                     // perform swaps
-                    EdgeSwapInternalSwaps swapAlgo(intra_edges, swapsPerIteration);
+                    EdgeSwapTFP::EdgeSwapTFP swap_algo(intra_edges, run_length);
 
-                    AsyncStream<SwapGenerator> astream(swapGen, true, swapsPerIteration, 2);
-                    for(; !astream.empty(); astream.nextBuffer())
-                        swapAlgo.swap_buffer(astream.readBuffer());
+                    StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
 
-                    swapAlgo.run();
+                    swap_algo.run();
 
-                    decltype(intra_edges)::bufreader_type edge_reader(intra_edges);
+                    intra_edges.rewind();
 
                     if (internalNodes) {
                         #pragma omp critical (_edgeSorter)
-                        while (!edge_reader.empty()) {
-                            edge_t e = {node_ids[edge_reader->first], node_ids[edge_reader->second]};
+                        while (!intra_edges.empty()) {
+                            edge_t e = {node_ids[intra_edges->first], node_ids[intra_edges->second]};
                             e.normalize();
                             edgeSorter.push(CommunityEdge(com, e));
-                            ++edge_reader;
+                            ++intra_edges;
                         }
                     } else { // external memory mapping with an additional sort step
                         stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> intra_edgeSorter(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
@@ -156,9 +136,9 @@ namespace LFR {
                             decltype(external_node_ids)::bufreader_type node_id_reader(external_node_ids);
 
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
-                                while (!edge_reader.empty() && edge_reader->first == u) {
-                                    intra_edgeSorter.push(edge_t {edge_reader->second, *node_id_reader});
-                                    ++edge_reader;
+                                while (!intra_edges.empty() && intra_edges->first == u) {
+                                    intra_edgeSorter.push(edge_t {intra_edges->second, *node_id_reader});
+                                    ++intra_edges;
                                 }
                             }
                         }

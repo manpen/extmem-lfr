@@ -8,6 +8,7 @@
 #include <Utils/MonotonicPowerlawRandomStream.h>
 #include <stxxl/sorter>
 #include <stxxl/vector>
+#include <EdgeStream.h>
 
 //#define LFR_TESTING
 
@@ -148,8 +149,8 @@ protected:
     stxxl::vector<CommunityAssignment> _community_assignments;
 
     stxxl::vector<CommunityEdge> _intra_community_edges;
-    stxxl::vector<edge_t> _inter_community_edges;
-    stxxl::vector<edge_t> _edges;
+    EdgeStream _inter_community_edges;
+    EdgeStream _edges;
 
     /// Get community size based on _community_cumulative_sizes
     node_t _community_size(community_t com) const {
