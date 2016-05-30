@@ -4,6 +4,7 @@
 #include <Swaps.h>
 #include <GenericComparator.h>
 #include <memory>
+#include <stxxl/sequence>
 
 class GlobalRewiringSwapGenerator {
 public:
@@ -23,9 +24,9 @@ public:
     };
 
 private:
-    stxxl::vector<NodeCommunity> _node_communities;
+    stxxl::sequence<NodeCommunity> _node_communities;
     using edge_community_sorter_t = stxxl::sorter<EdgeCommunity, GenericComparatorStruct<EdgeCommunity>::Ascending>;
-    std::unique_ptr<stxxl::vector<NodeCommunity>::bufreader_type> _node_community_reader; // when storing this by value, the end iterator is initialized too early...
+    std::unique_ptr<stxxl::sequence<NodeCommunity>::stream> _node_community_reader; // when storing this by value, the end iterator is initialized too early...
     std::unique_ptr<edge_community_sorter_t> _edge_community_input_sorter;
     std::unique_ptr<edge_community_sorter_t> _edge_community_output_sorter;
     edgeid_t _num_edges;
@@ -58,7 +59,7 @@ public:
             _edge_community_input_sorter.reset(new edge_community_sorter_t(edge_community_sorter_t::cmp_type(), SORTER_MEM));
         }
 
-        decltype(_node_communities)::bufreader_type nodeCommunityReader(_node_communities);
+        decltype(_node_communities)::stream nodeCommunityReader(_node_communities);
 
         std::vector<community_t> currentCommunities;
 
@@ -66,8 +67,8 @@ public:
         for (node_t u = 0; !nodeCommunityReader.empty(); ++u) {
             currentCommunities.clear();
             // read all communities from sorter
-            while (!nodeCommunityReader.empty() && nodeCommunityReader->node == u) {
-                currentCommunities.push_back(nodeCommunityReader->community);
+            while (!nodeCommunityReader.empty() && (*nodeCommunityReader).node == u) {
+                currentCommunities.push_back((*nodeCommunityReader).community);
                 ++nodeCommunityReader;
             }
 
