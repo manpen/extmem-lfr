@@ -27,7 +27,7 @@ TEST_F(TestSemiLoadedSwaps, testOnlySemiLoadedSwaps) {
 
     auto & debug = algo.debugVector();
 
-    ASSERT_EQ(debug.size(), 4);
+    ASSERT_EQ(debug.size(), 4U);
 
     ASSERT_TRUE(debug[0].performed);
     ASSERT_TRUE(debug[1].performed);
