@@ -19,7 +19,7 @@ struct NodeDegreeMembership {
     // second parameter can be used to support non-equal distribution
     // eg to get rid of rounding induced quantization
     degree_t intraCommunityDegree(double mixing, community_t com) const {
-        assert(memberships >= 0);
+        assert(memberships > 0);
         auto intraDegree = totalInternalDegree(mixing);
         return intraDegree/memberships + ((intraDegree%memberships) > com);
     }
