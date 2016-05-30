@@ -97,6 +97,12 @@ public:
         return _current;
     }
 
+    const value_type* operator->() const {
+        assert(READING == _mode);
+        return &_current;
+    }
+
+
     EdgeStream& operator++() {
         assert(READING == _mode);
         assert(!_empty);
