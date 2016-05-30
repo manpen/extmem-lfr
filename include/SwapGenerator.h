@@ -9,6 +9,7 @@
 #pragma once
 #include <stxxl/random>
 #include "Swaps.h"
+#include <Utils/RandomBoolStream.h>
 
 class SwapGenerator {
 public:
@@ -21,15 +22,16 @@ protected:
     int64_t _current_number_of_swaps;
     value_type _current_swap;
 
-    unsigned int _flag_bits_remaining = 0;
-    uint64_t _flag_bits;
     stxxl::random_number64 _random_integer;
+
+    RandomBoolStream _bool_stream;
 
 public:
     SwapGenerator(int64_t number_of_swaps, int64_t edges_in_graph)
         : _number_of_edges_in_graph(edges_in_graph)
         , _requested_number_of_swaps(number_of_swaps)
         , _current_number_of_swaps(0)
+        , _bool_stream(_random_integer)
     {
         assert(_number_of_edges_in_graph > 1);
         ++(*this);
@@ -46,13 +48,7 @@ public:
     SwapGenerator& operator++() {
         _current_number_of_swaps++;
 
-        if (!_flag_bits_remaining) {
-            _flag_bits_remaining = 8 * sizeof(_flag_bits);
-            _flag_bits = _random_integer();
-        } else {
-            _flag_bits >>= 1;
-            --_flag_bits_remaining;
-        }
+        ++_bool_stream;
 
         while (1) {
             // generate two disjoint random edge ids
@@ -61,7 +57,7 @@ public:
             if (e1 == e2) continue;
 
             // direction flag
-            bool dir = _flag_bits & 1;
+            bool dir = *_bool_stream;
 
             _current_swap = {e1, e2, dir};
             return *this;
