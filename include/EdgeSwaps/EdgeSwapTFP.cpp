@@ -242,6 +242,22 @@ namespace EdgeSwapTFP {
                 // ensure that dependent swap is in fact a successor (i.e. has larger index)
                 assert(successors[i] == 0 || successors[i] > sid);
             }
+
+            if (UNLIKELY(edges[0].front().is_invalid() || edges[1].front().is_invalid())) {
+                for (unsigned char i = 0; i < 2; ++i) {
+                    if (successors[i]) {
+                        assert(!edges[i].front().is_invalid());
+
+                        // do not send the first edge as it is already in the sorter
+                        for (size_t j = 1; j < edges[i].size(); ++j) {
+                            _dependency_chain_pq.push(DependencyChainEdgeMsg{successors[i], edges[i][j]});
+                        }
+                        depchain_pqsort.update();
+                    }
+                }
+                continue;
+            }
+
             // ensure that all messages to this swap have been consumed
             assert(depchain_pqsort.empty() || (*depchain_pqsort).swap_id > sid);
 
@@ -530,8 +546,16 @@ namespace EdgeSwapTFP {
                 ));
             }
 
-            // compute swapped edges
-            std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], *_swap_directions);
+            // in the case of invalid swaps (i.e. one edge is invalid) do perform forwarding for the other edge! Note that we did not produce any existence requests, so we don't need to care about them.
+            bool edge_invalid = false;
+            if (UNLIKELY(edges[0].is_invalid() || edges[1].is_invalid())) {
+                new_edges[0] = edges[0];
+                new_edges[1] = edges[1];
+                edge_invalid = true;
+            } else {
+                // compute swapped edges
+                std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], *_swap_directions);
+            }
 
             #ifndef NDEBUG
                 if (_display_debug) {
@@ -559,6 +583,8 @@ namespace EdgeSwapTFP {
                         }
                     #endif
                 }
+                // when an edge is invalid, there should be no existence information
+                assert(!edge_invalid || (existence_infos.empty() && missing_infos.empty()));
             }
 
             #ifndef NDEBUG
@@ -592,8 +618,8 @@ namespace EdgeSwapTFP {
                 counter_loop += loop;
             }
 
-            // write out debug message
-            if (produce_debug_vector) {
+            // write out debug message if the swap is not invalid
+            if (produce_debug_vector && !edge_invalid) {
                 SwapResult res;
                 res.performed = perform_swap;
                 res.loop = loop;
@@ -631,7 +657,8 @@ namespace EdgeSwapTFP {
 
             // send current state of edge iff there are no successors to this edge
             for(unsigned int i=0; i<2; i++) {
-                if (!successor_found[i]) {
+                // only forward valid edges!
+                if (!successor_found[i] && LIKELY(!edges[i + 2 * perform_swap].is_invalid())) {
                     _edge_update_sorter.push(edges[i + 2*perform_swap]);
                 }
             }
