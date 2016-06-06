@@ -724,11 +724,14 @@ namespace EdgeSwapTFP {
 
         if (!_edge_swap_sorter->size()) {
             // there are no swaps - let's see whether there are pending updates
-            if ( !_edge_update_sorter.empty()) {
+            if (_edge_update_sorter.size()) {
                 UpdateStream update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
                 update_stream.finish();
                 _edges.rewind();
             }
+            _edge_update_sorter.clear();
+
+            _reset();
 
             return;
         }
@@ -811,5 +814,6 @@ namespace EdgeSwapTFP {
     void EdgeSwapTFP::run() {
         _start_processing();
         _start_processing(false);
+        _first_run = true;
     }
 };
