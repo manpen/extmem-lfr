@@ -23,8 +23,8 @@
  * @see HavelHakimiNodeDegree::ComparatorLess
  */
 struct HavelHakimiNodeDegree {
-    stxxl::int64 node;    ///< node index
-    stxxl::int64 degree;  ///< node degree
+    node_t node;    ///< node index
+    degree_t degree;  ///< node degree
 
     bool operator < (const HavelHakimiNodeDegree & o) const { return std::tie(degree, node) < std::tie(o.degree, o.node); }
     
@@ -37,7 +37,7 @@ struct HavelHakimiNodeDegree {
      */
     struct ComparatorLess {
         bool operator () (const HavelHakimiNodeDegree& a, const HavelHakimiNodeDegree & b) const { return a < b; }
-        HavelHakimiNodeDegree min_value() const { return {0LL, std::numeric_limits<stxxl::int64>::min()}; }
+        HavelHakimiNodeDegree min_value() const { return {0LL, std::numeric_limits<node_t>::min()}; }
     };
 };
 
@@ -191,7 +191,7 @@ public:
     {
         numEdges = 0;
 
-        stxxl::int64 u = 0;
+        node_t u = 0;
         for (; !degrees.empty(); ++degrees, ++u) {
             if (*degrees > 0) {
                 prioQueue.push({u, *degrees});

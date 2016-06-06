@@ -42,15 +42,15 @@ private:
     using node_degree_stack_type = typename stxxl::STACK_GENERATOR<node_block_type, stxxl::external, stxxl::grow_shrink>::result;
     node_degree_stack_type _buffer;
 
-    int_t _current_node;
-    int_t _current_node_degree;
+    node_t _current_node;
+    degree_t _current_node_degree;
     int_t _current_partner_block_nodes_left;
-    int_t _current_partner_node;
+    node_t _current_partner_node;
     
     value_type _current_edge;
 
     int_t _num_edges;
-    int_t _edge_id;
+    edgeid_t _edge_id;
 
     bool _empty;
 

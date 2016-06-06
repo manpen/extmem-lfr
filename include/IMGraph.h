@@ -104,7 +104,7 @@ public:
      */
     edge_t getEdge(edgeid_t eid) const {
         auto &idx = _edge_index[eid];
-        edge_t result= {idx.first.index, idx.second.index};
+        edge_t result= {static_cast<node_t>(idx.first.index), static_cast<node_t>(idx.second.index)};
 
         if (!idx.first.index_is_node) {
             result.first = _head[result.first];
