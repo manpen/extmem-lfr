@@ -169,7 +169,7 @@ namespace LFR {
 
         assignments.sort();
         _community_assignments.resize(assignments.size());
-        stxxl::stream::materialize(assignments, _community_assignments.begin());
+        stxxl::stream::materialize(assignments, _community_assignments.begin(), _community_assignments.end());
 
         {
             _community_cumulative_sizes.push_back(0);
