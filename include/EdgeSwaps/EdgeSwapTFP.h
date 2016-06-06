@@ -200,9 +200,9 @@ namespace EdgeSwapTFP {
         }
 
         bool _first_run;
-        void _process_swaps();
+        virtual void _process_swaps();
 
-        void _start_processing(bool async = true);
+        virtual void _start_processing(bool async = true);
         std::thread _process_thread;
 
     public:

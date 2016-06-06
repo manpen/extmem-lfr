@@ -2,8 +2,7 @@
 #include "GlobalRewiringSwapGenerator.h"
 #include <LFR/GlobalRewiringSwapGenerator.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
-#include <EdgeSwaps/EdgeSwapInternalSwaps.h>
-#include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/SemiLoadedEdgeSwapTFP.h>
 #include <SwapGenerator.h>
 #include <Utils/AsyncStream.h>
 #include <Utils/StreamPusher.h>
@@ -43,26 +42,23 @@ namespace LFR {
 
 
         { // regular edge swaps
-            EdgeSwapTFP::EdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
+            EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
             // Generate swaps
             uint_t numSwaps = 10*_inter_community_edges.size();
             SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
 
             StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
             swapAlgo.run();
-        }
 
-        { // rewiring in order to not to generate new intra-community edges
-            EdgeSwapInternalSwaps swapAlgo(_inter_community_edges, globalSwapsPerIteration);
-
+            // rewiring in order to not to generate new intra-community edges
             GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, _inter_community_edges.size());
             _inter_community_edges.rewind();
             rewiringSwapGenerator.pushEdges(_inter_community_edges);
             _inter_community_edges.rewind();
             rewiringSwapGenerator.generate();
 
-            swapAlgo.setUpdatedEdgesCallback([&rewiringSwapGenerator](const std::vector<edge_t> & updatedEdges) {
-                rewiringSwapGenerator.pushEdges(stxxl::stream::streamify(updatedEdges.begin(), updatedEdges.end()));
+            swapAlgo.setUpdatedEdgesCallback([&rewiringSwapGenerator](EdgeSwapTFP::SemiLoadedEdgeSwapTFP::edge_update_sorter_t & updatedEdges) {
+                rewiringSwapGenerator.pushEdges(updatedEdges);
             });
 
             while (!rewiringSwapGenerator.empty()) {
@@ -79,7 +75,7 @@ namespace LFR {
                 if (numSwaps > 0) {
                     STXXL_MSG("Executing global rewiring phase with " << numSwaps << " swaps.");
 
-                    swapAlgo.process_buffer(); // this triggers the callback and thus pushes new edges in the generator
+                    swapAlgo.process_swaps(); // this triggers the callback and thus pushes new edges in the generator
                     rewiringSwapGenerator.generate();
                 }
             }
