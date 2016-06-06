@@ -6,14 +6,16 @@ class TestSemiLoadedSwaps : public ::testing::Test {};
 #ifdef EDGE_SWAP_DEBUG_VECTOR
 
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
+#include <EdgeStream.h>
 #include <defs.h>
 
 TEST_F(TestSemiLoadedSwaps, testOnlySemiLoadedSwaps) {
-    stxxl::vector<edge_t> edge_list;
-    edge_list.push_back({0, 1});
-    edge_list.push_back({2, 3});
-    edge_list.push_back({4, 5});
-    edge_list.push_back({6, 7});
+    EdgeStream edge_list;
+    edge_list.push({0, 1});
+    edge_list.push({2, 3});
+    edge_list.push({4, 5});
+    edge_list.push({6, 7});
+    edge_list.consume();
 
     EdgeSwapInternalSwaps algo(edge_list);
 
@@ -34,18 +36,23 @@ TEST_F(TestSemiLoadedSwaps, testOnlySemiLoadedSwaps) {
     ASSERT_TRUE(debug[2].performed);
     ASSERT_TRUE(debug[3].performed);
 
-    ASSERT_EQ(edge_list[0], edge_t(0, 7));
-    ASSERT_EQ(edge_list[1], edge_t(1, 6));
-    ASSERT_EQ(edge_list[2], edge_t(2, 5));
-    ASSERT_EQ(edge_list[3], edge_t(3, 4));
+    edge_list.rewind();
+    ASSERT_EQ(*edge_list, edge_t(0, 7));
+    ++edge_list;
+    ASSERT_EQ(*edge_list, edge_t(1, 6));
+    ++edge_list;
+    ASSERT_EQ(*edge_list, edge_t(2, 5));
+    ++edge_list;
+    ASSERT_EQ(*edge_list, edge_t(3, 4));
 }
 
 TEST_F(TestSemiLoadedSwaps, testCombinedSwaps) {
-    stxxl::vector<edge_t> edge_list;
-    edge_list.push_back({0, 1});
-    edge_list.push_back({2, 3});
-    edge_list.push_back({4, 5});
-    edge_list.push_back({6, 7});
+    EdgeStream edge_list;
+    edge_list.push({0, 1});
+    edge_list.push({2, 3});
+    edge_list.push({4, 5});
+    edge_list.push({6, 7});
+    edge_list.consume();
 
     EdgeSwapInternalSwaps algo(edge_list);
 
@@ -63,10 +70,14 @@ TEST_F(TestSemiLoadedSwaps, testCombinedSwaps) {
     ASSERT_TRUE(debug[2].performed);
     ASSERT_TRUE(debug[3].performed);
 
-    ASSERT_EQ(edge_list[0], edge_t(0, 7));
-    ASSERT_EQ(edge_list[1], edge_t(1, 6));
-    ASSERT_EQ(edge_list[2], edge_t(2, 5));
-    ASSERT_EQ(edge_list[3], edge_t(3, 4));
+    edge_list.rewind();
+    ASSERT_EQ(*edge_list, edge_t(0, 7));
+    ++edge_list;
+    ASSERT_EQ(*edge_list, edge_t(1, 6));
+    ++edge_list;
+    ASSERT_EQ(*edge_list, edge_t(2, 5));
+    ++edge_list;
+    ASSERT_EQ(*edge_list, edge_t(3, 4));
 }
 #else
 TEST_F(TestSemiLoadedSwaps, warning) {
