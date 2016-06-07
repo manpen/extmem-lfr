@@ -50,17 +50,18 @@ namespace EdgeSwapTFP {
             const edge_t & edge = *edge_reader;
 
             auto match_request = [&]() {
-                while (!loaded_edge_swap_sorter.empty() && std::get<0>(*loaded_edge_swap_sorter) < edge) {
-                    depchain_edge_sorter.push({std::get<1>(*loaded_edge_swap_sorter), edge_t::invalid()}); 
+                while (!loaded_edge_swap_sorter.empty() && loaded_edge_swap_sorter->edge < edge) {
+                    depchain_edge_sorter.push({loaded_edge_swap_sorter->swap_id, edge_t::invalid()}); 
                     ++loaded_edge_swap_sorter;
                 }
                 assert(loaded_edge_swap_sorter.empty() || std::get<0>(*loaded_edge_swap_sorter) >= edge);
-                if (!edge_swap_sorter.empty() && std::get<0>(*edge_swap_sorter) == eid && !(!loaded_edge_swap_sorter.empty() && std::get<0>(*loaded_edge_swap_sorter) == edge && std::get<1>(*loaded_edge_swap_sorter) < std::get<1>(*edge_swap_sorter))) {
-                    std::tie(requested_edge, requesting_swap) = *edge_swap_sorter;
+                if (!edge_swap_sorter.empty() && edge_swap_sorter->edge_id == eid && !(!loaded_edge_swap_sorter.empty() && loaded_edge_swap_sorter->edge == edge && loaded_edge_swap_sorter->swap_id < edge_swap_sorter->swap_id)) {
+                    requested_edge = edge_swap_sorter->edge_id;
+                    requesting_swap = edge_swap_sorter->swap_id;
                     ++edge_swap_sorter;
                     return true;
-                } else if (!loaded_edge_swap_sorter.empty() && std::get<0>(*loaded_edge_swap_sorter) == edge) {
-                    requesting_swap = std::get<1>(*loaded_edge_swap_sorter);
+                } else if (!loaded_edge_swap_sorter.empty() && loaded_edge_swap_sorter->edge == edge) {
+                    requesting_swap = loaded_edge_swap_sorter->swap_id;
                     requested_edge = eid;
                     ++loaded_edge_swap_sorter;
                     return true;

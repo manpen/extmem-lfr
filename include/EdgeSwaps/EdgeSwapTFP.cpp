@@ -67,7 +67,8 @@ namespace EdgeSwapTFP {
         for (; !edge_swap_sorter.empty(); ++edge_swap_sorter) {
             edgeid_t requested_edge;
             swapid_t requesting_swap;
-            std::tie(requested_edge, requesting_swap) = *edge_swap_sorter;
+            requested_edge = edge_swap_sorter->edge_id;
+            requesting_swap = edge_swap_sorter->swap_id;
 
             // move reader buffer until we found the edge
             for (; eid < requested_edge; ++eid, ++edge_reader) {

@@ -18,6 +18,16 @@
 #include <EdgeStream.h>
 
 namespace EdgeSwapTFP {
+    struct EdgeSwapMsg {
+        edgeid_t edge_id;
+        swapid_t swap_id;
+
+        EdgeSwapMsg() { }
+        EdgeSwapMsg(const edgeid_t &edge_id_, const swapid_t &swap_id_) : edge_id(edge_id_), swap_id(swap_id_) {}
+
+        DECL_LEX_COMPARE_OS(EdgeSwapMsg, edge_id, swap_id);
+    };
+
     struct DependencyChainEdgeMsg {
         swapid_t swap_id;
         // edgeid_t edge_id; is not used any more; we rather encode in the LSB of swap_id whether to target the first or second edge
@@ -116,8 +126,8 @@ namespace EdgeSwapTFP {
         std::unique_ptr<std::thread> _result_thread;
 
 // swap -> edge
-        using EdgeSwapMsg = std::tuple<edgeid_t, swapid_t>;
-        using EdgeSwapSorter = stxxl::sorter<EdgeSwapMsg, GenericComparatorTuple<EdgeSwapMsg>::Ascending>;
+        using EdgeSwapComparator = typename GenericComparatorStruct<EdgeSwapMsg>::Ascending;
+        using EdgeSwapSorter = stxxl::sorter<EdgeSwapMsg, EdgeSwapComparator>;
         std::unique_ptr<EdgeSwapSorter> _edge_swap_sorter;
         BoolStream _swap_directions;
 
@@ -217,9 +227,9 @@ namespace EdgeSwapTFP {
               _run_length(run_length),
               _edges(edges),
 
-              _edge_swap_sorter(new EdgeSwapSorter(GenericComparatorTuple<EdgeSwapMsg>::Ascending(), _sorter_mem)),
+              _edge_swap_sorter(new EdgeSwapSorter(EdgeSwapComparator(), _sorter_mem)),
               _next_swap_id_pushing(0),
-              _edge_swap_sorter_pushing(new EdgeSwapSorter(GenericComparatorTuple<EdgeSwapMsg>::Ascending(), _sorter_mem)),
+              _edge_swap_sorter_pushing(new EdgeSwapSorter(EdgeSwapComparator(), _sorter_mem)),
 
               _depchain_edge_sorter(DependencyChainEdgeComparatorSorter{}, _sorter_mem),
               _depchain_successor_sorter(DependencyChainSuccessorComparator{}, _sorter_mem),

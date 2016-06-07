@@ -3,6 +3,15 @@
 
 
 namespace EdgeSwapTFP {
+    struct LoadedEdgeSwapMsg {
+        edge_t edge;
+        swapid_t swap_id;
+
+        LoadedEdgeSwapMsg() { }
+        LoadedEdgeSwapMsg(const edge_t &edge_, const swapid_t &swap_id_) : edge(edge_), swap_id(swap_id_) {}
+
+        DECL_LEX_COMPARE_OS(LoadedEdgeSwapMsg, edge, swap_id);
+    };
 
     class SemiLoadedEdgeSwapTFP : public EdgeSwapTFP {
     public:
@@ -10,8 +19,8 @@ namespace EdgeSwapTFP {
         using updated_edges_callback_t = std::function<void(EdgeUpdateSorter &)>;
 
     protected:
-        using LoadedEdgeSwapMsg = std::tuple<edge_t, swapid_t>;
-        using LoadedEdgeSwapSorter = stxxl::sorter<LoadedEdgeSwapMsg, GenericComparatorTuple<LoadedEdgeSwapMsg>::Ascending>;
+        using LoadedEdgeSwapComparator = GenericComparatorStruct<LoadedEdgeSwapMsg>::Ascending;
+        using LoadedEdgeSwapSorter = stxxl::sorter<LoadedEdgeSwapMsg, LoadedEdgeSwapComparator>;
         std::unique_ptr<LoadedEdgeSwapSorter> _loaded_edge_swap_sorter;
 
         updated_edges_callback_t _updated_edges_callback;
@@ -30,7 +39,7 @@ namespace EdgeSwapTFP {
         //! @param swaps  Read-only swap vector
         SemiLoadedEdgeSwapTFP( edge_buffer_t &edges, swapid_t run_length = 1000000) : 
             EdgeSwapTFP(edges, run_length),
-            _loaded_edge_swap_sorter(new LoadedEdgeSwapSorter(GenericComparatorTuple<LoadedEdgeSwapMsg>::Ascending(), _sorter_mem))
+            _loaded_edge_swap_sorter(new LoadedEdgeSwapSorter(LoadedEdgeSwapComparator(), _sorter_mem))
         {}
 
         // inherit the normal push method

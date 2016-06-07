@@ -170,6 +170,12 @@ public:
        return *_consume_iter;
     }
 
+    const value_type * operator->() const {
+        assert(!empty());
+
+        return &*_consume_iter;
+    }
+
     bool empty() const {
        return _consume_empty && _consume_iter == _consume_end;
     }
