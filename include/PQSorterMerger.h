@@ -70,7 +70,7 @@ public:
 
     //! Push an item into the PQ and update the merger
     void push(const value_type& o) {
-        _pq.push();
+        _pq.push(o);
         _fetch();
     }
 
