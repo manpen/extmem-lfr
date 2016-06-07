@@ -17,8 +17,8 @@ class TestHavelHakimiGenerator : public ::testing::Test {
 
 TEST_F(TestHavelHakimiGenerator, testClique) {
     constexpr int_t numNodes = 10000;
-    std::vector<int_t> degrees(numNodes, 9999);
-    using iterator_t = std::vector<int_t>::iterator;
+    std::vector<degree_t> degrees(numNodes, 9999);
+    using iterator_t = std::vector<degree_t>::iterator;
     using InputStream = stxxl::stream::iterator2stream<iterator_t>;
     InputStream inputStream(degrees.begin(), degrees.end());
 
@@ -52,7 +52,7 @@ TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
     MonotonicPowerlawRandomStream<> sequence(2, 100000, -2, numNodes);
 
     // store degree sequence
-    stxxl::vector<int_t> degrees(numNodes);
+    stxxl::vector<degree_t> degrees(numNodes);
     stxxl::stream::materialize(sequence, degrees.begin());
 
 
@@ -98,8 +98,8 @@ TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
 
 TEST_F(TestHavelHakimiGenerator, testFixedDegree) {
     constexpr int_t numNodes = 100 * 1000;
-    constexpr int_t degree = 500;
-    stxxl::vector<int_t> degrees(numNodes);
+    constexpr degree_t degree = 500;
+    stxxl::vector<degree_t> degrees(numNodes);
     {
         decltype(degrees)::bufwriter_type writer(degrees);
         for (stxxl::int64 u = 0; u < numNodes; ++u) {
@@ -138,7 +138,7 @@ TEST_F(TestHavelHakimiGenerator, testTwoDegrees) {
     constexpr int_t numNodes = 1*100*1000;
     int_t highDegree = 500;
     int_t lowDegree = 2;
-    stxxl::vector<int_t> degrees(numNodes);
+    stxxl::vector<degree_t> degrees(numNodes);
     {
         decltype(degrees)::bufwriter_type writer(degrees);
         int_t  u = 0;
