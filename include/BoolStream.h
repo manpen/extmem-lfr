@@ -48,8 +48,8 @@ public:
         clear();
     }
     ~BoolStream() {
-        _reader.release();
-        _em_buffer.release();
+        _reader.reset();
+        _em_buffer.reset();
     }
 
     BoolStream(BoolStream&& other) = default;
@@ -59,8 +59,8 @@ public:
 
     //! Clear structure and switch into write mode
     void clear() {
+        _reader.reset();
         _em_buffer.reset(new em_buffer_t(16, 16));
-        _reader.release();
 
         _mode = WRITING;
         _remaining_bits = _max_bits_buffer;
