@@ -957,8 +957,9 @@ namespace EdgeSwapParallelTFP {
                 }
                 // finished batch
 
-                if (batch_num % num_batches_till_sorter_run == 0 ||  sid_in_batch_limit == _num_swaps_in_run)
+                if (batch_num % num_batches_till_sorter_run == 0 ||  sid_in_batch_limit == _num_swaps_in_run) {
                         my_edge_update_buffer.finish();
+                }
 
 #ifdef EDGE_SWAP_DEBUG_VECTOR
                 #pragma omp barrier

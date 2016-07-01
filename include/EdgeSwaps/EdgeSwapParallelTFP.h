@@ -118,6 +118,7 @@ namespace EdgeSwapParallelTFP {
             Task(Task&&) = default;
 
             void operator()() {
+                assert(std::is_sorted(requests.begin(), requests.end()));
                 for (auto & req : requests) {
                     runs_creator.push(req);
                 }
