@@ -1,5 +1,6 @@
-CC = g++ -Wall -O3
+CC = g++
 
+CFLAGS=-Wall -g -O0 -fsanitize=address -fsanitize=signed-integer-overflow
 SRC = 
 INCLUDE = include/
 BIN = bin/
@@ -15,19 +16,19 @@ all :
 	make distrib
 
 obj :
-	$(CC) -c -o $(BIN)graph_molloy_hash.o $(INCLUDE)graph_molloy_hash.cpp
-	$(CC) -c -o $(BIN)graph_molloy_optimized.o $(INCLUDE)graph_molloy_optimized.cpp
-	$(CC) -c -o $(BIN)degree_sequence.o $(INCLUDE)degree_sequence.cpp
-	$(CC) -c -o $(BIN)powerlaw.o $(INCLUDE)powerlaw.cpp
-	$(CC) -c -o $(BIN)random.o $(INCLUDE)random.cpp
-	$(CC) -c -o $(BIN)box_list.o $(INCLUDE)box_list.cpp
+	$(CC) $(CFLAGS) -c -o $(BIN)graph_molloy_hash.o $(INCLUDE)graph_molloy_hash.cpp
+	$(CC) $(CFLAGS) -c -o $(BIN)graph_molloy_optimized.o $(INCLUDE)graph_molloy_optimized.cpp
+	$(CC) $(CFLAGS) -c -o $(BIN)degree_sequence.o $(INCLUDE)degree_sequence.cpp
+	$(CC) $(CFLAGS) -c -o $(BIN)powerlaw.o $(INCLUDE)powerlaw.cpp
+	$(CC) $(CFLAGS) -c -o $(BIN)random.o $(INCLUDE)random.cpp
+	$(CC) $(CFLAGS) -c -o $(BIN)box_list.o $(INCLUDE)box_list.cpp
 
 clean :
 	rm -f $(BIN)* $(SRC)~* $(INCLUDE)~* $(SRC)*~ $(INCLUDE)*~
 
 graph : $(OBJ)
-	$(CC) $(OBJ) $(SRC)mr-connected.cpp -O3 -o $(BIN)graph
+	$(CC) $(CFLAGS) $(OBJ) $(SRC)mr-connected.cpp -o $(BIN)graph
 
 distrib : $(OBJ)
-	$(CC) $(OBJ) $(SRC)distrib.cpp -O3 -o $(BIN)distrib
+	$(CC) $(CFLAGS) $(OBJ) $(SRC)distrib.cpp  -o $(BIN)distrib
 
