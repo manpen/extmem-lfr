@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <math.h>
+#include <algorithm>
 
 #include "qsort.h"
 #include "hash.h"
@@ -11,8 +12,8 @@
 
 //_________________________________________________________________________
 void graph_molloy_hash::compute_neigh() {
-  int *p = links;
-  for(int i=0; i<n; i++) {
+  node_t *p = links;
+  for(node_t i=0; i<n; i++) {
     neigh[i] = p;
     p += HASH_SIZE(deg[i]);
   }
@@ -21,39 +22,39 @@ void graph_molloy_hash::compute_neigh() {
 //_________________________________________________________________________
 void graph_molloy_hash::compute_size() {
   size = 0;
-  for(int i=0; i<n; i++) size += HASH_SIZE(deg[i]);
+  for(node_t i=0; i<n; i++) size += HASH_SIZE(deg[i]);
 }
 
 //_________________________________________________________________________
 void graph_molloy_hash::init() {
-  for(int i=0; i<size; i++) links[i]=HASH_NONE;
+  for(edgeid_t i=0; i<size; i++) links[i]=HASH_NONE;
 }
   
 //_________________________________________________________________________
 graph_molloy_hash::graph_molloy_hash(degree_sequence &degs) {
   if(VERBOSE()) fprintf(stderr,"Allocating memory for graph...");
-  int s = alloc(degs);
-  if(VERBOSE()) fprintf(stderr,"%d bytes allocated successfully\n",s);
+  edgeid_t s = alloc(degs);
+  if(VERBOSE()) fprintf(stderr,"%ld bytes allocated successfully\n",s);
 }
 
 //_________________________________________________________________________
-int graph_molloy_hash::alloc(degree_sequence &degs) {
+edgeid_t graph_molloy_hash::alloc(degree_sequence &degs) {
   n = degs.size();
   a = degs.sum();
   assert(a%2 == 0);
 
   deg = degs.seq();
   compute_size();
-  deg = new int[n+size];
+  deg = new degree_t[n+size];
   if(deg==NULL) return 0;
-  int i;
+  node_t i;
   for(i=0; i<n; i++) deg[i]=degs[i];
   links = deg+n;
   init();
-  neigh = new int*[n];
+  neigh = new node_t *[n];
   if(neigh==NULL) return 0;
   compute_neigh();
-  return sizeof(int *)*n + sizeof(int)*(n+size);
+  return sizeof(node_t *)*n + sizeof(node_t )*(n+size);
 }
 
 //_________________________________________________________________________
@@ -65,11 +66,18 @@ graph_molloy_hash::~graph_molloy_hash() {
 }
 
 //_________________________________________________________________________
-graph_molloy_hash::graph_molloy_hash(int *svg) {
+graph_molloy_hash::graph_molloy_hash(node_t *svg) {
   // Read n
   n = *(svg++);
   // Read a
   a = *(svg++);
+
+  if (sizeof(edgeid_t) > sizeof(node_t)) {
+     a <<= 32;
+     a |= *(svg++);
+  }
+
+
   assert(a%2 == 0);
   // Read degree sequence
   degree_sequence dd(n, svg);
@@ -81,49 +89,58 @@ graph_molloy_hash::graph_molloy_hash(int *svg) {
 }
 
 //_________________________________________________________________________
-int *graph_molloy_hash::hard_copy() {
-  int *hc = new int[2+n+a/2]; // to store n,a,deg[] and links[]
+node_t *graph_molloy_hash::hard_copy() {
+  const int offset=(sizeof(edgeid_t)/sizeof(node_t) + 1);
+  node_t *hc = new node_t[offset+n+a/2]; // to store n,a,deg[] and links[]
   hc[0] = n;
-  hc[1] = a;
-  memcpy(hc+2,deg,sizeof(int)*n);
-  int *p = hc+2+n;
-  int *l = links;
-  for(int i=0; i<n; i++) for(int j=HASH_SIZE(deg[i]); j--; l++) {
-    register int d;
+  if (sizeof(edgeid_t) > sizeof(node_t)) {
+     hc[1] = static_cast<node_t>(a >> 32);
+     hc[2] = static_cast<node_t>(a);
+  } else {
+     hc[1] = a;
+  }
+
+  memcpy(hc+offset,deg,sizeof(node_t )*n);
+  node_t *p = hc+offset+n;
+  node_t *l = links;
+  for(node_t i=0; i<n; i++) for(node_t j=HASH_SIZE(deg[i]); j--; l++) {
+    register degree_t d;
     if((d = *l)!=HASH_NONE && d>=i) *(p++)=d;
   }
-  assert(p==hc+2+n+a/2);
+  assert(p==hc+offset+n+a/2);
   return hc;
 }
 
+#if 0
 //_________________________________________________________________________
 bool graph_molloy_hash::is_connected() {
   bool *visited = new bool[n];
-  int *buff = new int[n];
-  int comp_size = depth_search(visited, buff);
+  node_t *buff = new node_t[n];
+  node_t comp_size = depth_search(visited, buff);
   delete[] visited;
   delete[] buff;
   return (comp_size==n);
 }
+#endif 
 
 //_________________________________________________________________________
-int* graph_molloy_hash::backup() {
-  int *b = new int[a/2];
-  int *c = b;
-  int *p = links;
-  for(int i=0; i<n; i++)
-    for(int d=HASH_SIZE(deg[i]); d--; p++) if(*p!=HASH_NONE && *p>i) *(c++)=*p;
+node_t * graph_molloy_hash::backup() {
+  node_t *b = new node_t [a/2];
+  node_t *c = b;
+  node_t *p = links;
+  for(node_t i=0; i<n; i++)
+    for(node_t d=HASH_SIZE(deg[i]); d--; p++) if(*p!=HASH_NONE && *p>i) *(c++)=*p;
   assert(c==b+(a/2));
   return b;
 }
 
 //_________________________________________________________________________
-void graph_molloy_hash::restore(int* b) {
+void graph_molloy_hash::restore(node_t * b) {
   init();
-  int i;
-  int *dd = new int[n];
+  node_t i;
+  degree_t *dd = new degree_t [n];
 
-  memcpy(dd,deg,sizeof(int)*n);
+  memcpy(dd,deg,sizeof(degree_t )*n);
   for(i=0; i<n; i++)
     deg[i] = 0;
 
@@ -136,7 +153,7 @@ void graph_molloy_hash::restore(int* b) {
   delete[] dd;
 
 }
-
+#if 0
 //_________________________________________________________________________
 bool graph_molloy_hash::isolated(int v, int K, int *Kbuff, bool *visited) {
   if(K<2) return false;
@@ -172,29 +189,32 @@ end_isolated:
   while(known != Kbuff) visited[*(--known)] = false;
   return is_isolated;
 }
+#endif
 
 //_________________________________________________________________________
 int graph_molloy_hash::random_edge_swap(int K, int *Kbuff, bool *visited) {
   // Pick two random vertices a and c
-  int f1 = pick_random_vertex();
-  int f2 = pick_random_vertex();
+  node_t f1 = pick_random_vertex();
+  node_t f2 = pick_random_vertex();
   // Check that f1 != f2
   if(f1==f2) return 0;
   // Get two random edges (f1,*f1t1) and (f2,*f2t2)
-  int *f1t1 = random_neighbour(f1);
-  int t1 = *f1t1;
-  int *f2t2 = random_neighbour(f2);
-  int t2 = *f2t2;
+  node_t *f1t1 = random_neighbour(f1);
+  node_t t1 = *f1t1;
+  node_t *f2t2 = random_neighbour(f2);
+  node_t t2 = *f2t2;
   // Check simplicity
   if(t1==t2 || f1==t2 || f2==t1) return 0;
   if(is_edge(f1,t2) || is_edge(f2,t1)) return 0;
   // Swap
-  int *f1t2 = H_rpl(neigh[f1],deg[f1],f1t1,t2);
-  int *f2t1 = H_rpl(neigh[f2],deg[f2],f2t2,t1);
-  int *t1f2 = H_rpl(neigh[t1],deg[t1],f1,f2);
-  int *t2f1 = H_rpl(neigh[t2],deg[t2],f2,f1);
+  H_rpl(neigh[f1],deg[f1],f1t1,t2);
+  H_rpl(neigh[f2],deg[f2],f2t2,t1);
+  H_rpl(neigh[t1],deg[t1],f1,f2);
+  H_rpl(neigh[t2],deg[t2],f2,f1);
   // isolation test
   if(K<=2) return 1;
+  abort();
+#if 0  
   if( !isolated(f1, K, Kbuff, visited) && !isolated(f2, K, Kbuff, visited) )
     return 1;
   // undo swap
@@ -203,27 +223,31 @@ int graph_molloy_hash::random_edge_swap(int K, int *Kbuff, bool *visited) {
   H_rpl(neigh[t1],deg[t1],t1f2,f1);
   H_rpl(neigh[t2],deg[t2],t2f1,f2);
   return 0;
+#endif
 }
 
 //_________________________________________________________________________
-unsigned long graph_molloy_hash::shuffle(unsigned long times, int type) {
+edgeid_t graph_molloy_hash::shuffle(edgeid_t times, int type) {
   if(VERBOSE()) fprintf(stderr,"Shuffle : 0%%");
   assert(verify());
   // counters
-  unsigned long nb_swaps = 0;
-  unsigned long performed_swaps = 0;
+  edgeid_t nb_swaps = 0;
+  edgeid_t performed_swaps = 0;
 
   if (type == DISCONNECTED) {
+   const edgeid_t block_size = std::max<edgeid_t>(100llu, times/100);
 	while (times > nb_swaps) {
-		performed_swaps += random_edge_swap(1, NULL, NULL);
-		nb_swaps += 1;
+      for(edgeid_t block = std::min<edgeid_t>(times - nb_swaps, block_size); --block; ) {
+   		performed_swaps += random_edge_swap(1, NULL, NULL);
+	   	nb_swaps += 1;
+      }
+      if (VERBOSE()) {
+         fprintf(stderr," - Performed : %lu of %lu swaps\n", performed_swaps, nb_swaps);
+      }
 	}
-  if(VERBOSE()) fprintf(stderr,"\n");
-  if(VERBOSE()) {
-    fprintf(stderr,"*** Shuffle Monitor ***\n");
-    fprintf(stderr," - Performed : %lu of %lu swaps\n", performed_swaps, nb_swaps);
-  }
   } else {
+     abort();
+#if 0     
   unsigned long cost = 0;
   // window
   double T = double(min((unsigned long)(a),times)/10);
@@ -319,13 +343,13 @@ unsigned long graph_molloy_hash::shuffle(unsigned long times, int type) {
     if(type==FINAL_HEURISTICS || type==BRUTE_FORCE_HEURISTICS)
       fprintf(stderr," - Average isolation test width : %f\n",avg_K/double(successes+failures));
   }
+#endif
 	}
   return nb_swaps;
 }
-
 //_________________________________________________________________________
 void graph_molloy_hash::print(FILE *f) {
-  int i,j;
+  node_t i,j;
   for(i=0; i<n; i++) {
     fprintf(f,"%d",i);
     for(j=0; j<HASH_SIZE(deg[i]); j++) if(neigh[i][j]!=HASH_NONE) fprintf(f," %d",neigh[i][j]);
@@ -333,6 +357,7 @@ void graph_molloy_hash::print(FILE *f) {
   }
 }
 
+#if 0
 //_________________________________________________________________________
 bool graph_molloy_hash::try_shuffle(int T, int K, int *backup_graph) {
   // init all
@@ -992,4 +1017,4 @@ double *graph_molloy_hash::vertex_betweenness_asp(bool trivial_paths) {
     
 //___________________________________________________________________________________
 //*/
-
+#endif

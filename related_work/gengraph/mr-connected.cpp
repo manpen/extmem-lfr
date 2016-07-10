@@ -15,7 +15,7 @@ static FILE *Fdeg = stdin;
 
 //_________________________________________________________________________
 int main(int argc, char** argv) {
-printf("sizeof(int) == %d\n", sizeof(int));
+  printf("sizeof(int) == %ld\n", sizeof(int));
 
 
   // options
@@ -37,6 +37,7 @@ printf("sizeof(int) == %d\n", sizeof(int));
     delete g;
     return 2;
   }
+#if 0
   if (SHUFFLE_TYPE != DISCONNECTED) {
 	//Merge connected components together
 	if(VERBOSE()) fprintf(stderr,"Connecting...");
@@ -47,6 +48,7 @@ printf("sizeof(int) == %d\n", sizeof(int));
       return 3;
     }
  }
+#endif
   //Convert graph_molloy_opt to graph_molloy_hash
   if(VERBOSE()) fprintf(stderr,"Convert adjacency lists into hash tables...");
   int *hc = g->hard_copy();

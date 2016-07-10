@@ -16,21 +16,21 @@ private:
   // Random generator
   KW_RNG::RNG rng;
   // Number of vertices
-  int n;
+  node_t n;
   //Number of arcs ( = #edges * 2 )
-  int a;
+  edgeid_t a;
   // The degree sequence of the graph
-  int *deg;
+  degree_t *deg;
   // The array containing all links
-  int *links;
+  node_t *links;
   // The array containing pointers to adjacency list of every vertices
-  int **neigh;
+  node_t **neigh;
   // Allocate memory according to degree_sequence (for constructor use only!!)
   void alloc(degree_sequence &);
   // Compute #edges
   inline void refresh_nbarcs() {
     a=0;
-    for(int* d=deg+n; d!=deg; ) a += *(--d);
+    for(degree_t* d=deg+n; d!=deg; ) a += *(--d);
   }
   // Build neigh with deg and links
   void compute_neigh();
@@ -75,13 +75,13 @@ private:
   
 public:
   // neigh[]
-  inline int** neighbors() { return neigh; };
+  inline node_t** neighbors() { return neigh; };
   // deg[]
-  inline int* degrees() { return deg; };
+  inline degree_t* degrees() { return deg; };
   //adjacency list of v
-  inline int* operator[](const int v) { return neigh[v]; };
+  inline node_t* operator[](const node_t v) { return neigh[v]; };
   //degree of v
-  inline int degree(const int v) { return deg[v]; };
+  inline degree_t degree(const node_t v) { return deg[v]; };
   //compare adjacency lists
   inline int compare(const int v, const int w) {
     return deg[v]==deg[w] ? lex_comp(neigh[v],neigh[w],deg[v]) : (deg[v]>deg[w] ? -1 : 1);
@@ -97,29 +97,29 @@ public:
   // Create graph from hard copy
   graph_molloy_opt(int *);
   // Create hard copy of graph
-  int *hard_copy();
+  node_t *hard_copy();
   // Remove unused edges, updates neigh[], recreate links[]
   void clean();
   // nb arcs
-  inline int nbarcs() { return a; };
+  inline edgeid_t nbarcs() { return a; };
   // last degree
-  inline int last_degree() { return deg[n-1]; };
+  inline degree_t last_degree() { return deg[n-1]; };
   // nb vertices
-  inline int nbvertices() { return n; };
+  inline node_t nbvertices() { return n; };
   // nb vertices having degree > 0
-  inline int nbvertices_real() { 
-    int s=0;
+  inline edgeid_t nbvertices_real() { 
+    edgeid_t s=0;
     for(int *d=deg+n; d--!=deg; ) if(*d) s++;
     return s;
   };
   // return list of vertices with degree > 0. Compute #vertices, if not given.
-  int *vertices_real(int &nb_v);
+  node_t *vertices_real(node_t &nb_v);
   // Keep only giant component
   void giant_comp();
   // nb vertices in giant component
-  int nbvertices_comp();
+  node_t nbvertices_comp();
   // nb arcs in giant component
-  int nbarcs_comp();
+  edgeid_t nbarcs_comp();
   // print graph in SUCC_LIST mode, in stdout
   void print(FILE *f=stdout, bool NOZERO=true);
   // Bind the graph avoiding multiple edges or self-edges (return false if fail)
@@ -131,9 +131,9 @@ public:
   // Maximum degree
   int max_degree();
   // breadth-first search. Store the distance (modulo 3)  in dist[].
-  void breadth_search(int *dist, int v0=0, int* buff=NULL);
+  void breadth_search(int *dist, node_t v0=0, int* buff=NULL);
   // is edge ?
-  inline bool is_edge(const int a, const int b) {
+  inline bool is_edge(const node_t a, const node_t b) {
     if(deg[b]<deg[a]) return(fast_search(neigh[b],deg[b],a)!=NULL);
     else return(fast_search(neigh[a],deg[a],b)!=NULL);
   }

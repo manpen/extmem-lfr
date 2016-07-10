@@ -33,15 +33,15 @@ void graph_molloy_opt::breadth_search(int *dist, int v0, int *buff) {
 }
   
   
-int graph_molloy_opt::max_degree() {
-  int m=0;
-  for(int k=0; k<n; k++) if(deg[k]>m) m=deg[k];
+degree_t graph_molloy_opt::max_degree() {
+  degree_t m=0;
+  for(node_t k=0; k<n; k++) if(deg[k]>m) m=deg[k];
   return m;
 }
 
 void graph_molloy_opt::compute_neigh() {
-  int *p = links;
-  for(int i=0; i<n; i++) {
+  node_t *p = links;
+  for(node_t i=0; i<n; i++) {
     neigh[i] = p;
     p += deg[i];
   }
@@ -52,9 +52,9 @@ void graph_molloy_opt::alloc(degree_sequence &degs) {
   a = degs.sum();
   assert(a%2 == 0);
   deg = new int[n+a];
-  for(int i=0; i<n; i++) deg[i]=degs[i];
+  for(node_t i=0; i<n; i++) deg[i]=degs[i];
   links = deg+n;
-  neigh = new int*[n];
+  neigh = new node_t*[n];
   compute_neigh();
 }
 
@@ -66,17 +66,17 @@ graph_molloy_opt::graph_molloy_opt(FILE *f) {
   char *buff = new char[FBUFF_SIZE];
   // How many vertices ?
   if(VERBOSE()) fprintf(stderr,"Read file: #vertices=");
-  int i;
-  int n=0;
+  node_t i;
+  node_t n=0;
   while(fgets(buff,FBUFF_SIZE,f)) if(sscanf(buff,"%d",&i)==1 && i>n) n=i;
   n++;
   // degrees ?
-  if(VERBOSE()) fprintf(stderr,"%d, #edges=",n);
-  int *degs = new int[n];
+  if(VERBOSE()) fprintf(stderr,"%u, #edges=",n);
+  degree_t *degs = new degree_t[n];
   for(i=0; i<n; i++) degs[i]=0;
   rewind(f);
   while(fgets(buff,FBUFF_SIZE,f)) {
-    int d = 0;
+    degree_t d = 0;
     if(sscanf(buff,"%d",&i)==1) {
       char *b = buff;
       while(skip_int(b)) d++;
@@ -86,20 +86,20 @@ graph_molloy_opt::graph_molloy_opt(FILE *f) {
   // allocate memory
   degree_sequence dd(n,degs);
   a = dd.sum();
-  if(VERBOSE()) fprintf(stderr,"%d\nAllocating memory...",a);
+  if(VERBOSE()) fprintf(stderr,"%ld\nAllocating memory...",a);
   alloc(dd);
   // add edges
   if(VERBOSE()) fprintf(stderr,"done\nCreating edges...");
   rewind(f);
-  int line=0;
-  int j;
+  edgeid_t line=0;
+  edgeid_t j;
   while(fgets(buff,FBUFF_SIZE,f)) {
     line++;
     if(sscanf(buff,"%d",&i)==1) {
       char *b = buff;
       while(skip_int(b)) {
-        if(sscanf(b,"%d",&j)!=1) {
-          fprintf(stderr,"\nParse error at line %d, col %d : integer expected\n",line,int(b-buff));
+        if(sscanf(b,"%lu",&j)!=1) {
+          fprintf(stderr,"\nParse error at line %lu, col %d : integer expected\n",line,int(b-buff));
           exit(6);
         }
         *(neigh[i]++) = j;
@@ -111,11 +111,15 @@ graph_molloy_opt::graph_molloy_opt(FILE *f) {
   if(VERBOSE()) fprintf(stderr,"done\n");
 }
 
-graph_molloy_opt::graph_molloy_opt(int *svg) {
+graph_molloy_opt::graph_molloy_opt(node_t *svg) {
   // Read n
   n = *(svg++);
   // Read a
   a = *(svg++);
+  if (sizeof(edgeid_t) > sizeof(node_t)) {
+     a <<= 32;
+     a |= *(svg++);
+  }
   assert(a%2 == 0);
   // Read degree sequence
   degree_sequence dd(n, svg);
@@ -148,24 +152,30 @@ int* graph_molloy_opt::backup(int *b) {
   return b;
 }
 
-int *graph_molloy_opt::hard_copy() {
-  int *hc = new int[2+n+a/2]; // to store n,a,deg[] and links[]
+node_t *graph_molloy_opt::hard_copy() {
+  const int offset = 2 + (sizeof(edgeid_t) > sizeof(node_t));
+  node_t *hc = new node_t[offset+n+a/2]; // to store n,a,deg[] and links[]
   hc[0] = n;
-  hc[1] = a;
-  memcpy(hc+2,deg,sizeof(int)*n);
-  int *c = hc+2+n;
-  for(int i=0; i<n; i++) {
-    int *p = neigh[i];
-    for(int d=deg[i]; d--; p++) { assert(*p!=i); if(*p>=i) *(c++)=*p; }
+  if (sizeof(edgeid_t) > sizeof(node_t)) {
+     hc[1] = static_cast<node_t>(a >> 32);
+     hc[2] = static_cast<node_t>(a);
+  } else {
+     hc[1] = a;
   }
-  assert(c==hc+2+n+a/2);
+  memcpy(hc+offset,deg,sizeof(node_t)*n);
+  node_t *c = hc+offset+n;
+  for(node_t i=0; i<n; i++) {
+    node_t *p = neigh[i];
+    for(node_t d=deg[i]; d--; p++) { assert(*p!=i); if(*p>=i) *(c++)=*p; }
+  }
+  assert(c==hc+offset+n+a/2);
   return hc;
 }
 
-void graph_molloy_opt::restore(int* b) {
-  int i;
+void graph_molloy_opt::restore(node_t* b) {
+  node_t i;
   for(i=0; i<n; i++) deg[i]=0;
-  int *p = links;
+  node_t *p = links;
   for(i=0; i<n-1; i++) {
     p+=deg[i];
     deg[i] = int(neigh[i+1] - neigh[i]);
@@ -178,46 +188,50 @@ void graph_molloy_opt::restore(int* b) {
   }
 }
 
-int* graph_molloy_opt::backup_degs(int *b) {
-  if(b==NULL) b = new int[n];
-  memcpy(b,deg,sizeof(int)*n);
+degree_t* graph_molloy_opt::backup_degs(degree_t *b) {
+  if(b==NULL) b = new degree_t[n];
+  memcpy(b,deg,sizeof(degree_t)*n);
   return b;
 }
 
-void graph_molloy_opt::restore_degs_only(int *b) {
-  memcpy(deg,b,sizeof(int)*n);
+void graph_molloy_opt::restore_degs_only(degree_t *b) {
+  memcpy(deg,b,sizeof(degree_t)*n);
   refresh_nbarcs();
 }
 
-void graph_molloy_opt::restore_degs_and_neigh(int *b) {
+void graph_molloy_opt::restore_degs_and_neigh(degree_t *b) {
   restore_degs_only(b);
   compute_neigh();
 }
 
-void graph_molloy_opt::restore_degs(int last_degree) {
+void graph_molloy_opt::restore_degs(degree_t last_degree) {
   a = last_degree;
   deg[n-1]=last_degree;
-  for(int i=n-2; i>=0; i--) a+=(deg[i]=int(neigh[i+1]-neigh[i]));
+  for(node_t i=n-2; i>=0; i--) a+=(deg[i]=degree_t(neigh[i+1]-neigh[i]));
   refresh_nbarcs();
 }
 
 void graph_molloy_opt::clean() {
-  int *b = hard_copy();
+  node_t *b = hard_copy();
   replace(b);
   delete[] b;
 }
 
-void graph_molloy_opt::replace(int *_hardcopy) {
+void graph_molloy_opt::replace(node_t *_hardcopy) {
   delete[] deg;
   n = *(_hardcopy++);
   a = *(_hardcopy++);
-  deg = new int[a+n];
-  memcpy(deg,_hardcopy,sizeof(int)*n);
+  if (sizeof(edgeid_t) > sizeof(node_t)) {
+     a <<= 32;
+     a |= *(_hardcopy++);
+  }
+  deg = new degree_t[a+n];
+  memcpy(deg,_hardcopy,sizeof(degree_t)*n);
   links = deg+n;
   compute_neigh();
   restore(_hardcopy+n);
 }
-
+#if 0
 int* graph_molloy_opt::components(int *comp) {
   int i;
   // breadth-first search buffer
@@ -289,20 +303,19 @@ int graph_molloy_opt::nbarcs_comp() {
   delete[] comp;
   return nb;
 }
-
+#endif
 bool graph_molloy_opt::havelhakimi() {
-
-  int i;
-  int dmax = max_degree()+1;
+  node_t i;
+  degree_t dmax = max_degree()+1;
   // Sort vertices using basket-sort, in descending degrees
-  int *nb = new int[dmax];
-  int *sorted = new int[n];
+  node_t *nb = new node_t[dmax];
+  node_t *sorted = new node_t[n];
   // init basket
   for(i=0; i<dmax; i++) nb[i]=0;
   // count basket
   for(i=0; i<n; i++) nb[deg[i]]++;
   // cumul
-  int c = 0;
+  edgeid_t c = 0;
   for(i=dmax-1; i>=0; i--) {
     c+=nb[i];
     nb[i]=-nb[i]+c;
@@ -311,28 +324,28 @@ bool graph_molloy_opt::havelhakimi() {
   for(i=0; i<n; i++) sorted[nb[deg[i]]++]=i;
 
 // Binding process starts
-  int first = 0;  // vertex with biggest residual degree
-  int d = dmax-1; // maximum residual degree available
+  node_t first = 0;  // vertex with biggest residual degree
+  degree_t d = dmax-1; // maximum residual degree available
 
   for(c=a/2; c>0; ) {
     // pick a vertex. we could pick any, but here we pick the one with biggest degree
-    int v = sorted[first];
+    node_t v = sorted[first];
     // look for current degree of v
     while(nb[d]<=first) d--;
     // store it in dv
-    int dv = d;
+    degree_t dv = d;
     // bind it !
     c -= dv;
-    int dc = d;         // residual degree of vertices we bind to
-    int fc = ++first;   // position of the first vertex with degree dc
+    degree_t dc = d;         // residual degree of vertices we bind to
+    node_t fc = ++first;   // position of the first vertex with degree dc
 
     while(dv>0 && dc>0) {
-      int lc = nb[dc];
+      node_t lc = nb[dc];
       if(lc!=fc) {
         while(dv>0 && lc>fc) {
           // binds v with sorted[--lc]
           dv--;
-          int w = sorted[--lc];
+          node_t w = sorted[--lc];
           *(neigh[v]++) = w;
           *(neigh[w]++) = v;
         }
@@ -358,7 +371,7 @@ bool graph_molloy_opt::havelhakimi() {
   delete[] sorted;
   return true;
 }
-
+#if 0
 bool graph_molloy_opt::is_connected() {
   bool *visited = new bool[n];
   for(int i=n; i>0; visited[--i]=false);
@@ -710,9 +723,9 @@ long graph_molloy_opt::slow_connected_shuffle(long times) {
   }
   return nb_swaps;
 }
-
+#endif
 void graph_molloy_opt::print(FILE *f, bool NOZERO) {
-  int i,j;
+  node_t i,j;
   for(i=0; i<n; i++) {
     if(!NOZERO || deg[i]>0) {
       fprintf(f,"%d",i);
@@ -721,7 +734,7 @@ void graph_molloy_opt::print(FILE *f, bool NOZERO) {
     }
   }
 }
-
+#if 0
 long graph_molloy_opt::effective_isolated(int v, int K, int *Kbuff, bool *visited) {
   int i;
   for(i=0; i<K; i++) Kbuff[i]=-1;
@@ -1968,3 +1981,4 @@ double *graph_molloy_opt::vertex_betweenness_asp(bool trivial_paths) {
 }
 
 //*/
+#endif
