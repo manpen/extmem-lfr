@@ -15,10 +15,10 @@ using namespace __gnu_cxx;
 using namespace std;
 
 // shuffle an int[] randomly
-void random_permute(int *a, int n);
+void random_permute(degree_t *a, node_t n);
 
 // sort an array of positive integers in time & place O(n + max)
-void cumul_sort(int *q, int n);
+void cumul_sort(degree_t *q, node_t n);
 
 
 void degree_sequence::detach() {
@@ -30,10 +30,10 @@ degree_sequence::~degree_sequence() {
   deg = NULL;
 }
 
-void degree_sequence::make_even(int mini, int maxi) {
+void degree_sequence::make_even(degree_t mini, degree_t maxi) {
   if(total%2==0) return;
   if(maxi<0) maxi=0x7FFFFFFF;
-  int i;
+  node_t i;
   for(i=0; i<n; i++) {
     if(deg[i]>mini) { deg[i]--; total--; break; }
     else if(deg[i]<maxi) { deg[i]++; total++; break; }
@@ -55,11 +55,12 @@ void degree_sequence::sort() {
 
 void degree_sequence::compute_total() {
   total = 0;
-  for(int i=0; i<n; i++) total+=deg[i];
+  for(node_t i=0; i<n; i++)
+    total+=deg[i];
 }
 
 degree_sequence::
-degree_sequence(int n0, int *degs) {
+degree_sequence(node_t n0, degree_t *degs) {
   deg=degs;
   n=n0;
   compute_total();
@@ -74,24 +75,24 @@ degree_sequence::degree_sequence(FILE *f, bool DISTRIB) {
   total = 0;
   char *buff = new char[FBUFF_SIZE];
   char *c;
-  vector<int> degree;
+  vector<degree_t> degree;
   if(!DISTRIB) {
     // Input is a 'raw' degree sequence d0 d1 d2 d3 ...
     while(fgets(buff, FBUFF_SIZE, f)) {
-      int d = strtol(buff, &c, 10);
+      degree_t d = strtol(buff, &c, 10);
       if(c == buff) continue;
       degree.push_back(d);
       total += d;
     }
-    n = int(degree.size());
-    deg = new int[n];
-    int *yo = deg;
-    vector<int>::iterator end = degree.end();
-    for(vector<int>::iterator it=degree.begin(); it!=end; *(yo++) = *(it++));
+    n = node_t(degree.size());
+    deg = new degree_t[n];
+    degree_t *yo = deg;
+    vector<degree_t>::iterator end = degree.end();
+    for(vector<degree_t>::iterator it=degree.begin(); it!=end; *(yo++) = *(it++));
   }
   else {  
     // Input is a degree distribution : d0 #(degree=d0), d1 #(degree=d1), ...
-    vector<int> n_with_degree;
+    vector<node_t> n_with_degree;
     int line = 0;
     int syntax  = 0;
     int ignored = 0;
@@ -99,13 +100,13 @@ degree_sequence::degree_sequence(FILE *f, bool DISTRIB) {
     int first_ignored = 0;
     while(fgets(buff, FBUFF_SIZE, f)) {
       line++;
-      int d = strtol(buff, &c, 10);
+      degree_t d = strtol(buff, &c, 10);
       if(c == buff) { ignored++; first_ignored = line; continue; }
       char *cc;
-      int i = strtol(c, &cc, 10);
+      node_t i = strtol(c, &cc, 10);
       if(cc == c) { syntax++; first_syntax = line; continue; }
       n += i;
-      total += i*d;
+      total += static_cast<edgeid_t>(i)*d;
       degree.push_back(d);
       n_with_degree.push_back(i);
       strtol(cc, &c, 10);
@@ -115,21 +116,22 @@ degree_sequence::degree_sequence(FILE *f, bool DISTRIB) {
       if(ignored > 0) fprintf(stderr,"Ignored %d lines (first was line #%d)\n", ignored, first_ignored);
       if(syntax > 0) fprintf(stderr,"Found %d probable syntax errors (first was line #%d)\n", syntax, first_syntax);
     }
-    deg = new int[n];
-    int *yo = deg;
-    vector<int>::iterator it_n = n_with_degree.begin();
-    for(vector<int>::iterator it = degree.begin(); it != degree.end(); it++)
-      for(int k = *(it_n++); k--; *yo++ = *it);
+    deg = new degree_t[n];
+    degree_t *yo = deg;
+    vector<node_t>::iterator it_n = n_with_degree.begin();
+    for(vector<node_t>::iterator it = degree.begin(); it != degree.end(); it++)
+      for(node_t k = *(it_n++); k--; *yo++ = *it);
   }
   if(VERBOSE()) {
     if(total % 2 != 0) fprintf(stderr,"Warning: degree sequence is odd\n");
-    fprintf(stderr,"Degree sequence created. N=%d, 2M=%d\n", n, total);
+    fprintf(stderr,"Degree sequence created. N=%d, 2M=%ld\n", n, total);
   }
+  delete[] buff;
 } 
      
 // n vertices, exponent, min degree, max degree, average degree (optional, default is -1)
 degree_sequence::
-degree_sequence(int _n, double exp, int degmin, int degmax, double z) { 
+degree_sequence(node_t _n, double exp, degree_t degmin, degree_t degmax, double z) {
 
   n=_n;
   if(exp==0.0) {
@@ -139,12 +141,12 @@ degree_sequence(int _n, double exp, int degmin, int degmax, double z) {
       exit(-1);
     }
     if(degmax<0) degmax=n-1;
-    total = int(floor(double(n)*z+0.5));
-    deg = new int[n];
+    total = edgeid_t(floor(double(n)*z+0.5));
+    deg = new degree_t[n];
     KW_RNG::RNG myrand;
     double p = (z-double(degmin))/double(n);
     total=0;
-    for(int i=0; i<n; i++) {
+    for(node_t i=0; i<n; i++) {
       do deg[i]=1+myrand.binomial(p,n); while(deg[i]>degmax);
       total+=deg[i];
     }
@@ -163,9 +165,9 @@ degree_sequence(int _n, double exp, int degmin, int degmax, double z) {
 	fprintf(stderr,"done. Offset=%f, Mean=%f\n", offset, pw.mean());
     }
 
-    deg = new int[n];
+    deg = new degree_t[n];
     total = 0;
-    int i;
+    node_t i;
 
     if(VERBOSE()) fprintf(stderr,"Sampling %d random numbers...",n);
     for(i=0; i<n; i++) {
@@ -174,11 +176,11 @@ degree_sequence(int _n, double exp, int degmin, int degmax, double z) {
     }
     
     if(VERBOSE()) fprintf(stderr,"done\nSimple statistics on degrees...");
-    int wanted_total = int(floor(z*n+0.5));
+    edgeid_t wanted_total = edgeid_t(floor(z*n+0.5));
     sort();
-    if(VERBOSE()) fprintf(stderr,"done : Max=%d, Total=%d.\n",deg[0],total);
+    if(VERBOSE()) fprintf(stderr,"done : Max=%d, Total=%ld.\n",deg[0],total);
     if(z!=-1.0)  {
-      if(VERBOSE()) fprintf(stderr,"Adjusting total to %d...",wanted_total);
+      if(VERBOSE()) fprintf(stderr,"Adjusting total to %ld...",wanted_total);
       int iterations = 0;
   
       while(total!=wanted_total) {
@@ -209,17 +211,17 @@ degree_sequence(int _n, double exp, int degmin, int degmax, double z) {
 }
     
 void degree_sequence::print() {
-  for(int i=0; i<n; i++) printf("%d\n",deg[i]);
+  for(node_t i=0; i<n; i++) printf("%d\n",deg[i]);
 }
 
 void degree_sequence::print_cumul() {
   if(n==0) return;
-  int dmax = deg[0];
-  int dmin = deg[0];
-  int i;
+  degree_t dmax = deg[0];
+  degree_t dmin = deg[0];
+  node_t i;
   for(i=1; i<n; i++) if(dmax<deg[i]) dmax=deg[i];
   for(i=1; i<n; i++) if(dmin>deg[i]) dmin=deg[i];
-  int *dd = new int[dmax-dmin+1];
+  degree_t *dd = new degree_t[dmax-dmin+1];
   for(i=dmin; i<=dmax; i++) dd[i-dmin]=0;
   if(VERBOSE()) fprintf(stderr,"Computing cumulative distribution...");
   for(i=0; i<n; i++) dd[deg[i]-dmin]++;
@@ -230,42 +232,43 @@ void degree_sequence::print_cumul() {
 
 bool degree_sequence::havelhakimi() {
 
-  int i;
-  int dm = dmax()+1;
+  node_t i;
+  degree_t dm = dmax()+1;
   // Sort vertices using basket-sort, in descending degrees
-  int *nb = new int[dm];
-  int *sorted = new int[n];
+  node_t *nb = new node_t[dm];
+  node_t *sorted = new node_t[n];
   // init basket
   for(i=0; i<dm; i++) nb[i]=0;
   // count basket
   for(i=0; i<n; i++) nb[deg[i]]++;
   // cumul
-  int c = 0;
+  edgeid_t c = 0;
   for(i=dm-1; i>=0; i--) {
-    int t=nb[i];
+    node_t t=nb[i];
     nb[i]=c;
     c+=t;
   }                                            
   // sort
-  for(i=0; i<n; i++) sorted[nb[deg[i]]++]=i;
+  for(i=0; i<n; i++)
+    sorted[nb[deg[i]]++]=i;
 
 // Binding process starts
-  int first = 0;  // vertex with biggest residual degree
-  int d = dm-1; // maximum residual degree available
+  node_t first = 0;  // vertex with biggest residual degree
+  degree_t d = dm-1; // maximum residual degree available
 
   for(c=total/2; c>0; ) {
     // We design by 'v' the vertex of highest degree (indexed by first)
     // look for current degree of v
     while(nb[d]<=first) d--;
     // store it in dv
-    int dv = d;
+    degree_t dv = d;
     // bind it !
     c -= dv;
-    int dc = d;         // residual degree of vertices we bind to
-    int fc = ++first;   // position of the first vertex with degree dc
+    degree_t dc = d;         // residual degree of vertices we bind to
+    node_t fc = ++first;   // position of the first vertex with degree dc
 
     while(dv>0 && dc>0) {
-      int lc = nb[dc];
+      node_t lc = nb[dc];
       if(lc!=fc) {
         while(dv>0 && lc>fc) {
           // binds v with sorted[--lc]
@@ -291,11 +294,11 @@ bool degree_sequence::havelhakimi() {
 //*************************
 // Subroutines definitions
 //*************************
+template <typename T>
+inline T int_adjust(double x) { return(T(floor(x+random_float()))); }
 
-inline int int_adjust(double x) { return(int(floor(x+random_float()))); }
-
-void random_permute(int *a, int n) {
-  int j,tmp;
+void random_permute(degree_t *a, node_t n) {
+  node_t j, tmp;
   for(int i=0; i<n-1; i++) {
     j=i+my_random()%(n-i);
     tmp=a[i];
@@ -304,27 +307,27 @@ void random_permute(int *a, int n) {
   }
 }
 
-void cumul_sort(int *q, int n) {
+void cumul_sort(degree_t *q, node_t n) {
   // looks for the maximum q[i] and minimum 
   if (n==0) return;
-  int qmax=q[0];
-  int qmin=q[0];
-  int i;
+  degree_t qmax=q[0];
+  degree_t qmin=q[0];
+  node_t i;
   for(i=0; i<n; i++) if(q[i]>qmax) qmax=q[i];
   for(i=0; i<n; i++) if(q[i]<qmin) qmin=q[i];
 
   // counts #q[i] with given q
-  int *nb = new int[qmax-qmin+1];
-  for(int *onk=nb+(qmax-qmin+1); onk!=nb; *(--onk)=0);
+  degree_t *nb = new degree_t[qmax-qmin+1];
+  for(node_t *onk=nb+(qmax-qmin+1); onk!=nb; *(--onk)=0);
   for(i=0; i<n; i++) nb[q[i]-qmin]++;
 
   // counts cumulative distribution
   for(i=qmax-qmin;i>0;i--) nb[i-1]+=nb[i];
 
   // sort by q[i]
-  int last_q;
-  int tmp;
-  int modifier = qmax-qmin+1;
+  degree_t last_q;
+  degree_t tmp;
+  degree_t modifier = qmax-qmin+1;
   for(int current=0; current<n; current++) {
     tmp=q[current];
     if(tmp>=qmin && tmp<=qmax) {

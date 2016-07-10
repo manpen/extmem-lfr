@@ -15,6 +15,8 @@ static FILE *Fdeg = stdin;
 
 //_________________________________________________________________________
 int main(int argc, char** argv) {
+printf("sizeof(int) == %d\n", sizeof(int));
+
 
   // options
   SET_VERBOSE(VERBOSE_NONE);
@@ -31,13 +33,19 @@ int main(int argc, char** argv) {
   if(VERBOSE()) fprintf(stderr,"done\nRealize degree sequence...");
   bool FAILED = !g->havelhakimi();
   if(VERBOSE()) fprintf(stderr," %s\n", FAILED ? "Failed" : "Success");
-  if(FAILED) return 2;
+  if(FAILED) {
+    delete g;
+    return 2;
+  }
   if (SHUFFLE_TYPE != DISCONNECTED) {
 	//Merge connected components together
 	if(VERBOSE()) fprintf(stderr,"Connecting...");
 	FAILED = !g->make_connected();
 	if(VERBOSE()) fprintf(stderr," %s\n", FAILED ? "Failed" : "Success");
-	if(FAILED) return 3;
+	if(FAILED) {
+      delete g;
+      return 3;
+    }
  }
   //Convert graph_molloy_opt to graph_molloy_hash
   if(VERBOSE()) fprintf(stderr,"Convert adjacency lists into hash tables...");
