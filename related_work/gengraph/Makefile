@@ -1,6 +1,8 @@
 CC = g++
 
 CFLAGS=-Wall -g -O0 -fsanitize=address -fsanitize=signed-integer-overflow
+CFLAGS=-Wall -g -O3
+
 SRC = 
 INCLUDE = include/
 BIN = bin/
