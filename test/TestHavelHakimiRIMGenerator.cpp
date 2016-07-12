@@ -4,7 +4,7 @@
 #include <stxxl/stream>
 #include <stxxl/bits/common/rand.h>
 
-class TestHavelHakimiIMGenerator : public ::testing::Test {
+class TestHavelHakimiRIMGenerator : public ::testing::Test {
 protected:
     template <typename ValueType>
     struct PushToVector {
@@ -118,7 +118,7 @@ protected:
 };
 
 
-TEST_F(TestHavelHakimiIMGenerator, clique) {
+TEST_F(TestHavelHakimiRIMGenerator, clique) {
     std::vector<unsigned int> sizes({3,4,5,6,1000,1001});
     for(auto nodes : sizes) {
         std::vector<degree_t> seq(nodes, static_cast<degree_t>(nodes - 1));
@@ -129,7 +129,7 @@ TEST_F(TestHavelHakimiIMGenerator, clique) {
 }
 
 
-TEST_F(TestHavelHakimiIMGenerator, circle) {
+TEST_F(TestHavelHakimiRIMGenerator, circle) {
     std::vector<unsigned int> sizes({3,4,5,6,1000,1001});
     for(auto nodes : sizes) {
         std::vector<degree_t> seq(nodes, static_cast<degree_t>(2));
@@ -138,7 +138,7 @@ TEST_F(TestHavelHakimiIMGenerator, circle) {
     }
 }
 
-TEST_F(TestHavelHakimiIMGenerator, worstCase) {
+TEST_F(TestHavelHakimiRIMGenerator, worstCase) {
     std::vector<node_t> sizes({2,4,6,8,100,1000});
     for(auto nodes : sizes) {
         std::vector<degree_t> seq(nodes);
@@ -152,7 +152,7 @@ TEST_F(TestHavelHakimiIMGenerator, worstCase) {
     }
 }
 
-TEST_F(TestHavelHakimiIMGenerator, barabasiAlbert) {
+TEST_F(TestHavelHakimiRIMGenerator, barabasiAlbert) {
     unsigned int iterations = 100;
     unsigned int nodes = 1000;
     unsigned int edges_per_node = 3;
@@ -165,7 +165,7 @@ TEST_F(TestHavelHakimiIMGenerator, barabasiAlbert) {
     }
 }
 
-TEST_F(TestHavelHakimiIMGenerator, barabasiAlbertDefect) {
+TEST_F(TestHavelHakimiRIMGenerator, barabasiAlbertDefect) {
     unsigned int iterations = 100;
     unsigned int nodes = 1000;
     unsigned int edges_per_node = 3;
