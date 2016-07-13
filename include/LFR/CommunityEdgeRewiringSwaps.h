@@ -31,12 +31,13 @@ private:
         edge_t partner_edge;
     };
 
-    struct edge_swap_t {
+    struct edge_community_swap_t {
         edge_t e;
+        community_t community_id;
         uint_t sid;
         unsigned char spos;
 
-        DECL_LEX_COMPARE(edge_swap_t, e, sid, spos);
+        DECL_LEX_COMPARE(edge_community_swap_t, e, community_id, sid, spos);
     };
 
 
