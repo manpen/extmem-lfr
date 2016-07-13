@@ -15,8 +15,7 @@ void CommunityEdgeRewiringSwaps::run() {
             ++_community_sizes[c];
         };
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        std::mt19937 gen(stxxl::get_next_seed());
 
         { // first pass: load at most max_swaps duplicate edges duplicate edge in com_swap_edges
             edge_community_t last_edge = {0, {-1, -1}};
@@ -144,7 +143,7 @@ void CommunityEdgeRewiringSwaps::run() {
 
 
         // Shuffle all swaps.
-        std::minstd_rand fast_gen(rd());
+        std::minstd_rand fast_gen(stxxl::get_next_seed());
         std::shuffle(com_swap_edges.begin(), com_swap_edges.end(), fast_gen);
 
         // generate vector of real swaps with internal ids and internal edge vector.
