@@ -194,6 +194,10 @@ public:
         _overlap_config = config;
     }
 
+    EdgeStream & get_edges() {
+        return _edges;
+    }
+
     void run();
 };
 

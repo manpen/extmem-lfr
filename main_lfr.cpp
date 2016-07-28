@@ -6,6 +6,7 @@
 #include <defs.h>
 #include <Utils/MonotonicPowerlawRandomStream.h>
 #include <LFR/LFR.h>
+#include <Utils/export_metis.h>
 
 class RunConfig {
     void _update_structs() {
@@ -40,6 +41,8 @@ public:
     double mixing;
     stxxl::uint64 max_bytes;
     unsigned int randomSeed;
+
+    std::string output_filename;
 
     MonotonicPowerlawRandomStream<false>::Parameters node_distribution_param;
     MonotonicPowerlawRandomStream<false>::Parameters community_distribution_param;
@@ -95,6 +98,8 @@ public:
         cp.add_double(CMDLINE_COMP('m', "mixing",        mixing,         "Fraction node edge being inter-community"));
         cp.add_bytes(CMDLINE_COMP('b', "max-bytes", max_bytes, "Maximum number of bytes of main memory to use"));
 
+        cp.add_string(CMDLINE_COMP('o', "output", output_filename, "Output filename; the generated graph will be written as METIS graph"));
+
         assert(number_of_communities < std::numeric_limits<community_t>::max());
 
         if (!cp.process(argc, argv)) {
@@ -140,6 +145,10 @@ int main(int argc, char* argv[]) {
 
     lfr.setOverlap(LFR::OverlapMethod::constDegree, oconfig);
     lfr.run();
+
+    if (!config.output_filename.empty()) {
+        export_as_metis(lfr.get_edges(), config.node_distribution_param.numberOfNodes, config.output_filename);
+    }
 
     return 0;
 }
