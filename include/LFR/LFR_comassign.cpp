@@ -90,7 +90,11 @@ namespace LFR {
             // for every community store the number of slots left;
             // we will also regularly remove empty slots to speed up
             // the random selection process
-            using slot_t = std::pair<community_t, node_t>;
+            struct slot_t {
+                community_t community_id;
+                node_t members_left;
+                node_t available_prefix_sum;
+            };
             std::vector<slot_t> slots_left;
             community_t slots_empty = 0;
             community_t slots_deleted = 0;
@@ -99,7 +103,7 @@ namespace LFR {
             slots_left.reserve(number_of_communities);
             for(community_t c=0; c < number_of_communities; c++) {
                 assert(com_sizes[c]);
-                slots_left.emplace_back(c, com_sizes[c]);
+                slots_left.push_back(slot_t {.community_id =  c, .members_left = com_sizes[c], .available_prefix_sum = com_sizes[c]});
             }
 
             // find the smallest legal community and then uniformly
@@ -109,31 +113,44 @@ namespace LFR {
             static_assert(sizeof(community_t) == 4, "Use a 64-bit PRNG");
             stxxl::random_number32 randGen;
 
+            node_t total_sizes_to_choose_from = 0;
+            node_t empty_sizes_sum = 0;
+
             for(node_t nid=0; !_node_sorter.empty(); ++nid, ++_node_sorter) {
                 const auto &dgm = *_node_sorter;
                 const auto required_size = dgm.totalInternalDegree(_mixing);
 
-                // FIXME: Use binary search, but need range iterator for that
                 for(; largest_illegal_com<number_of_communities; ++largest_illegal_com) {
                     if (com_sizes[largest_illegal_com] < required_size)
                         break;
+                    total_sizes_to_choose_from += com_sizes[largest_illegal_com];
+                    if (LIKELY(largest_illegal_com > 0)) {
+                        slots_left[largest_illegal_com].available_prefix_sum += slots_left[largest_illegal_com - 1].available_prefix_sum;
+                    }
                 }
 
                 // compact slots_left if there are too many empty slots
-                if(2*slots_empty > largest_illegal_com-slots_deleted) {
+                // there are too many empty slots when half of the sizes are empty
+                if(2*empty_sizes_sum > total_sizes_to_choose_from) {
                     auto reader = slots_left.begin() + std::min<community_t>(largest_illegal_com, com_sizes.size()-1);
                     auto writer = reader;
 
                     const auto begin = slots_left.begin() + slots_deleted;
 
                     slots_deleted += slots_empty;
+                    total_sizes_to_choose_from -= empty_sizes_sum;
+
+                    node_t current_prefix_sum = total_sizes_to_choose_from;
 
                     while(1) {
-                        if (reader->second) {
+                        if (reader->members_left) {
                             *writer = *reader;
+                            writer->available_prefix_sum = current_prefix_sum;
+                            current_prefix_sum -= com_sizes[writer->community_id];
                             --writer;
                         } else {
                             --slots_empty;
+                            empty_sizes_sum -= com_sizes[reader->community_id];
                         }
 
                         if (reader == begin)
@@ -142,23 +159,28 @@ namespace LFR {
                         --reader;
                     }
 
+                    assert(!empty_sizes_sum);
                     assert(!slots_empty);
+                    assert(current_prefix_sum == 0);
                 }
 
-                // uniformly select legal community
+                // select legal community weighted by (original) community size
                 while(1) {
                     assert(largest_illegal_com-slots_deleted > 0);
-                    const community_t i = randGen(largest_illegal_com-slots_deleted) + slots_deleted;
-                    auto & slot = slots_left[i];
+                    node_t slot_pos = randGen(total_sizes_to_choose_from);
+                    auto & slot = *std::lower_bound(slots_left.begin() + slots_deleted, slots_left.begin() + largest_illegal_com, slot_pos, 
+                            [](const slot_t& a, node_t b) { return a.available_prefix_sum < b; }
+                            );
 
-                    if (LIKELY(slot.second)) {
+                    if (LIKELY(slot.members_left)) {
                         // found a non-empty community
-                        assignments.push(CommunityAssignment(slot.first, required_size, nid));
+                        assignments.push(CommunityAssignment(slot.community_id, required_size, nid));
                         //std::cout << "Assing node " << nid << " with degree " << required_size << " to community " << slot.first << " with " << (slot.second - 1) << " left" << std::endl;
 
-                        --slot.second;
-                        if (!slot.second) {
+                        --slot.members_left;
+                        if (!slot.members_left) {
                             slots_empty++;
+                            empty_sizes_sum += com_sizes[slot.community_id];
                         }
 
                         break;
