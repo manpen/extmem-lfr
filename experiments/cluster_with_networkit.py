@@ -64,15 +64,23 @@ def genEMLFR(N, mink=20, maxk=50, mu=0.3, t1=-2, t2=-1, minc=20, maxc=100, on=0,
         return (G, C)
 
 def genNetworKitLFR(N, mink=20, maxk=50, mu=0.3, t1=-2, t2=-1, minc=20, maxc=100):
-    gen = generators.LFRGenerator(N)
+    while True:
+        try: # we might need to try several times because depending on the random values NetworKit cannot generate it
+            gen = generators.LFRGenerator(N)
 
-    pl = generators.PowerlawDegreeSequence(mink, maxk, t1)
-    pl.run()
-    gen.setDegreeSequence(pl.getDegreeSequence(N))
+            pl = generators.PowerlawDegreeSequence(mink, maxk, t1)
+            pl.run()
+            gen.setDegreeSequence(pl.getDegreeSequence(N))
 
-    gen.generatePowerlawCommunitySizeSequence(minc, maxc, t2)
-    gen.setMu(mu)
-    gen.run()
+            gen.generatePowerlawCommunitySizeSequence(minc, maxc, t2)
+            gen.setMu(mu)
+            gen.run()
+        except RuntimeError:
+            pass
+
+        if gen.hasFinished():
+            break
+
     return (gen.getGraph(), gen.getPartition())
 
 minDeg = 10
