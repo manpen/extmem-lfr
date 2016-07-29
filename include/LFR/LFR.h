@@ -198,6 +198,35 @@ public:
         return _edges;
     }
 
+    /**
+     * This exports the community assignments such that in every line a node id and its community/communities are written (separated by space).
+     * Node ids are 1-based.
+     */
+    template <typename ostream_t>
+    void export_community_assignment(ostream_t & os) {
+        using node_community_t = std::tuple<node_t, community_t>;
+        using nc_comp_t = GenericComparatorTuple<node_community_t>::Ascending;
+
+        stxxl::sorter<node_community_t, nc_comp_t> output_sorter(nc_comp_t(), SORTER_MEM);
+
+        for (const auto& ca : _community_assignments) {
+            output_sorter.push(std::make_tuple(ca.node_id, ca.community_id));
+        }
+
+        output_sorter.sort();
+
+        node_t u = std::get<0>(*output_sorter);
+        os << u;
+        for (; !output_sorter.empty(); ++output_sorter) {
+            if (std::get<0>(*output_sorter) != u) {
+                u = std::get<0>(*output_sorter);
+                os << std::endl << u;
+            }
+
+            os << " " << std::get<1>(*output_sorter);
+        }
+    }
+
     void run();
 };
 

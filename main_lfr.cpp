@@ -42,7 +42,7 @@ public:
     stxxl::uint64 max_bytes;
     unsigned int randomSeed;
 
-    std::string output_filename;
+    std::string output_filename, partition_filename;
 
     MonotonicPowerlawRandomStream<false>::Parameters node_distribution_param;
     MonotonicPowerlawRandomStream<false>::Parameters community_distribution_param;
@@ -99,6 +99,7 @@ public:
         cp.add_bytes(CMDLINE_COMP('b', "max-bytes", max_bytes, "Maximum number of bytes of main memory to use"));
 
         cp.add_string(CMDLINE_COMP('o', "output", output_filename, "Output filename; the generated graph will be written as METIS graph"));
+        cp.add_string(CMDLINE_COMP('p', "partition-output", partition_filename, "Partition output filename; every line contains a node and the communities of the node separated by spaces"));
 
         assert(number_of_communities < std::numeric_limits<community_t>::max());
 
@@ -148,6 +149,12 @@ int main(int argc, char* argv[]) {
 
     if (!config.output_filename.empty()) {
         export_as_metis(lfr.get_edges(), config.node_distribution_param.numberOfNodes, config.output_filename);
+    }
+
+    if (!config.partition_filename.empty()) {
+        std::ofstream output_stream(config.partition_filename, std::ios::trunc);
+        lfr.export_community_assignment(output_stream);
+        output_stream.close();
     }
 
     return 0;
