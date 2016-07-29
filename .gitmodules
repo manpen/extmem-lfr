@@ -10,3 +10,6 @@
 [submodule "libs/googletest"]
 	path = libs/googletest
 	url = https://github.com/google/googletest.git
+[submodule "related_work/infomap"]
+	path = related_work/infomap
+	url = https://github.com/mapequation/infomap.git
