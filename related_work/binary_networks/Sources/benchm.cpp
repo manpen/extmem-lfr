@@ -316,7 +316,7 @@ int build_bipartite_network(deque<deque<int> >  & member_matrix, const deque<int
             degree_list.push_back(kk); 
 
 	
-	for(int run=0; run<10; run++) for(int node_a=0; node_a<num_seq.size(); node_a++) for(int krm=0; krm<en_out[node_a].size(); krm++) {
+	for(int run=0; run<5; run++) for(int node_a=0; node_a<num_seq.size(); node_a++) for(int krm=0; krm<en_out[node_a].size(); krm++) {
 				
         int random_mate=degree_list[irand(degree_list.size()-1)];
 		
@@ -815,7 +815,7 @@ int build_subgraph(deque<set<int> > & E, const deque<int> & nodes, const deque<i
     
 	// this is to randomize the subgraph -------------------------------------------------------------------
 	
-	for(int run=0; run<10; run++) for(int node_a=0; node_a<degrees.size(); node_a++) for(int krm=0; krm<en[node_a].size(); krm++) {
+	for(int run=0; run<5; run++) for(int node_a=0; node_a<degrees.size(); node_a++) for(int krm=0; krm<en[node_a].size(); krm++) {
 	
 		int random_mate=degree_list[irand(degree_list.size()-1)];
 		while (random_mate==node_a)
@@ -1225,7 +1225,7 @@ int connect_all_the_parts(deque<set<int> > & E, const deque<deque<int> > & membe
             degree_list.push_back(kk); 
 
     
-	for(int run=0; run<10; run++) for(int node_a=0; node_a<degrees.size(); node_a++) for(int krm=0; krm<en[node_a].size(); krm++) {
+	for(int run=0; run<5; run++) for(int node_a=0; node_a<degrees.size(); node_a++) for(int krm=0; krm<en[node_a].size(); krm++) {
         
         
 		int random_mate=degree_list[irand(degree_list.size()-1)];
@@ -1283,7 +1283,7 @@ int connect_all_the_parts(deque<set<int> > & E, const deque<deque<int> > & membe
 	//cout<<"var mate = "<<var_mate<<endl;
 	
 	int stopper_mate=0;
-	int mate_trooper=10;
+	int mate_trooper=5;
 	
 	while(var_mate>0) {
 	
