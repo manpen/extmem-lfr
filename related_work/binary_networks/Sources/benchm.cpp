@@ -1667,27 +1667,15 @@ int print_network(deque<set<int> > & E, const deque<deque<int> > & member_list, 
 
 
 
-int benchmark(bool excess, bool defect, int num_nodes, double  average_k, int  max_degree, double  tau, double  tau2, 
+int benchmark(bool excess, bool defect, int num_nodes, int  min_degree, int  max_degree, double  tau, double  tau2,
 	double  mixing_parameter, int  overlapping_nodes, int  overlap_membership, int  nmin, int  nmax, bool  fixed_range, double ca) {	
 
 	
 	
 	
 	
-	double dmin=solve_dmin(max_degree, average_k, -tau);
-	if (dmin==-1)
-		return -1;
-	
-	int min_degree=int(dmin);
-	
-	
-	double media1=integer_average(max_degree, min_degree, tau);
-	double media2=integer_average(max_degree, min_degree+1, tau);
-	
-	if (fabs(media1-average_k)>fabs(media2-average_k))
-		min_degree++;
-	
-	
+	double dmin=min_degree; //solve_dmin(max_degree, average_k, -tau);
+
 	
 	
 	
@@ -1829,7 +1817,7 @@ int main(int argc, char * argv[]) {
 	erase_file_if_exists("community.dat");
 	erase_file_if_exists("statistics.dat");
 	
-	benchmark(p.excess, p.defect, p.num_nodes, p.average_k, p.max_degree, p.tau, p.tau2, p.mixing_parameter, p.overlapping_nodes, p.overlap_membership, p.nmin, p.nmax, p.fixed_range, p.clustering_coeff);	
+	benchmark(p.excess, p.defect, p.num_nodes, p.min_degree, p.max_degree, p.tau, p.tau2, p.mixing_parameter, p.overlapping_nodes, p.overlap_membership, p.nmin, p.nmax, p.fixed_range, p.clustering_coeff);
 		
 	return 0;
 	

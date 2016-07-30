@@ -14,7 +14,8 @@ class Parameters {
 		~Parameters(){};
 		
 		int num_nodes;
-		double average_k;
+		//double average_k;
+		int min_degree;
 		int max_degree;
 		double tau;
 		double tau2;
@@ -45,7 +46,7 @@ Parameters::Parameters() {
 			
 			
 		num_nodes=unlikely;
-		average_k=unlikely;
+		min_degree=unlikely;
 		max_degree=unlikely;
 		
 		tau=2;
@@ -67,7 +68,8 @@ Parameters::Parameters() {
 		clustering_coeff=unlikely;
 		
 		command_flags.push_back("-N");		//0
-		command_flags.push_back("-k");		//1
+		//command_flags.push_back("-k");		//1
+		command_flags.push_back("-mink");	//1
 		command_flags.push_back("-maxk");	//2
 		command_flags.push_back("-mu");		//3
 		command_flags.push_back("-t1");		//4
@@ -113,9 +115,9 @@ bool Parameters::arrange() {
 		return false;
 	
 	}
-	if (average_k==unlikely) {
+	if (min_degree==unlikely) {
 	
-		cerr<<"\n***********************\nERROR:\t average degree unspecified"<<endl;
+		cerr<<"\n***********************\nERROR:\t min degree unspecified"<<endl;
 		return false;
 	
 	}
@@ -144,7 +146,7 @@ bool Parameters::arrange() {
 	
 	}
 		
-	if (num_nodes<=0 || average_k<=0 || max_degree<=0 || mixing_parameter<0 || (nmax<=0 && nmax!=unlikely) || (nmin<=0 && nmin!=unlikely) ) {
+	if (num_nodes<=0 || min_degree<=0 || max_degree<=0 || mixing_parameter<0 || (nmax<=0 && nmax!=unlikely) || (nmin<=0 && nmin!=unlikely) ) {
 	
 		cerr<<"\n***********************\nERROR:\tsome positive parameters are negative"<<endl;
 		
@@ -161,7 +163,12 @@ bool Parameters::arrange() {
 
 	
 	}
-	
+
+	if (min_degree > max_degree) {
+		cerr<<"\n***********************\nERROR:\tmin_degree > max_degree"<<endl;
+
+		return -1;
+	}
 	
 			
 	if(nmax!= unlikely && nmin!=unlikely)
@@ -183,7 +190,7 @@ bool Parameters::arrange() {
 	
 	cout<<"\n**************************************************************"<<endl;
 	cout<<"number of nodes:\t"<<num_nodes<<endl;
-	cout<<"average degree:\t"<<average_k<<endl;
+	cout<<"minimum degree:\t"<<min_degree<<endl;
 	cout<<"maximum degree:\t"<<max_degree<<endl;
 	cout<<"exponent for the degree distribution:\t"<<tau<<endl;
 	cout<<"exponent for the community size distribution:\t"<<tau2<<endl;
@@ -257,7 +264,7 @@ bool Parameters::set(string & flag, string & num) {
 	}
 	else if(flag==command_flags[1]) {
 		
-		average_k=err;
+		min_degree=cast_int(err);
 	
 	}
 	else if(flag==command_flags[2]) {
@@ -362,6 +369,7 @@ void statement() {
 	
 	cout<<"-N\t\t[number of nodes]"<<endl;
 	cout<<"-k\t\t[average degree]"<<endl;
+	cout<<"-mink\t\t[minimum degree]"<<endl;
 	cout<<"-maxk\t\t[maximum degree]"<<endl;
 	cout<<"-mu\t\t[mixing parameter]"<<endl;	
 	cout<<"-t1\t\t[minus exponent for the degree sequence]"<<endl;
