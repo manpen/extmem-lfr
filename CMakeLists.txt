@@ -47,7 +47,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -mtune=native -msse4")
 # enable C++11
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -DSTXXL_VERBOSE_LEVEL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_INTERNAL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_EXTERNAL=0") # -DSTXXL_PARALLEL_MODE=1 causes problems?
 
-set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 # Include STXXL
@@ -79,6 +79,7 @@ add_library(libextmemgraphgen STATIC
     include/LFR/LFR.cpp
     include/LFR/GlobalRewiringSwapGenerator.cpp
     include/LFR/CommunityEdgeRewiringSwaps.cpp
+    include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
     ${LFR_SRCS}
 )
