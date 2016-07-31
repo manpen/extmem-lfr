@@ -115,6 +115,7 @@ namespace LFR {
     void LFR::run() {
         _compute_node_distributions();
         _compute_community_size();
+        _correct_community_sizes();
         _compute_community_assignments();
 
         // the merging of the communities needs a sorter

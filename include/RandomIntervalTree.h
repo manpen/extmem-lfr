@@ -21,6 +21,7 @@ protected:
     void _build(const std::vector<T1>& leaves) {
         const Index n = leaves.size();
 
+        // FIX-ME: we can to it in linear time
         for(Index i=0; i < n; i++) {
             auto idx = i+_inner_nodes_offset;
             _total_weight += leaves[i];

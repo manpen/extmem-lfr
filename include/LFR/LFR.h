@@ -111,6 +111,8 @@ enum OverlapMethod {
 };
 
 class LFR {
+    friend class LFRCommunityAssignBenchmark;
+
 public:
     using NodeDegreeDistribution = MonotonicPowerlawRandomStream<false>;
     using CommunityDistribution = MonotonicPowerlawRandomStream<false>;
@@ -161,6 +163,7 @@ protected:
     void _compute_node_distributions();
     void _compute_community_size();
     void _compute_community_assignments();
+    void _correct_community_sizes();
     void _generate_community_graphs();
     void _generate_global_graph(int_t swaps_per_iteration);
     void _merge_community_and_global_graph();

@@ -6,6 +6,7 @@
 #include <defs.h>
 #include <Utils/MonotonicPowerlawRandomStream.h>
 #include <LFR/LFR.h>
+#include <LFR/LFRCommunityAssignBenchmark.h>
 #include <Utils/export_metis.h>
 
 class RunConfig {
@@ -47,6 +48,8 @@ public:
     MonotonicPowerlawRandomStream<false>::Parameters node_distribution_param;
     MonotonicPowerlawRandomStream<false>::Parameters community_distribution_param;
 
+    unsigned int lfr_bench_comassign_distr_rounds;
+
     RunConfig() :
         number_of_nodes      (100000),
         number_of_communities( 10000),
@@ -60,7 +63,8 @@ public:
         community_max_members(1000),
         community_gamma(-2.0),
         mixing(0.5),
-        max_bytes(10*UIntScale::Gi)
+        max_bytes(10*UIntScale::Gi),
+        lfr_bench_comassign_distr_rounds(0)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -100,6 +104,8 @@ public:
 
         cp.add_string(CMDLINE_COMP('o', "output", output_filename, "Output filename; the generated graph will be written as METIS graph"));
         cp.add_string(CMDLINE_COMP('p', "partition-output", partition_filename, "Partition output filename; every line contains a node and the communities of the node separated by spaces"));
+
+        cp.add_uint(CMDLINE_COMP('d', "comassign-distr", lfr_bench_comassign_distr_rounds, "# of ComAssign Benchmarking rounds"));
 
         assert(number_of_communities < std::numeric_limits<community_t>::max());
 
@@ -145,16 +151,22 @@ int main(int argc, char* argv[]) {
     oconfig.constDegree.overlappingNodes = config.overlapping_nodes;
 
     lfr.setOverlap(LFR::OverlapMethod::constDegree, oconfig);
-    lfr.run();
 
-    if (!config.output_filename.empty()) {
-        export_as_metis(lfr.get_edges(), config.node_distribution_param.numberOfNodes, config.output_filename);
-    }
+    if (config.lfr_bench_comassign_distr_rounds > 0) {
+        LFR::LFRCommunityAssignBenchmark bench(lfr);
+        bench.computeDistribution(config.lfr_bench_comassign_distr_rounds);
+    } else {
+        lfr.run();
 
-    if (!config.partition_filename.empty()) {
-        std::ofstream output_stream(config.partition_filename, std::ios::trunc);
-        lfr.export_community_assignment(output_stream);
-        output_stream.close();
+        if (!config.output_filename.empty()) {
+            export_as_metis(lfr.get_edges(), config.node_distribution_param.numberOfNodes, config.output_filename);
+        }
+
+        if (!config.partition_filename.empty()) {
+            std::ofstream output_stream(config.partition_filename, std::ios::trunc);
+            lfr.export_community_assignment(output_stream);
+            output_stream.close();
+        }
     }
 
     return 0;
