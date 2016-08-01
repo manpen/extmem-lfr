@@ -1,4 +1,5 @@
 #include "LFR.h"
+#include <Utils/IOStatistics.h>
 #include <random>
 
 namespace LFR {
@@ -113,6 +114,8 @@ namespace LFR {
 
 
     void LFR::run() {
+        IOStatistics iols("LFR");
+
         _compute_node_distributions();
         _compute_community_size();
         _correct_community_sizes();
@@ -127,10 +130,18 @@ namespace LFR {
         STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
         // subtract actually used amount of memory (so more memory is possibly available for communities)
 
-        _generate_community_graphs();
-        _generate_global_graph(globalSwapsPerIteration);
-
-        _merge_community_and_global_graph();
+        {
+            IOStatistics ios("GenCommGraphs");
+            _generate_community_graphs();
+        }
+        {
+            IOStatistics ios("GenGlobGraph");
+            _generate_global_graph(globalSwapsPerIteration);
+        }
+        {
+            IOStatistics ios("MergeGraphs");
+            _merge_community_and_global_graph();
+        }
 
         std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " << _inter_community_edges.size() << " of them are inter-community edges" << std::endl;
     }
