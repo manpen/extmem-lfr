@@ -51,9 +51,9 @@ namespace LFR {
 
                 if (assign.node_id < lowest_node) {
                     bin_capacity[assign.community_id / binsize]--;
-                } else if (assign.node_id < lowest_node + 5 * bins) {
+                } else if (assign.node_id < lowest_node + bins/10) {
                     hitsl[assign.community_id / binsize]++;
-                } else if (assign.node_id >= _lfr._number_of_nodes - 5 * bins) {
+                } else if (assign.node_id >= _lfr._number_of_nodes - bins/10) {
                     hitsu[assign.community_id / binsize]++;
                 }
             }
