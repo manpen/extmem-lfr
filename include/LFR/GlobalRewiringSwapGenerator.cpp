@@ -83,6 +83,8 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
         _current_communities.clear();
     }
 
+    _node_community_reader.reset(nullptr);
+
     _empty = true;
 
     return *this;
