@@ -48,7 +48,9 @@ public:
     MonotonicPowerlawRandomStream<false>::Parameters node_distribution_param;
     MonotonicPowerlawRandomStream<false>::Parameters community_distribution_param;
 
-    unsigned int lfr_bench_comassign_distr_rounds;
+    unsigned int lfr_bench_rounds;
+    bool lfr_bench_comassign;
+    bool lfr_bench_comassign_retry;
 
     RunConfig() :
         number_of_nodes      (100000),
@@ -64,7 +66,9 @@ public:
         community_gamma(-2.0),
         mixing(0.5),
         max_bytes(10*UIntScale::Gi),
-        lfr_bench_comassign_distr_rounds(0)
+        lfr_bench_rounds(100),
+        lfr_bench_comassign(false),
+        lfr_bench_comassign_retry(false)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -105,7 +109,9 @@ public:
         cp.add_string(CMDLINE_COMP('o', "output", output_filename, "Output filename; the generated graph will be written as METIS graph"));
         cp.add_string(CMDLINE_COMP('p', "partition-output", partition_filename, "Partition output filename; every line contains a node and the communities of the node separated by spaces"));
 
-        cp.add_uint(CMDLINE_COMP('d', "comassign-distr", lfr_bench_comassign_distr_rounds, "# of ComAssign Benchmarking rounds"));
+        cp.add_uint(CMDLINE_COMP('d', "lfr-bench-rounds", lfr_bench_rounds, "# of rounds for LFR benchmarks"));
+        cp.add_flag(CMDLINE_COMP('e', "lfr-comassign", lfr_bench_comassign, "Perform LFR comassign benchmark"));
+        cp.add_flag(CMDLINE_COMP('f', "lfr-comassign-retry", lfr_bench_comassign_retry, "Perform LFR comassign retry benchmark"));
 
         assert(number_of_communities < std::numeric_limits<community_t>::max());
 
@@ -152,9 +158,12 @@ int main(int argc, char* argv[]) {
 
     lfr.setOverlap(LFR::OverlapMethod::constDegree, oconfig);
 
-    if (config.lfr_bench_comassign_distr_rounds > 0) {
+    if (config.lfr_bench_comassign) {
         LFR::LFRCommunityAssignBenchmark bench(lfr);
-        bench.computeDistribution(config.lfr_bench_comassign_distr_rounds);
+        bench.computeDistribution(config.lfr_bench_rounds);
+    } else if(config.lfr_bench_comassign_retry) {
+        LFR::LFRCommunityAssignBenchmark bench(lfr);
+        bench.computeRetryRate(config.lfr_bench_rounds);
     } else {
         lfr.run();
 
