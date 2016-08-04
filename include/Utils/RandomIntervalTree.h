@@ -54,7 +54,7 @@ public:
     Index getLeaf(T weight) const {
         Index idx = 1;
 
-        assert(weight <= _total_weight);
+        assert(weight < _total_weight);
 
         for(unsigned int l=_layers; l; --l) {
             assert(idx <= _tree.size());
@@ -100,4 +100,22 @@ public:
     value_type total_weight() const {
         return _total_weight;
     }
+
+    value_type prefixsum(Index leaf_idx) const {
+        if (leaf_idx == _inner_nodes_offset-1)
+            return _total_weight;
+
+        leaf_idx += _inner_nodes_offset + 1;
+
+        value_type weight = 0;
+        for(unsigned int l=0; l<_layers; l++) {
+            auto is_right_child = (leaf_idx & 1);
+            auto parent = leaf_idx / 2;
+            weight += is_right_child * _tree_data[parent];
+            leaf_idx = parent;
+        }
+
+        return weight;
+    }
+
 };

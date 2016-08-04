@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <random>
-#include "RandomIntervalTree.h"
+#include <Utils/RandomIntervalTree.h>
 
 class TestRandomIntervalTree : public ::testing::Test {};
 
@@ -70,6 +70,9 @@ TEST_F(TestRandomIntervalTree, integration) {
             leafes[leaf]--;
             for(auto i=leaf+1; i<ps.size(); i++)
                 ps[i]--;
+
+            for(auto i=0; i < size; i++)
+                ASSERT_EQ(ps[i+1], tree.prefixsum(i)) << "i=" << i;
         }
    }
 }
