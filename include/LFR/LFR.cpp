@@ -12,6 +12,7 @@ namespace LFR {
 
         _degree_sum = 0;
         uint_t memebership_sum = 0;
+        _overlap_max_memberships = 1;
 
         if (_overlap_method == geometric) {
             for (uint_t i = 0; i < static_cast<uint_t>(_number_of_nodes); ++i, ++ndd) {
@@ -33,6 +34,7 @@ namespace LFR {
                 }
 
                 _node_sorter.push(NodeDegreeMembership(degree, memberships));
+                _overlap_max_memberships = std::max(_overlap_max_memberships, memberships);
                 _degree_sum += degree;
                 memebership_sum += memberships;
             }
@@ -52,6 +54,9 @@ namespace LFR {
 
                 _node_sorter.push(ndm);
             }
+
+            if (_overlap_config.constDegree.overlappingNodes)
+                _overlap_max_memberships = _overlap_config.constDegree.multiCommunityDegree;
         }
 
         _node_sorter.sort();
@@ -120,6 +125,8 @@ namespace LFR {
         _compute_community_size();
         _correct_community_sizes();
         _compute_community_assignments();
+
+        abort();
 
         // the merging of the communities needs a sorter
         _max_memory_usage -= SORTER_MEM;

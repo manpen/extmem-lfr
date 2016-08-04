@@ -9,5 +9,6 @@ namespace LFR {
         LFRCommunityAssignBenchmark(LFR &lfr) : _lfr(lfr) { }
 
         void computeDistribution(unsigned int rounds);
+        void computeRetryRate(unsigned int rounds);
     };
 };

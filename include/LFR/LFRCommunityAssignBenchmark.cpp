@@ -76,4 +76,18 @@ namespace LFR {
             _lfr._node_sorter.rewind();
         }
     }
+
+    void LFRCommunityAssignBenchmark::computeRetryRate(unsigned int rounds) {
+        while(rounds--) {
+            LFR lfr(_lfr);
+
+            lfr._compute_node_distributions();
+            lfr._compute_community_size();
+            lfr._correct_community_sizes();
+            lfr._compute_community_assignments();
+
+            std::cout << "--------------------------------------------------" << std::endl;
+        }
+    }
+
 };

@@ -131,6 +131,8 @@ protected:
     OverlapMethod _overlap_method;
     OverlapConfig _overlap_config;
 
+    community_t _overlap_max_memberships;
+
     uint_t _max_memory_usage;
     uint_t _degree_sum;
 
@@ -163,6 +165,7 @@ protected:
     void _compute_node_distributions();
     void _compute_community_size();
     void _compute_community_assignments();
+    void _verify_assignment();
     void _correct_community_sizes();
     void _generate_community_graphs();
     void _generate_global_graph(int_t swaps_per_iteration);
@@ -190,6 +193,12 @@ public:
 
         _max_memory_usage -= SORTER_MEM; // for _node_sorter FIXME see if we really need it constantly...
         _max_memory_usage -= _number_of_communities * sizeof(node_t); // for _community_cumulative_sizes
+    }
+
+    LFR(const LFR& other)
+          : LFR(other._degree_distribution_params, other._community_distribution_params, other._mixing, other._max_memory_usage)
+    {
+        setOverlap(other._overlap_method, other._overlap_config);
     }
 
     void setOverlap(OverlapMethod method, const OverlapConfig & config) {
