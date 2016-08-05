@@ -154,7 +154,7 @@ namespace LFR {
             STXXL_MSG("Remaining memory for actual swaps is " << _max_memory_usage << " bytes");
             STXXL_MSG("Degree sum is " << _degree_sum);
 
-            int_t globalSwapsPerIteration = (_degree_sum / 2 * _mixing) / 4;
+            int_t globalSwapsPerIteration = std::max<int_t>(std::min<int_t>(1<<0, _degree_sum/ 2 * _mixing), (_degree_sum / 2 * _mixing) / 4);
             STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
             // subtract actually used amount of memory (so more memory is possibly available for communities)
 

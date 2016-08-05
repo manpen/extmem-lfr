@@ -155,6 +155,7 @@ namespace LFR {
             edgeid_t total_degree = 0;
             for(; !dc.empty(); ++dc) {
                 const auto & cur = *dc;
+                total_degree += cur.count;
 
                 if (use_im_checks)
                     node_degrees[cur.value] = cur.count;
@@ -182,6 +183,8 @@ namespace LFR {
 
             std::cout << "Found " << overassigned << " node with too high degree. " << std::endl;
             std::cout << "Nodes ceiled: " << nodes_ceiled << std::endl;
+
+            STABLE_ASSERT_EQ(total_degree, 2*_edges.size());
         }
 
 
@@ -281,6 +284,8 @@ namespace LFR {
             double stdev = 0.;
              for(node_t nid=0; nid < _number_of_nodes; ++nid) {
                 STABLE_EXPECT_LE(intra_degrees[nid], ndms[nid].totalInternalDegree(_mixing));
+                STABLE_EXPECT_LE(node_degrees[nid] - intra_degrees[nid], ndms[nid].externalDegree(_mixing));
+
                 double diff =  (1.0 - static_cast<double>(intra_degrees[nid]) / node_degrees[nid]) - mixing;
                 stdev += diff * diff;
             }
