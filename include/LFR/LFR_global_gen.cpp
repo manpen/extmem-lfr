@@ -10,36 +10,67 @@
 namespace LFR {
     void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {
         {
+            using deg_node_t = std::pair<degree_t, node_t>;
+            stxxl::sorter<deg_node_t, GenericComparator<deg_node_t>::Descending> extDegree(GenericComparator<deg_node_t>::Descending(), SORTER_MEM);
+
             HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
 
             int_t degree_sum = 0;
 
-            // FIXME this is not necessary for non-overlapping clusters
             { // push node degrees in descending order in generator
-                stxxl::sorter<degree_t, GenericComparator<degree_t>::Descending> extDegree(GenericComparator<degree_t>::Descending(), SORTER_MEM);
                 _node_sorter.rewind();
-                while (!_node_sorter.empty()) {
-                    extDegree.push(_node_sorter->externalDegree(_mixing));
-                    ++_node_sorter;
+
+                for(node_t nid=0; !_node_sorter.empty(); ++_node_sorter, ++nid) {
+                    extDegree.push({_node_sorter->externalDegree(_mixing), nid});
                 }
 
                 extDegree.sort();
 
                 while (!extDegree.empty()) {
-                    gen.push(*extDegree);
-                    degree_sum += *extDegree;
+                    degree_t deg = (*extDegree).first;
+                    gen.push(deg);
+                    degree_sum += deg;
                     ++extDegree;
                 }
             }
 
             gen.generate();
 
+            // FIXME: This is only necessary, if nodes are not sorted by externalDegree (which happens if we apply ceiling!)
+            // We may change the ceiling scheme to avoid it. For the moment, this is the more general solution
+
+            // translate source node id's
+            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter1(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+            {
+                extDegree.rewind();
+                for (node_t i = 0; !gen.empty(); ++gen) {
+                    const edge_t &orig_edge = *gen;
+                    for (; i < orig_edge.first; ++extDegree, ++i);
+
+                    edge_sorter1.push({orig_edge.second, (*extDegree).second});
+                }
+            }
+
+            edge_sorter1.sort();
+            extDegree.rewind();
+
+            // translate target node id's
+            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter2(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+            {
+                for (node_t i = 0; !edge_sorter1.empty(); ++edge_sorter1) {
+                    const edge_t &orig_edge = *edge_sorter1;
+                    for (; i < orig_edge.first; ++extDegree, ++i);
+
+                    edge_sorter2.push({orig_edge.second, (*extDegree).second});
+                }
+            }
+
+            edge_sorter2.sort();
+
             _inter_community_edges.clear();
-            StreamPusher<decltype(gen), decltype(_inter_community_edges)> (gen, _inter_community_edges);
+            StreamPusher<decltype(edge_sorter2), decltype(_inter_community_edges)> (edge_sorter2, _inter_community_edges);
             _inter_community_edges.consume();
         }
-
-
 
         { // regular edge swaps
             EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
