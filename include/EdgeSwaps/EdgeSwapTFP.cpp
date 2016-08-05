@@ -95,6 +95,7 @@ namespace EdgeSwapTFP {
             } else {
                 depchain_edge_sorter.push({requesting_swap, edge});
                 depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requesting_swap});
+                assert(last_swap < requesting_swap);
                 DEBUG_MSG(_display_debug, "Report to swap " << last_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
 
                 if (compute_stats)
@@ -190,31 +191,24 @@ namespace EdgeSwapTFP {
         std::array<std::vector<edge_t>, 2> dd_new_edges;
 
         for (; !_swap_directions.empty(); ++_swap_directions, ++sid) {
-            swapid_t successors[2];
+            swapid_t successors[2] = {0,0};
 
             // fetch messages sent to this edge
             for (unsigned int i = 0; i < 2; i++) {
                 edges[i].clear();
 
                 // get successor
-                if (!depchain_successor_sorter.empty()) {
+                if (LIKELY(!depchain_successor_sorter.empty())) {
                     auto &msg = *depchain_successor_sorter;
-
 
                     assert(msg.swap_id >= 2*sid+i);
 
-                    if (msg.swap_id != 2*sid+i) {
-                        successors[i] = 0;
-                    } else {
+                    if (UNLIKELY(msg.swap_id == 2*sid+i)) {
                         DEBUG_MSG(_display_debug, "Got successor for S" << sid << ": " << msg);
                         successors[i] = msg.successor;
                         ++depchain_successor_sorter;
                     }
-
-                } else {
-                    successors[i] = 0;
                 }
-
 
                 // fetch possible edge state before swap
                 while (!depchain_pqsort.empty()) {
@@ -241,7 +235,7 @@ namespace EdgeSwapTFP {
                 assert(!edges[i].empty());
 
                 // ensure that dependent swap is in fact a successor (i.e. has larger index)
-                assert(successors[i] == 0 || successors[i] > sid);
+                assert(successors[i] == 0 || successors[i] > 2*sid+1);
             }
 
             if (UNLIKELY(edges[0].front().is_invalid() || edges[1].front().is_invalid())) {
@@ -517,6 +511,8 @@ namespace EdgeSwapTFP {
         swapid_t counter_performed = 0;
         swapid_t counter_not_performed = 0;
         swapid_t counter_loop = 0;
+        swapid_t counter_invalid = 0;
+
 
         for (; !_swap_directions.empty(); ++_swap_directions, ++sid) {
             edge_state_pqsort.update();
@@ -547,7 +543,8 @@ namespace EdgeSwapTFP {
                 ));
             }
 
-            // in the case of invalid swaps (i.e. one edge is invalid) do perform forwarding for the other edge! Note that we did not produce any existence requests, so we don't need to care about them.
+            // in the case of invalid swaps (i.e. one or two edge(s) are invalid) do perform forwarding for the valid edge!
+            // Note that we did not produce any existence requests, so we don't need to care about them.
             bool edge_invalid = false;
             if (UNLIKELY(edges[0].is_invalid() || edges[1].is_invalid())) {
                 new_edges[0] = edges[0];
@@ -599,10 +596,10 @@ namespace EdgeSwapTFP {
 
             // check if there's an conflicting edge
             bool conflict_exists[2];
-            for (unsigned int i = 0; i < 2; i++) {
+            for (unsigned int i = 0; (i < 2); i++) {
                 bool exists = std::binary_search(existence_infos.begin(), existence_infos.end(), new_edges[i]);
                 #ifndef NDEBUG
-                    if (!exists) {
+                    if (!exists && !edge_invalid) {
                         assert(std::binary_search(missing_infos.begin(), missing_infos.end(), new_edges[i]));
                     }
                 #endif
@@ -610,13 +607,14 @@ namespace EdgeSwapTFP {
             }
 
             // can we perform the swap?
-            const bool loop = new_edges[0].is_loop() || new_edges[1].is_loop();
-            const bool perform_swap = !(conflict_exists[0] || conflict_exists[1] || loop);
+            const bool loop = !edge_invalid && (new_edges[0].is_loop() || new_edges[1].is_loop());
+            const bool perform_swap = !(conflict_exists[0] || conflict_exists[1] || loop || edge_invalid);
 
             if (compute_stats) {
                 counter_performed += perform_swap;
                 counter_not_performed += !perform_swap;
                 counter_loop += loop;
+                counter_invalid += edge_invalid;
             }
 
             // write out debug message if the swap is not invalid
@@ -654,6 +652,7 @@ namespace EdgeSwapTFP {
                 }
 
                 successor_found[successor] = true;
+                assert(!successor_found[successor] || !edges[successor].is_invalid());
             }
 
             // send current state of edge iff there are no successors to this edge
@@ -711,8 +710,10 @@ namespace EdgeSwapTFP {
 
         if (compute_stats) {
             std::cout << "Swaps performed: " << counter_performed
-            << " not performed: " << counter_not_performed
-            << " due to loops: " << counter_loop << std::endl;
+            << ". Not performed: " << counter_not_performed
+            << ". Out of them (Due to loops: " << counter_loop
+            << ". Declared invalid: " << counter_invalid << ")"
+            << std::endl;
         }
 
         if (_result_thread) _result_thread->join();
@@ -746,7 +747,7 @@ namespace EdgeSwapTFP {
     }
 
     void EdgeSwapTFP::_process_swaps() {
-        constexpr bool show_stats = true;
+        constexpr bool show_stats = false;
 
         using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
 
