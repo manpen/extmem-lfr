@@ -1,13 +1,14 @@
 #include "LFR.h"
 #include <Utils/IOStatistics.h>
 #include <random>
+#include <stxxl/random>
 
 namespace LFR {
 
     void LFR::_compute_node_distributions() {
         // setup distributions
         NodeDegreeDistribution ndd(_degree_distribution_params);
-        std::default_random_engine generator;
+        std::default_random_engine generator( stxxl::get_next_seed() );
         std::geometric_distribution<int> geo_dist(0.1);
 
         _degree_sum = 0;
