@@ -39,6 +39,12 @@ namespace LFR {
                 memebership_sum += memberships;
             }
         } else if (_overlap_method == constDegree) {
+            std::uniform_real_distribution<float> fdis;
+
+            edgeid_t total_inter_degree = 0;
+            edgeid_t total_intra_degree = 0;
+            node_t total_ceils = 0;
+
             for (node_t i = 0; i < static_cast<node_t>(_number_of_nodes); ++i, ++ndd) {
                 assert(!ndd.empty());
                 auto &degree = *ndd;
@@ -47,13 +53,28 @@ namespace LFR {
                 community_t memberships = (i < _overlap_config.constDegree.overlappingNodes)
                                           ? _overlap_config.constDegree.multiCommunityDegree : 1;
 
-                const NodeDegreeMembership ndm(degree, memberships);
+
+                float ceil_prob = degree * _mixing;
+                ceil_prob -= std::floor(ceil_prob);
+                bool ceil = fdis(generator) < ceil_prob;
+                total_ceils += ceil;
+
+                const NodeDegreeMembership ndm(degree, memberships, ceil);
                 assert(ndm.intraCommunityDegree(_mixing, memberships-1));
+
+                total_inter_degree += ndm.externalDegree(_mixing);
+                total_intra_degree += ndm.totalInternalDegree(_mixing);
 
                 //std::cout << "Node " << i <<  " Degree: " << degree << " Mem: " << memberships << std::endl;
 
                 _node_sorter.push(ndm);
             }
+
+            std::cout << "Sampled a total degree of " << (total_inter_degree + total_intra_degree) << ". "
+                      << "Intra: " << total_intra_degree << " Inter: " << total_inter_degree
+                      << "Mixing: " << (static_cast<double>(total_inter_degree) / (total_inter_degree+total_intra_degree))
+                      << std::endl;
+            std::cout << "Nodes ceiled: " << total_ceils << std::endl;
 
             if (_overlap_config.constDegree.overlappingNodes)
                 _overlap_max_memberships = _overlap_config.constDegree.multiCommunityDegree;
@@ -119,38 +140,45 @@ namespace LFR {
 
 
     void LFR::run() {
-        IOStatistics iols("LFR");
-
-        _compute_node_distributions();
-        _compute_community_size();
-        _correct_community_sizes();
-        _compute_community_assignments();
-
-        abort();
-
-        // the merging of the communities needs a sorter
-        _max_memory_usage -= SORTER_MEM;
-        STXXL_MSG("Remaining memory for actual swaps is " << _max_memory_usage << " bytes");
-        STXXL_MSG("Degree sum is " << _degree_sum);
-
-        int_t globalSwapsPerIteration = (_degree_sum/2 * _mixing) / 4;
-        STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
-        // subtract actually used amount of memory (so more memory is possibly available for communities)
-
         {
-            IOStatistics ios("GenCommGraphs");
-            _generate_community_graphs();
-        }
-        {
-            IOStatistics ios("GenGlobGraph");
-            _generate_global_graph(globalSwapsPerIteration);
-        }
-        {
-            IOStatistics ios("MergeGraphs");
-            _merge_community_and_global_graph();
+            IOStatistics iols("LFR");
+
+            _compute_node_distributions();
+            _compute_community_size();
+            _correct_community_sizes();
+            _compute_community_assignments();
+            _verify_assignment();
+
+            // the merging of the communities needs a sorter
+            _max_memory_usage -= SORTER_MEM;
+            STXXL_MSG("Remaining memory for actual swaps is " << _max_memory_usage << " bytes");
+            STXXL_MSG("Degree sum is " << _degree_sum);
+
+            int_t globalSwapsPerIteration = (_degree_sum / 2 * _mixing) / 4;
+            STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
+            // subtract actually used amount of memory (so more memory is possibly available for communities)
+
+            {
+                IOStatistics ios("GenCommGraphs");
+                _generate_community_graphs();
+            }
+            {
+                IOStatistics ios("GenGlobGraph");
+                _generate_global_graph(globalSwapsPerIteration);
+            }
+            {
+                IOStatistics ios("MergeGraphs");
+                _merge_community_and_global_graph();
+            }
+
+            std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " <<
+            _inter_community_edges.size() << " of them are inter-community edges. Mixing: "
+            << (static_cast<double>(_inter_community_edges.size()) / _edges.size())
+
+            << std::endl;
         }
 
-        std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " << _inter_community_edges.size() << " of them are inter-community edges" << std::endl;
+        _verify_result_graph();
     }
 
 }

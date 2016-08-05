@@ -13,31 +13,38 @@
 //#define LFR_TESTING
 
 namespace LFR {
-struct NodeDegreeMembership {
-    degree_t degree;
-    community_t memberships;
+class NodeDegreeMembership {
+    degree_t _degree;
+    community_t _memberships;
+    bool _ceil; // FIXME: This eats away 4 bytes
 
+
+public:
     // second parameter can be used to support non-equal distribution
     // eg to get rid of rounding induced quantization
     degree_t intraCommunityDegree(double mixing, community_t com) const {
-        assert(memberships > 0);
+        assert(_memberships > 0);
         auto intraDegree = totalInternalDegree(mixing);
-        return intraDegree/memberships + ((intraDegree%memberships) > com);
+        return intraDegree/_memberships + ((intraDegree%_memberships) > com);
     }
 
     degree_t totalInternalDegree(double mixing) const {
-        return degree - externalDegree(mixing);
+        return degree() - externalDegree(mixing);
     }
 
     degree_t externalDegree(double mixing) const {
-        return static_cast<degree_t>(degree * mixing);
+        return static_cast<degree_t>(degree() * mixing) + _ceil;
     }
 
     NodeDegreeMembership() {}
-    NodeDegreeMembership(const degree_t & degree_, const community_t & memberships_) :
-        degree(degree_), memberships(memberships_) {}
+    NodeDegreeMembership(const degree_t & degree_, const community_t & memberships_, const bool ceil = false) :
+        _degree(degree_), _memberships(memberships_), _ceil(ceil) {}
 
-    DECL_LEX_COMPARE_OS(NodeDegreeMembership, degree, memberships);
+    const degree_t& degree() const {return _degree;}
+    const community_t& memberships() const {return _memberships;}
+    const bool& ceil() const {return _ceil;}
+
+    DECL_LEX_COMPARE_OS(NodeDegreeMembership, _degree, _memberships);
 };
 
 class NodeDegreeMembershipInternalDegComparator {
@@ -49,16 +56,16 @@ public:
     bool operator()(const NodeDegreeMembership &a, const NodeDegreeMembership &b) const {
         auto ai = a.intraCommunityDegree(_mixing,0);
         auto bi = b.intraCommunityDegree(_mixing,0);
-        return std::tie(ai, a.degree) > std::tie(bi, b.degree);
+        return std::tie(ai, a.degree(), a.ceil()) > std::tie(bi, b.degree(), b.ceil());
     }
 
     NodeDegreeMembership max_value() const {
         return {std::numeric_limits<degree_t>::min(),
-                std::numeric_limits<community_t>::max()};
+                std::numeric_limits<community_t>::max(), true};
     }
 
     NodeDegreeMembership min_value() const {
-        return {std::numeric_limits<degree_t>::max(), 1};
+        return {std::numeric_limits<degree_t>::max(), 1, false};
     }
 };
 
@@ -165,11 +172,13 @@ protected:
     void _compute_node_distributions();
     void _compute_community_size();
     void _compute_community_assignments();
-    void _verify_assignment();
     void _correct_community_sizes();
     void _generate_community_graphs();
     void _generate_global_graph(int_t swaps_per_iteration);
     void _merge_community_and_global_graph();
+
+    void _verify_assignment();
+    void _verify_result_graph();
 
 public:
     LFR(const NodeDegreeDistribution::Parameters & node_degree_dist,
