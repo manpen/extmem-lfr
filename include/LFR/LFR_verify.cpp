@@ -4,6 +4,7 @@
 #include<DistributionCount.h>
 #include<GenericComparator.h>
 #include<Utils/FloatDistributionCount.h>
+#include<Utils/StableAssert.h>
 
 #endif
 
@@ -19,16 +20,6 @@ namespace LFR {
     }
 
 #else
-#define STABLE_ASSERT(condition) \
-     { \
-        if (!(condition)) {  \
-            std::cerr << "Assertion (" #condition ") failed " \
-                         " @ " __FILE__ ":" << __LINE__ << std::endl; \
-            invalid=true; \
-        } \
-     }
-
-
     void LFR::_verify_assignment() {
         community_t com = 0;
         node_t size = 0;
@@ -60,21 +51,21 @@ namespace LFR {
 
 
             } else {
-                STABLE_ASSERT(size == _community_size(com));
+                STABLE_EXPECT_EQ(size, _community_size(com));
 
                 if (size < max_deg) {
                     std::cerr << "Node " << max_member << " with degree " << max_deg << " assigned to community " << com << " of size " << size << std::endl;
                 }
 
-                STABLE_ASSERT(size >= max_deg);
+                STABLE_EXPECT(size >= max_deg);
                 com = a.community_id;
                 size = 1;
                 max_deg = a.degree;
             }
         }
 
-        STABLE_ASSERT(size == _community_size(com));
-        STABLE_ASSERT(size >= max_deg);
+        STABLE_EXPECT_EQ(size, _community_size(com));
+        STABLE_EXPECT_GE(size, max_deg);
 
         // check that intra-degree of every node is met
         {
@@ -88,10 +79,10 @@ namespace LFR {
             auto check_node = [&] () {
                 for (; nid < cur_node; ++nid, ++_node_sorter);
                 assert(!_node_sorter.empty());
-                STABLE_ASSERT(nid == cur_node);
+                STABLE_EXPECT_EQ(nid, cur_node);
 
                 auto &ndm = *_node_sorter;
-                //STABLE_ASSERT(degree == ndm.totalInternalDegree(_mixing));
+
                 if (degree != ndm.totalInternalDegree(_mixing) || memberships != ndm.memberships()) {
                     std::cerr << nid << " requested " << ndm.totalInternalDegree(_mixing) << " intra edges"
                               " and " << ndm.memberships() << " memberships. "
@@ -114,7 +105,7 @@ namespace LFR {
             }
             check_node();
             ++_node_sorter;
-            STABLE_ASSERT(_node_sorter.empty());
+            STABLE_EXPECT(_node_sorter.empty());
         }
         if (invalid)
             abort();
@@ -136,8 +127,8 @@ namespace LFR {
         for(_edges.consume(); !_edges.empty(); ++_edges) {
             const auto & edge = *_edges;
 
-            STABLE_ASSERT(last_edge != edge);
-            STABLE_ASSERT(!edge.is_loop());
+            STABLE_EXPECT_NE(last_edge, edge);
+            STABLE_EXPECT(!edge.is_loop());
 
             nodes.push(edge.first);
             nodes.push(edge.second);
@@ -173,10 +164,9 @@ namespace LFR {
                 nodes_ceiled += ndm.ceil();
 
 
-                STABLE_ASSERT(cur.count <= ndm.degree());
+                STABLE_EXPECT_LE(cur.count, ndm.degree());
 
                 if (cur.count > ndm.degree()) {
-                    std::cerr << nid << "req: " << ndm.degree() << " found: " << cur.count <<  " ceil: " << (*_node_sorter).ceil() << std::endl;
                     overassigned++;
                 }
 
@@ -226,7 +216,8 @@ namespace LFR {
                 const CommunityAssignment& as = *reader;
 
                 auto & ptr = node_writers.at(as.node_id);
-                STABLE_ASSERT(std::distance(memberships.begin(), ptr) < member_offset.at(as.node_id+1));
+                auto dist = std::distance(memberships.begin(), ptr);
+                STABLE_EXPECT_LS(dist, member_offset.at(as.node_id+1));
                 *ptr = as.community_id;
                 ++ptr;
             }
@@ -235,7 +226,7 @@ namespace LFR {
                 auto begin = memberships.begin() + member_offset[nid  ];
                 auto end   = memberships.begin() + member_offset[nid+1];
 
-                STABLE_ASSERT(node_writers[nid] == end);
+                STABLE_EXPECT(node_writers[nid] == end);
 
                 std::sort(begin, end);
             }
@@ -281,14 +272,15 @@ namespace LFR {
 
             double mixing = 1.0 - static_cast<double>(intra_edges) / _edges.size();
             std::cout << "Mixing: " << mixing << std::endl;
-            STABLE_ASSERT(std::abs(mixing - _mixing) < 0.01);
+            STABLE_EXPECT_LS(std::abs(mixing - _mixing) / _mixing, 0.05);
 
             std::cout << "Resulting graph has " << _edges.size() << " edges, " << intra_edges << " of them are intra-community edges and "
                       << (_edges.size() - intra_edges) <<  " of them are inter-community edges. Mixing: " << mixing
                       << std::endl;
 
             double stdev = 0.;
-            for(node_t nid=0; nid < _number_of_nodes; ++nid) {
+             for(node_t nid=0; nid < _number_of_nodes; ++nid) {
+                STABLE_EXPECT_LE(intra_degrees[nid], ndms[nid].totalInternalDegree(_mixing));
                 double diff =  (1.0 - static_cast<double>(intra_degrees[nid]) / node_degrees[nid]) - mixing;
                 stdev += diff * diff;
             }
