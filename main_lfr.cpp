@@ -178,5 +178,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_total_allocation() << std::endl;    
+
     return 0;
 }
