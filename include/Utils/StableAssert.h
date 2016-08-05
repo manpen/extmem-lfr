@@ -45,10 +45,11 @@
       }}
 
 #define STABLE_ASSERT_BINOP(OP1, OP2, OP) {\
-      if (!((OP1) OP (OP2))) {\
-         std::cerr <<  "Assertion (" << #OP1 << " " << #OP << " " << #OP2  << ") at " << __FILE__ << ":" << __LINE__ << " in " << STABLE_ASSERT_FUNC << " failed with actuals [" << (OP1) << " " << #OP << " " << (OP2) << "]" << std::endl;\
+      {auto x1 = (OP1); auto x2 = (OP2);\
+      if (!(x1 OP x2)) {\
+         std::cerr <<  "Assertion (" << #OP1 << " " << #OP << " " << #OP2  << ") at " << __FILE__ << ":" << __LINE__ << " in " << STABLE_ASSERT_FUNC << " failed with actuals [" << x1 << " " << #OP << " " << x2 << "]" << std::endl;\
          abort();\
-      }}
+      }}}
 
 //! Requires condition X to be satisfied.
 #define STABLE_EXPECT(X) {\
