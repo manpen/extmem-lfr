@@ -31,6 +31,15 @@ SET(CMAKE_BUILD_TYPE "${TMP_CMAKE_BUILD_TYPE}")
 
 include_directories(include/)
 
+set(BOOST_LIBS "")
+find_package(Boost 1.58.0)
+if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DBOOST_SUPPORT")
+    message("Boost support !")
+    set(BOOST_LIBS "boost_iostreams")
+endif()
+
 
 macro(remove_cxx_flag flag)
     string(REPLACE "${flag}" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
@@ -47,7 +56,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -mtune=native -msse4")
 # enable C++11
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -DSTXXL_VERBOSE_LEVEL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_INTERNAL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_EXTERNAL=0") # -DSTXXL_PARALLEL_MODE=1 causes problems?
 
-set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O1")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 # Include STXXL
@@ -81,8 +90,11 @@ add_library(libextmemgraphgen STATIC
     include/LFR/CommunityEdgeRewiringSwaps.cpp
     include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
+    include/CluewebReader.cpp
     ${LFR_SRCS}
 )
+
+
 
 # Specify here the include directories exported
 # by this library
@@ -98,7 +110,8 @@ add_executable(pa_edge_swaps main_edge_swaps.cpp)
 target_link_libraries(pa_edge_swaps libextmemgraphgen ${STXXL_LIBRARIES})
 
 add_executable(pa_benchmark benchmark.cpp)
-target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
+target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen ${BOOST_LIBS})
+
 
 add_executable(pa_lfr main_lfr.cpp)
 target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})

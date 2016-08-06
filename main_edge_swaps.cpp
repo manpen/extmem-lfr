@@ -26,6 +26,8 @@
 #include <EdgeSwaps/EdgeSwapTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 
+#include <CluewebReader.h>
+
 enum EdgeSwapAlgo {
     IM,
     SEMI, // InternalSwaps
@@ -52,6 +54,8 @@ struct RunConfig {
     double factorNoSwaps;
     unsigned int noRuns;
 
+    std::string clueweb;
+
     RunConfig() 
         : numNodes(10 * IntScale::Mi)
         , minDeg(2)
@@ -65,6 +69,7 @@ struct RunConfig {
         , verbose(false)
         , factorNoSwaps(-1)
         , noRuns(0)
+        , clueweb("")
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -102,6 +107,7 @@ struct RunConfig {
             cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
+            cp.add_string(CMDLINE_COMP('c', "clueweb", clueweb, "path to clueweb file"));
 
             if (!cp.process(argc, argv)) {
                 cp.print_usage();
@@ -147,7 +153,7 @@ void benchmark(RunConfig & config) {
 
     // Build edge list
     EdgeStream edge_stream;
-    {
+    if (config.clueweb.empty()) {
         IOStatistics hh_report("HHEdges");
 
         // prepare generator
@@ -159,9 +165,14 @@ void benchmark(RunConfig & config) {
         StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
         edge_stream.consume();
 
+    } else {
+        auto stream = read_clueweb_file(config.clueweb);
+        std::swap(stream, edge_stream);
     }
+
     std::cout << "Generated " << edge_stream.size() << " edges\n";
-    
+
+
     if (config.factorNoSwaps > 0) {
        config.numSwaps = edge_stream.size() * config.factorNoSwaps;
        std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
