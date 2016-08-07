@@ -153,7 +153,7 @@ void LFR::_compute_community_assignments() {
 
         if (new_degree > current_degree) {
             while(--largest_illegal_com) {
-                if (com_sizes[largest_illegal_com] >= new_degree) {
+                if (com_sizes[largest_illegal_com] > new_degree) {
                     ++largest_illegal_com;
                     break;
                 }
@@ -161,7 +161,7 @@ void LFR::_compute_community_assignments() {
 
         } else {
             for(;largest_illegal_com < number_of_communities; ++largest_illegal_com) {
-                if (com_sizes[largest_illegal_com] < new_degree) {
+                if (com_sizes[largest_illegal_com] <= new_degree) {
                     break;
                 }
             }
