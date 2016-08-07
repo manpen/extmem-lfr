@@ -169,8 +169,8 @@ void LFR::_compute_community_assignments() {
         }
 
         assert(largest_illegal_com > 0);
-        assert(new_degree <= com_sizes.at(largest_illegal_com - 1));
-        assert(largest_illegal_com == number_of_communities || new_degree > com_sizes.at(largest_illegal_com));
+        assert(new_degree < com_sizes.at(largest_illegal_com - 1));
+        assert(largest_illegal_com == number_of_communities || new_degree >= com_sizes.at(largest_illegal_com));
 
         legal_weight = tree.prefixsum(largest_illegal_com - 1);
         current_degree = new_degree;
