@@ -60,6 +60,9 @@ protected:
     degree_t _remaining_neighbors; //!< The number of neighbors not satisfies for
                                    //!< for current vertex (_current_edge.first).
 
+    edgeid_t _unsatisfied_degree;
+    node_t _unsatisfied_nodes;
+
     /**
      * Moves the block with highest degree from queue into stack and
      * updates degree information. If remaining_neighbors indicates
@@ -67,9 +70,12 @@ protected:
      */
     void _checkout_block() {
         if (_blocks.empty()) {
-            std::cerr << "HH: Cannot materialize degree sequence. "
-                    "Node " << _current_edge.first << " requires "
-            << _remaining_neighbors << " more neighbors.\n";
+            _unsatisfied_nodes++;
+            _unsatisfied_degree += _remaining_neighbors;
+
+            //std::cerr << "HH: Cannot materialize degree sequence. "
+            //        "Node " << _current_edge.first << " requires "
+            //<< _remaining_neighbors << " more neighbors.\n";
             _remaining_neighbors = 0;
 
             _fetch_next_edge();
@@ -160,6 +166,10 @@ protected:
             _verify_deque_invariants();
 
             if (UNLIKELY(_blocks.empty())) {
+                std::cout << "HH generate sequence with " << (_push_current_node - _initial_node)
+                          <<  " nodes and " << _max_number_of_edges << " req. edges; "
+                          << " reqs for " << _unsatisfied_nodes << " nodes and " << _unsatisfied_degree << " edges unsatisfied"
+                << std::endl;
                 _empty = true;
                 return;
             }
@@ -202,7 +212,9 @@ public:
         _push_direction(push_direction),
         _initial_node(initial_node),
         _push_current_node(initial_node),
-        _max_number_of_edges(0)
+        _max_number_of_edges(0),
+        _unsatisfied_degree(0),
+        _unsatisfied_nodes(0)
     {}
 
     //! Push a new vertex -represented by its degree- into degree sequence
@@ -292,5 +304,13 @@ public:
     edgeid_t maxEdges() const {
         assert(_mode == Generate);
         return _max_number_of_edges;
+    }
+
+    edgeid_t unsatisfiedDegree() const {
+        return _unsatisfied_degree;
+    }
+
+    node_t unsatisfiedNodes() const {
+        return _unsatisfied_nodes;
     }
 };
