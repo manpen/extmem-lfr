@@ -76,10 +76,10 @@ namespace LFR {
         { // regular edge swaps
             EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
             // Generate swaps
-            uint_t numSwaps = _inter_community_edges.size();
+            uint_t numSwaps = 10*_inter_community_edges.size();
             SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
 
-            if (0) {
+            if (1) {
                 IOStatistics ios("GlobalGenInitialRand");
                 StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
                 swapAlgo.run();
