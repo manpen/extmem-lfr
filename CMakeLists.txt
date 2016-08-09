@@ -103,14 +103,14 @@ add_library(libextmemgraphgen STATIC
 #)
 
 # create and executable and linke with STXXL
-add_executable(pa_test1 test1.cpp)
-target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
+#add_executable(pa_test1 test1.cpp)
+#target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
 
 add_executable(pa_edge_swaps main_edge_swaps.cpp)
 target_link_libraries(pa_edge_swaps libextmemgraphgen ${STXXL_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(pa_benchmark benchmark.cpp)
-target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen ${BOOST_LIBS})
+#add_executable(pa_benchmark benchmark.cpp)
+#target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen ${BOOST_LIBS})
 
 
 add_executable(pa_lfr main_lfr.cpp)
