@@ -64,6 +64,7 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
                     _swap = SemiLoadedSwapDescriptor {edge_t {(*_edge_community_output_sorter)->tail, (*_edge_community_output_sorter)->head}, eid1, *_bool_stream};
                     ++_bool_stream;
 
+                    // forward till the end of the current edge such that the next swap will be for another edge
                     while (!(*_edge_community_output_sorter).empty() && edgeComIsCurrentEdge()) {
                         ++(*_edge_community_output_sorter);
                     }
