@@ -107,6 +107,11 @@ namespace EdgeSwapTFP {
             }
         }
 
+        while (!loaded_edge_swap_sorter.empty()) {
+            depchain_edge_sorter.push({loaded_edge_swap_sorter->swap_id, edge_t::invalid()});
+            ++loaded_edge_swap_sorter;
+        }
+
         assert(edge_swap_sorter.empty());
         assert(loaded_edge_swap_sorter.empty());
         assert(_loaded_edge_swap_sorter->empty());
