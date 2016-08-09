@@ -41,8 +41,8 @@ namespace EdgeSwapTFP {
         uint_t swaps_per_edge = 1;
 
         #ifdef ASYNC_STREAMS
-            AsyncStream<EdgeReader> edge_reader(edge_reader_in, false, 1.0e8);
-            AsyncStream<EdgeSwapSorter> edge_swap_sorter(*_edge_swap_sorter, false, 1.0e8);
+            AsyncStream<EdgeReader> edge_reader(edge_reader_in, false, 1.0e6);
+            AsyncStream<EdgeSwapSorter> edge_swap_sorter(*_edge_swap_sorter, false, 1.0e6);
             edge_reader.acquire();
             edge_swap_sorter.acquire();
         #else
