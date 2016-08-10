@@ -35,6 +35,7 @@ namespace LFR {
 
         if (discardedEdges > 0) {
             STXXL_MSG("Discarded " << discardedEdges << " internal edges that were in multiple communities of in total " << _edges.size() << " edges.");
+            assert(false && "Duplicate intra-community edges should have been rewired!");
         }
     }
 }
