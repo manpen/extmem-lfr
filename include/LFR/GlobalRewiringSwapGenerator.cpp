@@ -21,6 +21,7 @@ GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LF
 }
 
 void GlobalRewiringSwapGenerator::generate() {
+    assert(empty());
     std::swap(_edge_community_input_sorter, _edge_community_output_sorter);
     _edge_community_output_sorter->sort();
     _node_community_reader.reset(new decltype(_node_communities)::stream(_node_communities));
@@ -85,6 +86,7 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
     }
 
     _node_community_reader.reset(nullptr);
+    _edge_community_output_sorter->clear();
 
     _empty = true;
 
