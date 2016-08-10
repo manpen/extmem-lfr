@@ -22,6 +22,7 @@ void CommunityEdgeRewiringSwaps::run() {
             bool inDuplicates = false;
             int_t first_dup = 0;
             loadAndStoreEdges([&](edgeid_t eid, const edge_community_t &e) {
+                assert(!e.edge.is_loop());
                 countCommunity(e.community_id);
 
                 if (last_edge.edge == e.edge && (inDuplicates || com_swap_edges.size() < _max_swaps)) {
@@ -233,8 +234,18 @@ void CommunityEdgeRewiringSwaps::loadAndStoreEdges(Callback callback) {
         stxxl::vector<edge_community_t>::bufreader_type community_edge_reader(_community_edges);
         if (updated_edges.empty()) {
             // just read edges
-            for (; !community_edge_reader.empty(); ++id, ++community_edge_reader) {
+            for (; !community_edge_reader.empty(); ++id) {
                 callback(id, *community_edge_reader);
+#ifndef NDEBUG
+                auto previous = *community_edge_reader;
+#endif
+                ++community_edge_reader;
+#ifndef NDEBUG
+                if (!community_edge_reader.empty() && previous == *community_edge_reader) {
+                    std::cout << previous << " equals " << *community_edge_reader << std::endl;
+                    assert(false && "Previous must not be the same as the next edge!");
+                }
+#endif
             }
 
         } else {
@@ -259,6 +270,7 @@ void CommunityEdgeRewiringSwaps::loadAndStoreEdges(Callback callback) {
 
                 // merge update edges and read edges
                 if (new_e != updated_edges.end() && (community_edge_reader.empty() || *new_e < *community_edge_reader)) {
+                    assert(*new_e != cur_e);
                     cur_e = *new_e;
                     writer << cur_e;
                     ++new_e;
@@ -267,6 +279,7 @@ void CommunityEdgeRewiringSwaps::loadAndStoreEdges(Callback callback) {
                         break; // abort the loop as we do not have any edges to process anymore.
                     }
 
+                    assert(cur_e != *community_edge_reader);
                     cur_e = *community_edge_reader;
                     writer << cur_e;
                     ++read_id;

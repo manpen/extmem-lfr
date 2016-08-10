@@ -49,6 +49,7 @@ namespace LFR {
                         assert(ca.community_id == com);
                         node_degrees.push_back(ca.degree);
                         degree_sum += ca.degree;
+                        assert(node_ids.empty() || node_ids.back() != ca.node_id);
                         node_ids.push_back(ca.node_id);
                         gen.push(ca.degree);
                     }
@@ -92,10 +93,19 @@ namespace LFR {
                         swapAlgo.run();
                     }
 
+#ifndef NDEBUG
+                    edge_t last_e(edge_t::invalid());
+#endif
+
                     #pragma omp critical (_edgeSorter)
                     for (auto it = graph.getEdges(); !it.empty(); ++it) {
                         edge_t e = {node_ids[it->first], node_ids[it->second]};
                         e.normalize();
+#ifndef NDEBUG
+                                    assert(e != last_e);
+                                    assert(!e.is_loop());
+                                    last_e = e;
+#endif
                         edgeSorter.push(CommunityEdge(com, e));
                     }
                 } else {
@@ -148,11 +158,19 @@ namespace LFR {
                         {
                             decltype(external_node_ids)::bufreader_type node_id_reader(external_node_ids);
 
+#ifndef NDEBUG
+                            edge_t last_e(edge_t::invalid());
+#endif
                             #pragma omp critical (_edgeSorter)
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
                                 while (!intra_edgeSorter.empty() && intra_edgeSorter->first == u) {
                                     edge_t e(intra_edgeSorter->second, *node_id_reader);
                                     e.normalize();
+#ifndef NDEBUG
+                                    assert(e != last_e);
+                                    assert(!e.is_loop());
+                                    last_e = e;
+#endif
                                     edgeSorter.push(CommunityEdge(com, e));
                                     ++intra_edgeSorter;
                                 }

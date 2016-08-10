@@ -48,6 +48,7 @@ namespace EdgeSwapTFP {
             edgeid_t requested_edge;
             swapid_t requesting_swap;
             const edge_t & edge = *edge_reader;
+            assert(!edge.is_loop());
 
             auto match_request = [&]() {
                 // indicate that a non-existing loaded edge is invalid

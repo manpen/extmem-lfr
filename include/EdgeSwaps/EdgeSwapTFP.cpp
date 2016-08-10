@@ -78,6 +78,7 @@ namespace EdgeSwapTFP {
             }
 
             const auto & edge = *edge_reader;
+            assert(!edge.is_loop());
 
             // read edge and sent it to next node, if
             if (first_swap_of_edge) {
