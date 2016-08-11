@@ -292,7 +292,7 @@ void LFR::_compute_community_assignments() {
                             // check whether other node is already assigned to our community
                             auto begin = off_assignments.cbegin() + membership_offsets.at(other.node_id);
                             auto end = off_assignments.cbegin() + membership_offsets.at(other.node_id+1);
-                            if (end == std::find_if(begin, end, [community_selected] (const CommunityAssignment& as) {
+                            if (end != std::find_if(begin, end, [community_selected] (const CommunityAssignment& as) {
                                 return as.community_id == community_selected;
                             })) {
                                 continue;

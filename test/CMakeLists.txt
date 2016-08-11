@@ -10,7 +10,7 @@ add_executable(testextmemgraphgen ${SRCS})
 include_directories(${gtest_SOURCE_DIR} ${gtest_SOURCE_DIR}/include)
 
 target_link_libraries(testextmemgraphgen
-#    libextmemgraphgen
+    libextmemgraphgen
     gtest gtest_main
     ${STXXL_LIBRARIES}
 )

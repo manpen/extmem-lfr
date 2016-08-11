@@ -57,7 +57,13 @@ private:
         EdgeReaderWrapper(edge_community_vector_t& intra_edges) : _reader(intra_edges) { };
 
         EdgeReaderWrapper& operator++() {
+#ifndef NDEBUG
+            auto previous = *_reader;
+#endif
             ++_reader;
+#ifndef NDEBUG
+            assert(_reader.empty() || previous != *_reader);
+#endif
             return *this;
         };
 

@@ -5,6 +5,7 @@
 #include<GenericComparator.h>
 #include<Utils/FloatDistributionCount.h>
 #include<Utils/StableAssert.h>
+#include<Utils/CRCHash.h>
 
 #endif
 
@@ -34,6 +35,8 @@ namespace LFR {
 
         using reader_t = typename decltype(_community_assignments)::bufreader_type;
 
+
+        node_t last_node = INVALID_NODE;
         // check that community capacity is not exceeded and that all node
         // have sufficiently many neighbors
         for (reader_t reader(_community_assignments); !reader.empty(); ++reader) {
@@ -43,6 +46,8 @@ namespace LFR {
 
             if (a.community_id == com) {
                 size++;
+
+                STABLE_ASSERT_NE(a.node_id, last_node);
 
                 if (max_deg < a.degree) {
                     max_deg = a.degree;
@@ -62,6 +67,8 @@ namespace LFR {
                 size = 1;
                 max_deg = a.degree;
             }
+
+            last_node = a.node_id;
         }
 
         STABLE_EXPECT_EQ(size, _community_size(com));

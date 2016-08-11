@@ -19,9 +19,9 @@ namespace EdgeSwapTFP {
         uint_t swaps_per_edge = 1;
 
         #ifdef ASYNC_STREAMS
-            AsyncStream<EdgeReader> edge_reader(edge_reader_in, false, 1.0e8);
-            AsyncStream<EdgeSwapSorter> edge_swap_sorter(*_edge_swap_sorter, false, 1.0e8);
-            AsyncStream<LoadedEdgeSwapSorter> loaded_edge_swap_sorter(*_loaded_edge_swap_sorter, false, 1.0e8);
+            AsyncStream<EdgeReader> edge_reader(edge_reader_in, false, 1.0e6);
+            AsyncStream<EdgeSwapSorter> edge_swap_sorter(*_edge_swap_sorter, false, 1.0e6);
+            AsyncStream<LoadedEdgeSwapSorter> loaded_edge_swap_sorter(*_loaded_edge_swap_sorter, false, 1.0e6);
             edge_reader.acquire();
             edge_swap_sorter.acquire();
             loaded_edge_swap_sorter.acquire();
@@ -48,6 +48,7 @@ namespace EdgeSwapTFP {
             edgeid_t requested_edge;
             swapid_t requesting_swap;
             const edge_t & edge = *edge_reader;
+            assert(!edge.is_loop());
 
             auto match_request = [&]() {
                 // indicate that a non-existing loaded edge is invalid
@@ -56,41 +57,17 @@ namespace EdgeSwapTFP {
                     ++loaded_edge_swap_sorter;
                 }
                 assert(loaded_edge_swap_sorter.empty() || loaded_edge_swap_sorter->edge >= edge);
-
-                while(1) {
-                    // check whether we have a matching requests to the edgeid (edge_match) or the edge itself (loaded_match)
-                    const bool edge_match = !edge_swap_sorter.empty() && edge_swap_sorter->edge_id == eid;
-                    const bool loaded_match = !loaded_edge_swap_sorter.empty() && loaded_edge_swap_sorter->edge == edge;
-
-                    if (UNLIKELY(edge_match && loaded_match && (loaded_edge_swap_sorter->swap_id + 1 == edge_swap_sorter->swap_id))) {
-                        std::cout << "Declare a self-swap invalid. swap-ids " << loaded_edge_swap_sorter->swap_id << " (+1)"  << std::endl;
-
-                        depchain_edge_sorter.push({loaded_edge_swap_sorter->swap_id, edge_t::invalid()});
-                        depchain_edge_sorter.push({edge_swap_sorter->swap_id, edge_t::invalid()});
-
-                        ++loaded_edge_swap_sorter;
-                        ++edge_swap_sorter;
-
-                        continue;
-
-                    }
-
-                    if (edge_match && !(loaded_match && loaded_edge_swap_sorter->swap_id < edge_swap_sorter->swap_id)) {
-                        requested_edge = edge_swap_sorter->edge_id;
-                        requesting_swap = edge_swap_sorter->swap_id;
-                        ++edge_swap_sorter;
-                        return true;
-
-                    }
-
-                    if (loaded_match) {
-                        requesting_swap = loaded_edge_swap_sorter->swap_id;
-                        requested_edge = eid;
-                        ++loaded_edge_swap_sorter;
-                        return true;
-
-                    }
-
+                if (!edge_swap_sorter.empty() && edge_swap_sorter->edge_id == eid && !(!loaded_edge_swap_sorter.empty() && loaded_edge_swap_sorter->edge == edge && loaded_edge_swap_sorter->swap_id < edge_swap_sorter->swap_id)) {
+                    requested_edge = edge_swap_sorter->edge_id;
+                    requesting_swap = edge_swap_sorter->swap_id;
+                    ++edge_swap_sorter;
+                    return true;
+                } else if (!loaded_edge_swap_sorter.empty() && loaded_edge_swap_sorter->edge == edge) {
+                    requesting_swap = loaded_edge_swap_sorter->swap_id;
+                    requested_edge = eid;
+                    ++loaded_edge_swap_sorter;
+                    return true;
+                } else {
                     return false;
                 }
             };
@@ -111,11 +88,11 @@ namespace EdgeSwapTFP {
                     if (UNLIKELY(requesting_swap%2 == 1 && last_swap + 1 == requesting_swap)) {
                         depchain_edge_sorter.push({requesting_swap, edge_t::invalid()});
                         requesting_swap = last_swap;
+                    } else {
+                        depchain_edge_sorter.push({requesting_swap, edge});
+                        depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requesting_swap});
+                        DEBUG_MSG(_display_debug, "Report to swap " << last_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
                     }
-
-                    depchain_edge_sorter.push({requesting_swap, edge});
-                    depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requesting_swap});
-                    DEBUG_MSG(_display_debug, "Report to swap " << last_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
 
                     if (compute_stats)
                         swaps_per_edge++;
@@ -129,6 +106,11 @@ namespace EdgeSwapTFP {
             } else {
                 edge_remains_valid.push(true);
             }
+        }
+
+        while (!loaded_edge_swap_sorter.empty()) {
+            depchain_edge_sorter.push({loaded_edge_swap_sorter->swap_id, edge_t::invalid()});
+            ++loaded_edge_swap_sorter;
         }
 
         assert(edge_swap_sorter.empty());

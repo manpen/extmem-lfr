@@ -53,10 +53,14 @@ public:
     template <typename Iterator>
     void pushEdges(Iterator &&edgeIterator) {
         if (_edge_community_input_sorter) {
-            _edge_community_input_sorter->clear();
+            // we already have a sorter and this sorter should be initialized already.
+            // this is either because it contains edges from a previous push or
+            // because it was emptied before it was swapped from output to input
         } else if (_edge_community_output_sorter && empty()) {
+            // the output was emptied already - we can re-use that sorter.
+            // Note that on emptying, the sorter is cleared, so no clear necessaary here.
+            // Note also that input does not contain any sorter, so this does not initialize the output sorter without sorting or discard any input.
             std::swap(_edge_community_input_sorter, _edge_community_output_sorter);
-            _edge_community_input_sorter->clear();
         } else {
             _edge_community_input_sorter.reset(new edge_community_sorter_t(edge_community_sorter_t::cmp_type(), SORTER_MEM));
         }

@@ -21,6 +21,7 @@ GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LF
 }
 
 void GlobalRewiringSwapGenerator::generate() {
+    assert(empty());
     std::swap(_edge_community_input_sorter, _edge_community_output_sorter);
     _edge_community_output_sorter->sort();
     _node_community_reader.reset(new decltype(_node_communities)::stream(_node_communities));
@@ -64,6 +65,7 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
                     _swap = SemiLoadedSwapDescriptor {edge_t {(*_edge_community_output_sorter)->tail, (*_edge_community_output_sorter)->head}, eid1, *_bool_stream};
                     ++_bool_stream;
 
+                    // forward till the end of the current edge such that the next swap will be for another edge
                     while (!(*_edge_community_output_sorter).empty() && edgeComIsCurrentEdge()) {
                         ++(*_edge_community_output_sorter);
                     }
@@ -84,6 +86,7 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
     }
 
     _node_community_reader.reset(nullptr);
+    _edge_community_output_sorter->clear();
 
     _empty = true;
 
