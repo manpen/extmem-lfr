@@ -747,7 +747,7 @@ namespace EdgeSwapTFP {
     }
 
     void EdgeSwapTFP::_process_swaps() {
-        constexpr bool show_stats = false;
+        constexpr bool show_stats = true;
 
         using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
 
