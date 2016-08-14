@@ -42,6 +42,10 @@ public:
 
 // Write interface
     void push(const edge_t& edge) {
+        if (edge.first == edge.second) {
+            std::cout << "Loop " << edge.first << " " << edge.second << std::endl;
+        }
+
         assert(_mode == WRITING);
 
         em_buffer_t & em_buffer = *_em_buffer;

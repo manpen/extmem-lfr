@@ -55,12 +55,14 @@
 #define STABLE_EXPECT(X) {\
       if (!(X)) {\
          std::cerr <<  "Assertion (" << #X << ") at " << __FILE__ << ":" << __LINE__ << " in " << STABLE_ASSERT_FUNC << " failed" << std::endl;\
+        abort(); \
       }}
 
 #define STABLE_EXPECT_BINOP(OP1, OP2, OP) {\
       {auto x1 = (OP1); auto x2 = (OP2);\
       if (!(x1 OP x2)) {\
          std::cerr <<  "Assertion (" << #OP1 << " " << #OP << " " << #OP2  << ") at " << __FILE__ << ":" << __LINE__ << " in " << STABLE_ASSERT_FUNC << " failed with actuals [" << x1 << " " << #OP << " " << x2 << "]" << std::endl;\
+        abort(); \
       }}}
 
 /**

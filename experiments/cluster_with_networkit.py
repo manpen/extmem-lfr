@@ -72,6 +72,8 @@ def genEMLFR(N, mink=20, maxk=50, mu=0.3, t1=-2, t2=-1, minc=20, maxc=100, on=0,
         if on > 0:
             args.extend(["-l", on, "-k", om])
 
+        print("Call " + " ".join(map(str, args)))
+
         with Walltime("EMLFR"):
            subprocess.call(map(str, args), stdout=outf, stderr=outf)
 
@@ -123,7 +125,7 @@ with open(logdir+logfile, 'a') as outf:
     outf.write("n, minDeg, maxDeg, degExp, minCom, maxCom, comExp, mu, Generator, m, ComAlg, Comp, score, run\n")
 
     for run in range(1):
-        for n in (10**i for i in range(3,9)):
+        for n in (10**i for i in range(3,4)):
             maxDeg = maxCom = int(n / 20)
 
             avgDeg = generators.PowerlawDegreeSequence(minDeg, maxDeg, degExp).run().getExpectedAverageDegree()
@@ -131,7 +133,7 @@ with open(logdir+logfile, 'a') as outf:
             for mu in (m / 10 for m in range(2, 7, 2)):
                 print(n, maxDeg, mu)
 
-                for gen in ["Orig", "NetworKit"]:
+                for gen in ["EM", "Orig", "NetworKit"]:
                     print("-" * 100)
                     print("Generate. Algo: %s, minDeg: %d\tmaxDeg: %d\tmu:%.2f\tminCom: %d maxCom:%d" % (gen, minDeg, maxDeg, mu, minCom, maxCom))
                     label="%s_n%d_kmin%d_kmax%d_mu%d_minc%d_maxc%d_on%d_of%d-%d" % (gen,n,minDeg,maxDeg,int(mu*10), minCom, maxCom, ovlNodes, ovlFac, run)
