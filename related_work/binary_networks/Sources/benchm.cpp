@@ -1237,7 +1237,7 @@ int connect_all_the_parts(deque<set<int> > & E, const deque<deque<int> > & membe
 		if (en[node_a].insert(random_mate).second) {
 			
 			deque <int> out_nodes;
-			for (set<int>::iterator it_est=en[node_a].begin(); it_est!=en[node_a].end(); it_est++) if ((*it_est)!=random_mate)
+			for (set<int>::iterator it_est=en[node_a].begin(); it_est!=en[node_a].end(); it_est++) if ((*it_est)!=random_)
 				out_nodes.push_back(*it_est);
 						
 										

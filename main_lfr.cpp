@@ -139,6 +139,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     omp_set_nested(1);
+    omp_set_num_threads(1);
 
     RunConfig config;
     if (!config.parse_cmdline(argc, argv))

@@ -5,9 +5,8 @@
 #include <assert.h>
 #include <stxxl/bits/common/utils.h>
 #include "defs.h"
+#include <functional>
 
-
-template <class PushTarget>
 class HavelHakimiRIMGenerator {
 public:
     //! Type of stream interface
@@ -15,7 +14,14 @@ public:
 
     static constexpr bool debug = false;
 
+    //! Direction of Input Stream arriving
+    enum Direction {
+        IncreasingDegree, DecreasingDegree
+    };
+
 protected:
+    const Direction _push_direction;
+
     // Data keeping
     struct Block {
         degree_t degree;
@@ -45,7 +51,6 @@ protected:
 
     //! Generation phase
     edgeid_t _max_number_of_edges;
-    PushTarget& _push_target;
 
     void _print_blocks() {
         if (debug) {
@@ -82,14 +87,13 @@ protected:
     }
 
 public:
-    HavelHakimiRIMGenerator(PushTarget& push_target, node_t initial_node = 0) :
+    HavelHakimiRIMGenerator(Direction push_direction = IncreasingDegree, node_t initial_node = 0) :
+        _push_direction(push_direction),
         _initial_node(initial_node),
         _push_current_node(initial_node),
         _degree_sum(0),
-        _max_number_of_edges(0),
-        _push_target(push_target)
-    {
-    }
+        _max_number_of_edges(0)
+    { }
 
     //! Push a new vertex -represented by its degree- into degree sequence
     void push(const degree_t & deg, const node_t nodes = 1) {
@@ -99,12 +103,13 @@ public:
         if (UNLIKELY(_blocks.empty())) {
            _blocks.push_back(Block(deg, _push_current_node, _push_current_node+nodes));
         } else {
-           if (LIKELY(_blocks.back().degree == deg)) {
-              _blocks.back().node_upper += nodes;
-           } else {
-              assert(deg > _blocks.back().degree);
-              _blocks.push_back(Block(deg, _push_current_node, _push_current_node+nodes));
-           }
+            if (LIKELY(_blocks.back().degree == deg)) {
+                _blocks.back().node_upper += nodes;
+            } else {
+                assert(!(_push_direction == IncreasingDegree && deg < _blocks.back().degree));
+                assert(!(_push_direction == DecreasingDegree && deg > _blocks.back().degree));
+                _blocks.push_back(Block(deg, _push_current_node, _push_current_node + nodes));
+            }
         }
 
         _push_current_node += nodes;
@@ -112,7 +117,23 @@ public:
     }
 
     //! Switch to generation mode; the streaming interface become available
-    void generate() {
+    void generate(std::function<void(const edge_t &)>&& push_target) {
+        if (_push_direction == DecreasingDegree) {
+            BlockContainer rev_blocks;
+
+            node_t nid = _initial_node;
+            while(!_blocks.empty()) {
+                const Block& b = _blocks.back();
+                rev_blocks.emplace_back(b.degree, nid, nid + b.size());
+                nid += b.size();
+                _blocks.pop_back();
+            }
+
+            std::swap(rev_blocks, _blocks);
+            _verify_block_invariants();
+        }
+
+
         _max_number_of_edges = _degree_sum / 2;
 
         std::cout << "[HH-RIM] No. Blocks: " << _blocks.size() << ". No Nodes: " << (_push_current_node - _initial_node) << std::endl;
@@ -124,7 +145,7 @@ public:
 #endif
         auto emit_edges = [&] (const node_t& source, const node_t from, const degree_t no) {
            for(node_t i = from; i < from + no; i++) {
-              _push_target.push({source, i});
+              push_target({(source), (i)});
               if (debug)
                  std::cerr << "[HH-RIM] push edge (" << source << ", " << i << ")" << std::endl;
            }

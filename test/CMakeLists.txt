@@ -15,9 +15,12 @@ target_link_libraries(testextmemgraphgen
     ${STXXL_LIBRARIES}
 )
 
+
 add_executable(testrandom main_random.cpp)
 target_link_libraries(testrandom ${STXXL_LIBRARIES})
 
+add_executable(testsorter main_sorter.cpp)
+target_link_libraries(testsorter ${STXXL_LIBRARIES})
 
 add_test(TestsInExtMemGraphGen testextmemgraphgen)
 add_test(TestsRandom testrandom)

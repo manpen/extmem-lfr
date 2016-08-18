@@ -18,7 +18,12 @@
 #include <EdgeSwaps/EdgeSwapTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 
-
+enum EdgeSwapAlgo {
+    InternalSwaps,
+    ParallelTFP,
+    TFP,
+    IM
+};
 
 struct RunConfig {
     stxxl::uint64 numNodes;

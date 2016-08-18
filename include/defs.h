@@ -42,7 +42,7 @@ using uint_t = std::uint64_t;
 using node_t = int32_t;
 constexpr node_t INVALID_NODE = std::numeric_limits<node_t>::max();
 
-using degree_t = node_t; ///< Type for node degrees
+using degree_t = int32_t; ///< Type for node degrees
 using edgeid_t = int_t; ///< Type used to address edges
 using community_t = int32_t; ///< Type used to address communities
 
@@ -137,9 +137,9 @@ using DblScale = Scale<double>;
 #define DEBUG_MSG(show, msg) {}
 #endif
 
-constexpr uint_t SORTER_MEM = 2048 * IntScale::Mi; // default bytes used for interal storage of  sorter
-constexpr uint_t PQ_INT_MEM = 2048 * IntScale::Mi; // default bytes used for internal storage of a PQ
-constexpr uint_t PQ_POOL_MEM = 1024 * IntScale::Mi; // default bytes used for internal storage of a PQ
+constexpr uint_t SORTER_MEM = 128 * IntScale::Mi; // default bytes used for internal storage of  sorter
+constexpr uint_t PQ_INT_MEM = 128 * IntScale::Mi; // default bytes used for internal storage of a PQ
+constexpr uint_t PQ_POOL_MEM = 128 * IntScale::Mi; // default bytes used for internal storage of a PQ
 
 
 //constexpr uint_t SORTER_MEM = 512 * IntScale::Mi; // default bytes used for interal storage of  sorter

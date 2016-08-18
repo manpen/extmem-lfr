@@ -6,71 +6,80 @@
 
 class TestHavelHakimiRIMGenerator : public ::testing::Test {
 protected:
-    template <typename ValueType>
-    struct PushToVector {
-       std::vector<ValueType> vector;
-       void push(const ValueType& v) {
-          vector.push_back(v);
-       }
-    };
-
     void _check_hh(const std::vector<degree_t> & sequence, node_t initial_id, bool debug = false, bool strict = false) {
-        edgeid_t total_degree = 0;
-        PushToVector<edge_t> edges;
-        HavelHakimiRIMGenerator<PushToVector<edge_t>> hh(edges, initial_id);
+        for(unsigned int i=0; i<2; i++) {
+            edgeid_t total_degree = 0;
+            std::vector<edge_t> edges;
 
-        for (auto &d : sequence) {
-            total_degree += d;
-            hh.push(d);
+            HavelHakimiRIMGenerator hh(
+                  (i
+                    ? HavelHakimiRIMGenerator::Direction::DecreasingDegree
+                    : HavelHakimiRIMGenerator::Direction::IncreasingDegree
+                  ), initial_id
+            );
+
+            if (i) {
+                for(auto it=sequence.crbegin(); it != sequence.crend(); ++it) {
+                    total_degree += *it;
+                    hh.push(*it);
+                }
+
+            } else {
+                for (auto &d : sequence) {
+                    total_degree += d;
+                    hh.push(d);
+                }
+            }
+
+
+            // stream must be only available after completely pushed
+            hh.generate([&edges](const edge_t &e) { edges.push_back(e); });
+
+            // count degrees
+            std::vector <degree_t> degrees(sequence.size(), 0);
+            edge_t previous_edge = {-1, -1};
+            for (const auto &edge : edges) {
+                if (debug)
+                    std::cout << "Got edge " << edge << std::endl;
+
+                // no self-loops and ordered entries
+                ASSERT_LT(edge.first, edge.second);
+
+                // globally ordered
+                ASSERT_LT(previous_edge, edge);
+
+                ASSERT_GE(edge.first, initial_id);
+                ASSERT_LE(edge.first, static_cast<node_t>(initial_id + sequence.size() - 1));
+                ASSERT_GE(edge.second, initial_id);
+                ASSERT_LE(edge.second, static_cast<node_t>(initial_id + sequence.size() - 1));
+
+                degrees.at(edge.first - initial_id)++;
+                degrees.at(edge.second - initial_id)++;
+
+                previous_edge = edge;
+            }
+
+            // compare
+            if (!strict) {
+                // if errors are allowed, the degrees might not be ordered
+                //std::sort(degrees.begin(), degrees.end());
+            }
+
+            for (unsigned int i = 0; i < sequence.size(); i++) {
+                degree_t required = sequence[i];
+
+                if (debug)
+                    std::cout << "Node " << i << " requested " << sequence[i] << " got " << required << std::endl;
+
+                if (strict)
+                    ASSERT_EQ(degrees[i], required) << "node: " << i;
+
+                ASSERT_LE(degrees[i], required) << "node: " << i;
+            }
+
+            ASSERT_GT(static_cast<edgeid_t>(edges.size()), total_degree / 3);
+            ASSERT_LE(static_cast<edgeid_t>(edges.size()), total_degree / 2);
         }
-
-        // stream must be only available after completely pushed
-        hh.generate();
-
-        // count degrees
-        std::vector<degree_t> degrees(sequence.size(), 0);
-        edge_t previous_edge = {-1, -1};
-        for(const auto & edge : edges.vector) {
-            if (debug)
-                std::cout << "Got edge " << edge << std::endl;
-
-            // no self-loops and ordered entries
-            ASSERT_LT(edge.first, edge.second);
-
-            // globally ordered
-            ASSERT_LT(previous_edge, edge);
-
-            ASSERT_GE(edge.first, initial_id);
-            ASSERT_LE(edge.first, static_cast<node_t>(initial_id+sequence.size()-1));
-            ASSERT_GE(edge.second, initial_id);
-            ASSERT_LE(edge.second, static_cast<node_t>(initial_id+sequence.size()-1));
-
-            degrees.at(edge.first - initial_id)++;
-            degrees.at(edge.second - initial_id)++;
-
-            previous_edge = edge;
-        }
-
-        // compare
-        if (!strict) {
-            // if errors are allowed, the degrees might not be ordered
-            //std::sort(degrees.begin(), degrees.end());
-        }
-
-        for(unsigned int i=0; i<sequence.size(); i++) {
-            degree_t required = sequence[i];
-
-            if (debug)
-                std::cout << "Node " << i << " requested " << sequence[i] << " got " << required << std::endl;
-
-            if (strict)
-                ASSERT_EQ(degrees[i], required) << "node: " << i;
-
-            ASSERT_LE(degrees[i], required) << "node: " << i;
-        }
-
-        ASSERT_GT(static_cast<edgeid_t>(edges.vector.size()), total_degree / 3);
-        ASSERT_LE(static_cast<edgeid_t>(edges.vector.size()), total_degree / 2);
     }
 
     std::vector<degree_t> _barabasi(node_t nodes, degree_t edges_per_node) {
