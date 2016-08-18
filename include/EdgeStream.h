@@ -18,6 +18,10 @@ protected:
     enum Mode {WRITING, READING};
     Mode _mode;
 
+    bool _allow_multi_edges;
+    bool _allow_loops;
+
+
     // WRITING
     node_t _current_out_node;
     edgeid_t _number_of_edges;
@@ -27,7 +31,11 @@ protected:
     bool _empty;
 
 public:
-    EdgeStream() {clear();}
+    EdgeStream(bool multi_edges = false, bool loops = false)
+        : _allow_multi_edges(multi_edges)
+        , _allow_loops(loops)
+        , _current(edge_t::invalid())
+    {clear();}
 
     EdgeStream(const EdgeStream &) = delete;
 
@@ -42,16 +50,12 @@ public:
 
 // Write interface
     void push(const edge_t& edge) {
-        if (edge.first == edge.second) {
-            std::cout << "Loop " << edge.first << " " << edge.second << std::endl;
-        }
-
         assert(_mode == WRITING);
+        assert(_allow_loops || edge.first != edge.second);
+        assert(_allow_multi_edges || edge != _current);
+        assert(!_number_of_edges || _current <= edge);
 
         em_buffer_t & em_buffer = *_em_buffer;
-
-        // we need a non-decreasing out-node sequence
-        assert(_current_out_node <= edge.first);
 
         while(UNLIKELY(_current_out_node < edge.first)) {
             em_buffer.push_back(INVALID_NODE);
@@ -60,6 +64,10 @@ public:
 
         em_buffer.push_back(edge.second);
         _number_of_edges++;
+
+#ifndef NDEBUG
+        _current = edge;
+#endif
     }
 
     //! see rewind
@@ -121,7 +129,7 @@ public:
 
         // increment out-node in case we see invalid
         for(; UNLIKELY(*reader == INVALID_NODE); ++reader, ++_current.first) {
-            // it is illegal for a sequence to end with an _op_node
+            // it is illegal for a sequence to end with an "invalid"
             // since it does not represent a new edge and hence cannot
             // have been written
             assert(!reader.empty());
