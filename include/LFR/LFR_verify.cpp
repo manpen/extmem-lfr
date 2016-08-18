@@ -171,15 +171,17 @@ namespace LFR {
                 const auto & ndm = *_node_sorter;
                 nodes_ceiled += ndm.ceil();
 
+                const auto count = static_cast<uint64_t>(cur.count);
+                const auto degree= static_cast<uint64_t>(ndm.degree());
 
-                STABLE_EXPECT_LE(cur.count, ndm.degree());
+                STABLE_EXPECT_LE(count, degree);
 
-                if (cur.count > ndm.degree()) {
+                if (count > degree) {
                     overassigned++;
                 }
 
-                if (cur.count < ndm.degree()) {
-                    unmaterialized += ndm.degree() - cur.count;
+                if (count < degree) {
+                    unmaterialized += degree - count;
                     not_matching++;
                 }
             }
@@ -191,7 +193,7 @@ namespace LFR {
             std::cout << "Found " << overassigned << " node with too high degree. " << std::endl;
             std::cout << "Nodes ceiled: " << nodes_ceiled << std::endl;
 
-            STABLE_ASSERT_EQ(total_degree, 2*_edges.size());
+            STABLE_ASSERT_EQ(total_degree, static_cast<edgeid_t>(2*_edges.size()));
         }
 
 

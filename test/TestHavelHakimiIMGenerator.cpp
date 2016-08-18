@@ -21,7 +21,7 @@ protected:
         ASSERT_FALSE(hh.empty());
 
         // count degrees
-        std::vector<unsigned int> degrees(sequence.size());
+        std::vector<degree_t> degrees(sequence.size());
         degree_t no_edges = 0;
         edge_t previous_edge = {-1, -1};
         for(; !hh.empty(); ++hh, ++no_edges) {
@@ -76,16 +76,16 @@ protected:
 
         // generate barabasi albert pref attachment graph with an
         // initial (edges_per_node)-start
-        for(unsigned int i=0; i<edges_per_node; i++) {
+        for(degree_t i=0; i<edges_per_node; i++) {
             graph.push_back(i+1);
             graph.push_back(0);
         }
 
         // preferential attachment phase
         std::set<node_t> previous_neighbors;
-        for(unsigned int u=0; u < nodes; u++) {
+        for(node_t u=0; u < nodes; u++) {
             previous_neighbors.clear();
-            for(unsigned int e=0; e < edges_per_node; e++) {
+            for(degree_t e=0; e < edges_per_node; e++) {
                 node_t v = u + edges_per_node + 1;
                 graph.push_back(v);
 

@@ -262,7 +262,7 @@ void LFR::_compute_community_assignments() {
                     assert(legal_weight > 0);
 
                     // select legal community weighted by community size
-                    unsigned int retries = 100 * dgm.memberships();
+                    uint64_t retries = 100 * dgm.memberships();
                     while (1) {
                         community_t community_selected = tree.getLeaf(randGen(legal_weight));
                         assert(community_selected < largest_illegal_com);
@@ -277,7 +277,7 @@ void LFR::_compute_community_assignments() {
 
                         // try to find a node with which we can swap a community
                         bool assigned = false;
-                        for(unsigned int r=0; !assigned && r < 10*dgm.memberships(); r++) {
+                        for(unsigned int r=0; !assigned && r < 10* static_cast<uint64_t>(dgm.memberships()); r++) {
                             ++swap_tests;
 
                             auto & other = off_assignments[randGen(off_assignments.size())];

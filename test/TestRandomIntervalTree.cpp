@@ -71,7 +71,7 @@ TEST_F(TestRandomIntervalTree, integration) {
             for(auto i=leaf+1; i<ps.size(); i++)
                 ps[i]--;
 
-            for(auto i=0; i < size; i++)
+            for(size_t i=0; i < size; i++)
                 ASSERT_EQ(ps[i+1], tree.prefixsum(i)) << "i=" << i;
         }
    }

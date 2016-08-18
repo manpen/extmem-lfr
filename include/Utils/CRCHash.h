@@ -31,7 +31,7 @@ public:
         return _crc = ~crc;
     }
 
-    const uint32_t crc() const {
+    const uint32_t& crc() const {
         return _crc;
     }
 };

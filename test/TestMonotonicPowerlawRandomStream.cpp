@@ -6,16 +6,16 @@ class TestMonotonicPowerlawRandomStream :
     public ::testing::TestWithParam<std::tuple<uint_t, uint_t, bool>> {};
 
 TEST_P(TestMonotonicPowerlawRandomStream, basicProperties) {
-    const uint_t min        = std::get<0>(GetParam());
-    const uint_t length     = std::get<1>(GetParam());
+    const degree_t min        = std::get<0>(GetParam());
+    const degree_t length     = std::get<1>(GetParam());
     const bool   increasing = std::get<2>(GetParam());
 
-    const uint_t max = 10000;
+    const degree_t max = 10000;
 
     MonotonicPowerlawRandomStream<true> rs(min, max, -2.0, length);
 
-    uint_t last_rv = increasing ? min : max;
-    for(uint_t i=0; i<length; i++, ++rs) {
+    degree_t last_rv = increasing ? min : max;
+    for(degree_t i=0; i<length; i++, ++rs) {
         ASSERT_FALSE(rs.empty());
 
         if (increasing) {
