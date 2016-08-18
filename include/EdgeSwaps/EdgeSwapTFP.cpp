@@ -496,10 +496,10 @@ namespace EdgeSwapTFP {
         #endif       
 
         assert(_dependency_chain_pq.empty());
-        PQSorterMerger<DependencyChainEdgePQ, decltype(depchain_edge_sorter)> edge_state_pqsort(_dependency_chain_pq, depchain_edge_sorter);
+        PQSorterMerger<DependencyChainEdgePQ, decltype(depchain_edge_sorter), compute_stats> edge_state_pqsort(_dependency_chain_pq, depchain_edge_sorter);
 
         assert(_existence_info_pq.empty());
-        PQSorterMerger<ExistenceInfoPQ, decltype(existence_info_sorter)> existence_info_pqsort(_existence_info_pq, existence_info_sorter);
+        PQSorterMerger<ExistenceInfoPQ, decltype(existence_info_sorter), compute_stats> existence_info_pqsort(_existence_info_pq, existence_info_sorter);
 
         swapid_t sid = 0;
 
@@ -714,10 +714,10 @@ namespace EdgeSwapTFP {
             << ". Out of them (Due to loops: " << counter_loop
             << ". Declared invalid: " << counter_invalid << ")"
             << std::endl;
-
-            edge_state_pqsort.dump_stats("edge_state_pqsort");
-            existence_info_pqsort.dump_stats("existence_info_pqsort");
         }
+
+        edge_state_pqsort.dump_stats("edge_state_pqsort");
+        existence_info_pqsort.dump_stats("existence_info_pqsort");
 
         if (_result_thread) _result_thread->join();
 #ifdef EDGE_SWAP_DEBUG_VECTOR
