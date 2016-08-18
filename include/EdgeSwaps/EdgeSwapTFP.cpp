@@ -13,22 +13,17 @@
 #include <Utils/AsyncPusher.h>
 
 #define ASYNC_STREAMS
+#define REPORT_SORTER_STATS(X) \
+{if (compute_stats) { \
+   const size_t elem_size = sizeof(*(X)); \
+   std::cout << "Sorter [" #X "] contains " << ((X).size()) << " items "\
+                "of each size " << elem_size << " bytes " \
+                "and total " << (elem_size * (X).size()) << " bytes"\
+   << std::endl; \
+}}
 //#define ASYNC_PUSHERS
 
 namespace EdgeSwapTFP {
-/*    void EdgeSwapTFP::push(const SwapDescriptor & swap) {
-        // Every swap k to edges i, j sends one message (edge-id, swap-id) to each edge.
-        // We then sort the messages lexicographically to gather all requests to an edge
-        // at the same place.
-
-        _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[0], _next_swap_id_pushing++));
-        _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
-        _swap_directions_pushing.push(swap.direction());
-
-        if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
-            _start_processing(false);
-    } */
-
     template<class EdgeReader>
     void EdgeSwapTFP::_compute_dependency_chain(EdgeReader & edge_reader_in, BoolStream & edge_remains_valid) {
         edge_remains_valid.clear();
@@ -146,7 +141,9 @@ namespace EdgeSwapTFP {
 
         // then sort
         _depchain_successor_sorter.sort();
+        REPORT_SORTER_STATS(_depchain_successor_sorter);
         _depchain_edge_sorter.sort();
+        REPORT_SORTER_STATS(_depchain_edge_sorter);
     }
 
     /*
@@ -186,8 +183,6 @@ namespace EdgeSwapTFP {
         // statistics
         stx::btree_map<uint_t, uint_t> state_sizes;
         std::vector<edge_t> edges[2];
-
-        uint_t max_elems_in_pq = 0;
 
         std::array<std::vector<edge_t>, 2> dd_new_edges;
 
@@ -336,8 +331,6 @@ namespace EdgeSwapTFP {
             // if we pushed something into the PQ we need to update the merger
             if (UNLIKELY(successors[0] || successors[1])) {
                 depchain_pqsort.update();
-                if (compute_stats)
-                    max_elems_in_pq = std::max<uint_t>(_dependency_chain_pq.size(), max_elems_in_pq);
             }
         }
 
@@ -348,11 +341,11 @@ namespace EdgeSwapTFP {
                 std::cout << it.first << " " << it.second << " #STATE-SIZE" <<
                 std::endl;
             }
-            std::cout << "Max elements in PQ: " << max_elems_in_pq << std::endl;
-            depchain_pqsort.dump_stats();
+            depchain_pqsort.dump_stats("depchain_pqsort");
         }
 
         _existence_request_sorter.sort();
+        REPORT_SORTER_STATS(_existence_request_sorter)
         _swap_directions.rewind();
 
         if (_async_processing) {
@@ -455,6 +448,9 @@ namespace EdgeSwapTFP {
                 std::cout << it.first << " " << it.second << " #EXIST-REQ-PER-EDGE" << std::endl;
             }
         }
+
+        REPORT_SORTER_STATS(_existence_successor_sorter);
+        REPORT_SORTER_STATS(_existence_info_sorter);
 
         if (_async_processing) {
             std::thread t1([&](){_existence_successor_sorter.sort();});
@@ -715,6 +711,9 @@ namespace EdgeSwapTFP {
             << ". Out of them (Due to loops: " << counter_loop
             << ". Declared invalid: " << counter_invalid << ")"
             << std::endl;
+
+            edge_state_pqsort.dump_stats("edge_state_pqsort");
+            existence_info_pqsort.dump_stats("existence_info_pqsort");
         }
 
         if (_result_thread) _result_thread->join();
@@ -737,6 +736,8 @@ namespace EdgeSwapTFP {
 
         assert(_existence_info_pq.empty());
         //_existence_info_sorter.finish_clear();
+        
+        REPORT_SORTER_STATS(_edge_update_sorter);
 
         if (_async_processing) {
             _edge_update_sorter_thread.reset(
@@ -831,6 +832,8 @@ namespace EdgeSwapTFP {
         // swap staging and processing area
         std::swap(_edge_swap_sorter_pushing, _edge_swap_sorter);
         std::swap(_swap_directions_pushing, _swap_directions);
+        
+        REPORT_SORTER_STATS(*_edge_swap_sorter);
 
         if (async) {
             // start worker thread

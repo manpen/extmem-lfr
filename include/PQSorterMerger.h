@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <cassert>
+#include <string>
 
 enum PQSorterMergerSourceType {SrcPriorityQueue, SrcSorter};
 
@@ -52,11 +53,16 @@ private:
         }
     }
 
+    uint64_t _max_elem_in_pq;
+    uint64_t _avg_elem_in_pq;
+    uint64_t _num_updates;
+
 public:
     PQSorterMerger() = delete;
 
     PQSorterMerger(PQ & pq, Sorter & sorter, bool initialize = true) :
-          _pq(pq), _sorter(sorter), _elements_from_pq(0), _elements_from_sorter(0)
+          _pq(pq), _sorter(sorter), _elements_from_pq(0), _elements_from_sorter(0),
+          _max_elem_in_pq(0), _avg_elem_in_pq(0), _num_updates(0)
     {
         if (initialize)
             update();
@@ -66,6 +72,12 @@ public:
     void update() {
         if (LIKELY(!empty()))
             _fetch();
+
+        if (compute_stats) {
+            _max_elem_in_pq = std::max<uint64_t>(_max_elem_in_pq, _pq.size());
+            _avg_elem_in_pq += _pq.size();
+            _num_updates++;
+        }
     }
 
     //! Push an item into the PQ and update the merger
@@ -111,13 +123,31 @@ public:
     }
 
     //! If compute_stats=true output statistics to STDOUT
-    void dump_stats() const {
+    void dump_stats(const std::string label="") const {
         if (!compute_stats)
             return;
 
+        std::string my_label;
+        if (!label.empty())
+           my_label = label + ": ";
+
         auto elements_tot = _elements_from_pq + _elements_from_sorter;
-        std::cout << "Elements consumed: " << elements_tot
+
+        double avg = static_cast<double>(_avg_elem_in_pq) / std::max<uint64_t>(1, _num_updates);
+        size_t sze = sizeof(_pq.top());
+
+        std::cout << my_label
+                  << "Elements consumed: " << elements_tot
                   << " from PQ: " << (_elements_from_pq) << " (" << (100.0 * _elements_from_pq / elements_tot) << "%)"
-                     " from Sorter: " << (_elements_from_sorter) << " (" << (100.0 * _elements_from_sorter / elements_tot) << "%)\n";
+                     " from Sorter: " << (_elements_from_sorter) << " (" << (100.0 * _elements_from_sorter / elements_tot) << "%)"
+                  "\n"
+                  << my_label
+                  << "Max elems in PQ: " << _max_elem_in_pq 
+                  << ", each " << sze << " bytes. In total: " << (sze * _max_elem_in_pq) << " bytes."
+                  "\n"
+                  << my_label
+                  << "Avg elems in PQ: " << avg 
+                  << ", each " << sze << " bytes. In total: " << (sze * avg) << " bytes."
+        << std::endl;
     }
 };
