@@ -1,9 +1,20 @@
 import fileinput
+import random
+
+random.seed(1)
 
 def print_med(current_grp):
     if len(current_grp) == 0: return
+    r = random.randint(0, len(current_grp)-1)
+    print(", ".join(current_grp[r]))
+    return
+
+
     current_grp.sort(key=lambda x: float(x[-1]))
     print(", ".join(current_grp[int(len(current_grp) / 2)]))
+    if (len(current_grp) > 5):
+        print(", ".join(current_grp[1]))
+        print(", ".join(current_grp[-2]))
     
 keysize = 10
 

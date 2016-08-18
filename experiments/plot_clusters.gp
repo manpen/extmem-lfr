@@ -22,7 +22,7 @@ if (!exists("NORMX")) {
     set xrange [7e2: 6e5]
 }
 
-
+set xlabel "Number $n$ of nodes"
 
 set key autotitle columnhead
 plot for [i=0:2] "data/" . fnlabel . ".dat" index i u 2:4:5 w errorbars
