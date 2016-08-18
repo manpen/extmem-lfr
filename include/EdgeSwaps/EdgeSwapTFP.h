@@ -169,7 +169,7 @@ namespace EdgeSwapTFP {
         EdgeUpdateSorter _edge_update_sorter;
         std::unique_ptr<std::thread> _edge_update_sorter_thread;
 
-// PQ used internally in _compute_conflicts and _perform_swaps
+// PQ used internally in _simulate_swaps and _perform_swaps
         using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
         using DependencyChainEdgePQ = typename stxxl::PRIORITY_QUEUE_GENERATOR<DependencyChainEdgeMsg, DependencyChainEdgeComparatorPQ, _pq_mem, 1 << 20>::result;
         using DependencyChainEdgePQBlock = typename DependencyChainEdgePQ::block_type;
@@ -195,8 +195,8 @@ namespace EdgeSwapTFP {
         template <class EdgeReader>
         void _compute_dependency_chain(EdgeReader&, BoolStream&);
 
-        void _compute_conflicts();
-        void _process_existence_requests();
+        void _simulate_swaps();
+        void _load_existence();
         void _perform_swaps();
         void _apply_updates();
 

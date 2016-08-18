@@ -24,6 +24,9 @@
 //#define ASYNC_PUSHERS
 
 namespace EdgeSwapTFP {
+    /*
+     * This method implements the steps "request nodes" and "load nodes".
+     */
     template<class EdgeReader>
     void EdgeSwapTFP::_compute_dependency_chain(EdgeReader & edge_reader_in, BoolStream & edge_remains_valid) {
         edge_remains_valid.clear();
@@ -162,7 +165,7 @@ namespace EdgeSwapTFP {
      * We further request information whether the edge exists by pushing requests
      * into _existence_request_sorter.
      */
-    void EdgeSwapTFP::_compute_conflicts() {
+    void EdgeSwapTFP::_simulate_swaps() {
         swapid_t sid = 0;
 
         // use pq in addition to _depchain_edge_sorter to pass messages between swaps
@@ -366,7 +369,7 @@ namespace EdgeSwapTFP {
      * _existence_info_pq. We additionally compute a dependency chain
      * by informing every swap about the next one requesting the info.
      */
-    void EdgeSwapTFP::_process_existence_requests() {
+    void EdgeSwapTFP::_load_existence() {
 
         uint64_t stat_exist_reqs = _existence_request_sorter.size();
         uint64_t stat_forward_only = 0;
@@ -805,10 +808,10 @@ namespace EdgeSwapTFP {
         std::swap(_edge_update_mask, _last_edge_update_mask);
 
         _report_stats("_compute_dependency_chain: ", show_stats);
-        _compute_conflicts();
-        _report_stats("_compute_conflicts: ", show_stats);
-        _process_existence_requests();
-        _report_stats("_process_existence_requests: ", show_stats);
+        _simulate_swaps();
+        _report_stats("_simulate_swaps: ", show_stats);
+        _load_existence();
+        _report_stats("_load_existence: ", show_stats);
         _perform_swaps();
         _report_stats("_perform_swaps: ", show_stats);
 

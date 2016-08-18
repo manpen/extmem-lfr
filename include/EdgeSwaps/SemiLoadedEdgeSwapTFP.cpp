@@ -217,10 +217,10 @@ namespace EdgeSwapTFP {
         std::swap(_edge_update_mask, _last_edge_update_mask);
 
         _report_stats("_compute_dependency_chain: ", show_stats);
-        _compute_conflicts();
-        _report_stats("_compute_conflicts: ", show_stats);
-        _process_existence_requests();
-        _report_stats("_process_existence_requests: ", show_stats);
+        _simulate_swaps();
+        _report_stats("_simulate_swaps: ", show_stats);
+        _load_existence();
+        _report_stats("_load_existence: ", show_stats);
         _perform_swaps();
         _report_stats("_perform_swaps: ", show_stats);
 
