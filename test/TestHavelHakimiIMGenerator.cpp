@@ -36,9 +36,9 @@ protected:
             ASSERT_LT(previous_edge, edge);
 
             ASSERT_GE(edge.first, initial_id);
-            ASSERT_LE(edge.first, initial_id+sequence.size()-1);
+            ASSERT_LE(edge.first, static_cast<node_t>(initial_id+sequence.size()-1));
             ASSERT_GE(edge.second, initial_id);
-            ASSERT_LE(edge.second, initial_id+sequence.size()-1);
+            ASSERT_LE(edge.second, static_cast<node_t>(initial_id+sequence.size()-1));
 
             degrees.at(edge.first - initial_id)++;
             degrees.at(edge.second - initial_id)++;
