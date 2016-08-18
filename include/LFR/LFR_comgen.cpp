@@ -123,7 +123,7 @@ namespace LFR {
                     uint_t run_length = intra_edges.size() / 8;
 
                     // perform swaps
-                    EdgeSwapTFP::EdgeSwapTFP swap_algo(intra_edges, run_length);
+                    EdgeSwapTFP::EdgeSwapTFP swap_algo(intra_edges, run_length, _number_of_nodes, _max_memory_usage);
 
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
 

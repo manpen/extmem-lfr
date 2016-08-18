@@ -206,7 +206,7 @@ void benchmark(RunConfig & config) {
             }
 
             case TFP: {
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, 1llu << 34);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
                 break;

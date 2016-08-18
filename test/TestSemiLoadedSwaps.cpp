@@ -18,7 +18,7 @@ TEST_F(TestSemiLoadedSwaps, testOnlySemiLoadedSwaps) {
     edge_list.push({6, 7});
     edge_list.consume();
 
-    EdgeSwapTFP::SemiLoadedEdgeSwapTFP algo(edge_list);
+    EdgeSwapTFP::SemiLoadedEdgeSwapTFP algo(edge_list, 100, 8, 1llu << 30);
 
     algo.push(SemiLoadedSwapDescriptor {edge_t {0, 1}, 1, true});
     algo.push(SemiLoadedSwapDescriptor {edge_t {4, 5}, 3, true});
@@ -55,7 +55,7 @@ TEST_F(TestSemiLoadedSwaps, testCombinedSwaps) {
     edge_list.push({6, 7});
     edge_list.consume();
 
-    EdgeSwapTFP::SemiLoadedEdgeSwapTFP algo(edge_list);
+    EdgeSwapTFP::SemiLoadedEdgeSwapTFP algo(edge_list, 100, 8, 1llu << 30);
 
     algo.push(SwapDescriptor {0, 1, true});
     algo.push(SemiLoadedSwapDescriptor {edge_t {4, 5}, 3, true});
@@ -89,7 +89,7 @@ TEST_F(TestSemiLoadedSwaps, testLoadedIsSameAsId) {
     edge_list.push({6, 7});
     edge_list.consume();
 
-    EdgeSwapTFP::SemiLoadedEdgeSwapTFP algo(edge_list);
+    EdgeSwapTFP::SemiLoadedEdgeSwapTFP algo(edge_list, 100, 8, 1llu << 30);
 
     std::vector<edge_t> update_edges;
     algo.setUpdatedEdgesCallback([&](EdgeSwapTFP::SemiLoadedEdgeSwapTFP::edge_update_sorter_t &it) {

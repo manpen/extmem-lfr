@@ -74,7 +74,7 @@ namespace LFR {
         }
 
         { // regular edge swaps
-            EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration);
+            EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
             // Generate swaps
             uint_t numSwaps = 10*_inter_community_edges.size();
             SwapGenerator swapGen(numSwaps, _inter_community_edges.size());

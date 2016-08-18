@@ -37,8 +37,8 @@ namespace EdgeSwapTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector
-        SemiLoadedEdgeSwapTFP( edge_buffer_t &edges, swapid_t run_length = 1000000) : 
-            EdgeSwapTFP(edges, run_length),
+        SemiLoadedEdgeSwapTFP(edge_buffer_t &edges, const swapid_t& run_length, const node_t& num_nodes, const size_t& im_memory) :
+            EdgeSwapTFP(edges, run_length, num_nodes, im_memory),
             _loaded_edge_swap_sorter(new LoadedEdgeSwapSorter(LoadedEdgeSwapComparator(), _sorter_mem))
         {}
 

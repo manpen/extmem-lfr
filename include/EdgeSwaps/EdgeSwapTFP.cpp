@@ -852,4 +852,64 @@ namespace EdgeSwapTFP {
         _start_processing(false);
         _first_run = true;
     }
+
+    EdgeSwapTFP::MemoryEstimation::size_array_t
+    EdgeSwapTFP::MemoryEstimation::_compute(const size_t& mem, const swapid_t& no_swaps, const degree_t& avg_deg, const size_t & block_size) const {
+        // generated using experiments/memory_consumption.py
+        auto estimate = [&] (double a, double b) -> size_t {
+            return std::max<size_t>(_min_size, std::ceil( (a*avg_deg + b) * no_swaps / block_size ) * block_size);
+        };
+
+        size_array_t est = {
+            estimate(0.000000, 2.000000),
+            estimate(-0.00214, 3.053523),
+            estimate(-0.00143, 0.230478),
+            estimate(-0.07732, 2.650552),
+            estimate(-0.00000, 2.000000),
+            estimate(0.001428, 1.769522),
+            estimate(0.074898, 0.003535),
+            estimate(0.028223, 2.328263),
+            estimate(0.030467, 4.605875),
+            estimate(0.004931, 0.000230)
+        };
+
+        // if the estimation is too large, reduce evenly but do not fall below minimum size
+        {
+            size_t total_mem = std::accumulate(est.cbegin(), est.cend(), 0);
+            if (total_mem >= mem) {
+                const auto at_min = std::count_if(est.cbegin(), est.cend(), [&] (const size_t& x) {return x == _min_size;});
+                const auto above_min = est.size() - at_min;
+
+                if (!above_min) {
+                    throw std::runtime_error(std::string("Need at least ") + std::to_string(at_min * _min_size) + " bytes");
+                }
+
+                const double factor = (total_mem - at_min * _min_size) / (mem - at_min * _min_size);
+
+                for (auto &f : est) {
+                    f = std::llround(f / factor / block_size) * block_size;
+                    f = std::max(f, _min_size);
+                }
+            }
+        }
+
+        // Report Assignment
+        {
+            size_t total_mem = std::accumulate(est.cbegin(), est.cend(), 0);
+            std::cout << "Assigned " << total_mem << "b of " << mem << "b (" << (100.0 * total_mem / mem)  << "%) as follows:\n"
+                << "depchain_edge_sorter:       " << est[0] << " bytes\n"
+                << "depchain_pq:                " << est[1] << " bytes\n"
+                << "depchain_successor_sorter:  " << est[2] << " bytes\n"
+                << "edge_state_pq:              " << est[3] << " bytes\n"
+                << "edge_swap_sorter:           " << est[4] << " bytes\n"
+                << "edge_update_sorter:         " << est[5] << " bytes\n"
+                << "existence_info_pq:          " << est[6] << " bytes\n"
+                << "existence_info_sorter:      " << est[7] << " bytes\n"
+                << "existence_request_sorter:   " << est[8] << " bytes\n"
+                << "existence_successor_sorter: " << est[9] << " bytes\n"
+            << std::endl;
+        }
+
+        return est;
+    }
 };
