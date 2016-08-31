@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <iomanip>
+#include <typeinfo>
 
 #include <ConfigurationModel.h>
 
@@ -58,20 +59,9 @@ TEST_F(TestConfigurationModel, multiNodeMsgComparator) {
 }
 
 TEST_F(TestConfigurationModel, algoClass) {
+	// test sorter
 	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), 2, (1<<14));
-
-	// TODO ASK
-	//std::vector<degree_t> ref_degrees (1<<14);
-	//stxxl::stream::materialize(degrees, ref_degrees.begin());
-
-	//ASSERT_EQ(ref_degrees.size(), static_cast<uint32_t>(1<<14));
-
-	//ASSERT_TRUE(degrees.empty());
-
-	//auto degrees_cm = stxxl::stream::streamify(ref_degrees.begin(), ref_degrees.end());
-
-	//ASSERT_FALSE(degrees_cm.empty());
-
+	
 	ASSERT_FALSE(degrees.empty());
 
 	ConfigurationModel cm(degrees, static_cast<uint32_t>((2 << 15) + 1));
@@ -79,15 +69,46 @@ TEST_F(TestConfigurationModel, algoClass) {
 
 	ASSERT_FALSE(cm.empty());
 
+	// test scan through, check if ordered right
 	int count = 1;
 
-	for(; !cm.empty(); ++count, ++cm) {}
+	auto prev_edge = *cm;
+	++cm;
+
+	bool correct = prev_edge.first <= prev_edge.second;
+
+	for(; !cm.empty(); ++count, ++cm) {
+		const auto & edge = *cm;
+
+		correct = correct & (edge.first <= edge.second) & (edge.first >= prev_edge.first);
+
+		prev_edge = edge;
+	}
+
+	ASSERT_TRUE(correct);
 
 	ASSERT_GT(count, (1<<14));
 
 	ASSERT_TRUE(cm.empty());
 
 	cm.clear();
+
+	// test pusher
+	auto degrees2 = MonotonicPowerlawRandomStream<false>(1, (1<<9), 2, (1<<14));
+
+	ASSERT_FALSE(degrees2.empty());
+
+	std::vector<degree_t> ref_degrees (1<<14);
+
+	stxxl::stream::materialize(degrees2, ref_degrees.begin());
+
+	ASSERT_EQ(ref_degrees.size(), static_cast<uint32_t>(1<<14));
+
+	ASSERT_TRUE(degrees2.empty());
+
+	auto degree_stream = stxxl::stream::streamify(ref_degrees.begin(), ref_degrees.end());
+
+	ASSERT_FALSE(degree_stream.empty());
 }
 
 

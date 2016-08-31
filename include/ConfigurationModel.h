@@ -4,8 +4,10 @@
 
 #include <stxxl/vector>
 #include <stxxl/sorter>
+#include <stxxl/bits/common/uint_types.h>
 
 #include <defs.h>
+#include <GenericComparator.h>
 #include <Utils/MonotonicPowerlawRandomStream.h>
 
 #include "nmmintrin.h"
@@ -13,6 +15,46 @@
 constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFF;
 
 using multinode_t = uint64_t;
+
+#ifndef NDEBUG
+//! Type for every (un)directed 64bit
+// ommited invalid() member function
+// TODOASK here the edge amountcount already?
+struct edge64_t : public std::pair<multinode_t, multinode_t> {
+	edge64_t() : std::pair<multinode_t, multinode_t>() {}
+	edge64_t(const std::pair<multinode_t, multinode_t> & edge) : std::pair<multinode_t, multinode_t>(edge) {}
+	edge64_t(const multinode_t & v1, const multinode_t & v2) : std::pair<multinode_t, multinode_t>(v1, v2) {}
+
+	//! Enforces first<=second
+	void normalize() {
+		if (first > second)
+			std::swap(first, second);
+	}
+
+	//! Returns true if edge represents a self-loop
+	bool is_loop() const {
+		return first == second;
+	}
+};
+
+struct Edge64Comparator {
+	bool operator()(const edge64_t &a, const edge64_t &b) const {
+		if (a.first == b.first) 
+			return a.second < b.second;
+		else
+			return a.first < b.first;
+	}
+
+	edge64_t min_value() const {
+		return edge64_t(std::numeric_limits<uint64_t>::min(), std::numeric_limits<uint64_t>::min());
+	}
+
+	edge64_t max_value() const {
+		return edge64_t(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max());
+	}
+};
+
+#endif
 
 /**
  * @typedef multinode_t
@@ -48,18 +90,23 @@ class MultiNodeMsgComparator {
 		MultiNodeMsgComparator() {}
 		MultiNodeMsgComparator(const uint32_t seed_) : _seed(seed_) {
 			_setMinMax(seed_);
-		} //, _crc_max(_calculateMax(seed_)) {}
+		}
 		
 		// if not chained then const seed
 		// make a_hash_msb, a_hash_lsb, b_hash_msb, b_hash_lsb protected?
 		// invert msb's since lsb = seed then for max_value
 		bool operator() (const MultiNodeMsg& a, const MultiNodeMsg& b) const {
+			// the MSB's of hash should be enough to decide 
 			const uint32_t a_hash_msb = _mm_crc32_u32(_seed, static_cast<uint32_t>(a.eid_node() >> 32));
-			const uint32_t a_hash_lsb = _mm_crc32_u32(~a_hash_msb, static_cast<uint32_t>(a.eid_node()));
 			const uint32_t b_hash_msb = _mm_crc32_u32(_seed, static_cast<uint32_t>(b.eid_node() >> 32));
-			const uint32_t b_hash_lsb = _mm_crc32_u32(~b_hash_msb, static_cast<uint32_t>(b.eid_node()));
 
-			return (static_cast<uint64_t>(a_hash_msb) << 32 | a_hash_lsb) < (static_cast<uint64_t>(b_hash_msb) << 32 | b_hash_lsb);
+			if (UNLIKELY(a_hash_msb == b_hash_msb)) {
+				const uint32_t a_hash_lsb = _mm_crc32_u32(~a_hash_msb, static_cast<uint32_t>(a.eid_node()));
+				const uint32_t b_hash_lsb = _mm_crc32_u32(~b_hash_msb, static_cast<uint32_t>(b.eid_node()));
+				return a_hash_lsb < b_hash_lsb;
+			} else {
+				return a_hash_msb < b_hash_msb;
+			}
 		}
 
 		uint64_t max_value() const {
@@ -132,10 +179,6 @@ class MultiNodeMsgComparator {
 		}
 	};
 
-using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
-
-typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
-
 // TODO
 class ConfigurationModel {
 	public:
@@ -143,27 +186,36 @@ class ConfigurationModel {
 
 		ConfigurationModel(const ConfigurationModel&) = delete;
 
+		using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
 		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) : 
 									_degrees(degrees), 
 									_multinodemsg_comp(seed),
-									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
+									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM),
+									#ifndef NDEBUG
+									_edge_sorter(Edge64Comparator(), SORTER_MEM)
+									#endif
+
 		{ }
 	
 		// implements execution of algorithm
 		void run();
-//! @name STXXL Straming Interface
+
+//! @name STXXL Streaming Interface
 //! @{
-		// streaming interface, (TODO sorted edge list as output)
 		bool empty() const {
-			return _multinodemsg_sorter.empty();
+			return _edge_sorter.empty();
 		}
 
-		const MultiNodeMsg& operator*() const {
-			return *_multinodemsg_sorter;
+		const edge64_t& operator*() const {
+			assert(!_edge_sorter.empty());
+
+			return *_edge_sorter;
 		}
 
 		ConfigurationModel&operator++() {
-			++_multinodemsg_sorter;
+			assert(!_edge_sorter.empty());
+			
+			++_edge_sorter;
 
 			return *this;
 		}
@@ -175,13 +227,25 @@ class ConfigurationModel {
 
 	protected:
 		MonotonicPowerlawRandomStream<false> _degrees;
+	
+		typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
 		MultiNodeMsgComparator _multinodemsg_comp;
 		MultiNodeSorter _multinodemsg_sorter;
+
+		#ifndef NDEBUG
+		using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
+		EdgeSorter _edge_sorter; 
+		#endif
 
 		// internal algos
 		void _generateMultiNodes();
 
+		#ifndef NDEBUG
+		void _generateSortedEdgeList();
+		#endif
+
 		void _reset() {
 			_multinodemsg_sorter.clear();
+			_edge_sorter.clear();
 		}
 };
