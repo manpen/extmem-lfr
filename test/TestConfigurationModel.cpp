@@ -46,6 +46,8 @@ TEST_F(TestConfigurationModel, multiNodeMsgComparator) {
 	MultiNodeMsg msgmax{max};
 	MultiNodeMsg msgmin{min};
 
+	ASSERT_TRUE(comp(msgmin, msgmax));
+
 	ASSERT_TRUE(comp(msg1, msgmax));
 	ASSERT_TRUE(comp(msg2, msgmax));
 	ASSERT_TRUE(comp(msg3, msgmax));
@@ -58,11 +60,35 @@ TEST_F(TestConfigurationModel, multiNodeMsgComparator) {
 TEST_F(TestConfigurationModel, algoClass) {
 	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), 2, (1<<14));
 
-	std::vector<degree_t> ref_degrees;
-	stxxl::stream::materialize(degrees, ref_degrees.begin());
+	// TODO ASK
+	//std::vector<degree_t> ref_degrees (1<<14);
+	//stxxl::stream::materialize(degrees, ref_degrees.begin());
 
-	auto degrees_cm = stxxl::stream::streamify(ref_degrees.begin(), ref_degrees.end());
+	//ASSERT_EQ(ref_degrees.size(), static_cast<uint32_t>(1<<14));
 
-	//TODO
+	//ASSERT_TRUE(degrees.empty());
+
+	//auto degrees_cm = stxxl::stream::streamify(ref_degrees.begin(), ref_degrees.end());
+
+	//ASSERT_FALSE(degrees_cm.empty());
+
+	ASSERT_FALSE(degrees.empty());
+
+	ConfigurationModel cm(degrees, static_cast<uint32_t>((2 << 15) + 1));
+	cm.run();
+
+	ASSERT_FALSE(cm.empty());
+
+	int count = 1;
+
+	for(; !cm.empty(); ++count, ++cm) {}
+
+	ASSERT_GT(count, (1<<14));
+
+	ASSERT_TRUE(cm.empty());
+
+	cm.clear();
 }
+
+
 

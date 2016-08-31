@@ -1,4 +1,5 @@
 #pragma once
+
 #include <limits>
 
 #include <stxxl/vector>
@@ -52,7 +53,7 @@ class MultiNodeMsgComparator {
 		// if not chained then const seed
 		// make a_hash_msb, a_hash_lsb, b_hash_msb, b_hash_lsb protected?
 		// invert msb's since lsb = seed then for max_value
-		bool operator() (const MultiNodeMsg & a, const MultiNodeMsg & b) {
+		bool operator() (const MultiNodeMsg& a, const MultiNodeMsg& b) const {
 			const uint32_t a_hash_msb = _mm_crc32_u32(_seed, static_cast<uint32_t>(a.eid_node() >> 32));
 			const uint32_t a_hash_lsb = _mm_crc32_u32(~a_hash_msb, static_cast<uint32_t>(a.eid_node()));
 			const uint32_t b_hash_msb = _mm_crc32_u32(_seed, static_cast<uint32_t>(b.eid_node() >> 32));
@@ -77,6 +78,8 @@ class MultiNodeMsgComparator {
 		uint64_t _crc_min = 0;
 
 		void _setMinMax(const uint32_t seed_) {
+			static_assert(sizeof(seed_) == 4, "Seed should be 4 Bytes long!");
+			
 			// initialization
 			uint32_t max_msb = 0;
 			uint32_t max_lsb = 0;
@@ -101,6 +104,9 @@ class MultiNodeMsgComparator {
 				if (max && min) break;
 			}
 
+			assert(max);
+			assert(min);
+
 			max = false;
 			min = false;
 
@@ -117,32 +123,65 @@ class MultiNodeMsgComparator {
 				if (max && min) break;
 			}
 
+			assert(max);
+			assert(min);
+
 			// assign
 			_crc_max = (static_cast<uint64_t>(max_msb) << 32) | max_lsb;
 			_crc_min = (static_cast<uint64_t>(min_msb) << 32) | min_lsb;
 		}
 	};
 
+using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
+
 typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
 
 // TODO
 class ConfigurationModel {
 	public:
-		ConfigurationModel() = delete;
-		ConfigurationModel(const ConfigurationModel &) = delete;
+		ConfigurationModel() = delete; 
 
-		ConfigurationModel(MonotonicPowerlawRandomStream<false> &degrees, const uint32_t seed) : 
+		ConfigurationModel(const ConfigurationModel&) = delete;
+
+		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) : 
 									_degrees(degrees), 
 									_multinodemsg_comp(seed),
 									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
 		{ }
-		
-		
+	
+		// implements execution of algorithm
 		void run();
+//! @name STXXL Straming Interface
+//! @{
+		// streaming interface, (TODO sorted edge list as output)
+		bool empty() const {
+			return _multinodemsg_sorter.empty();
+		}
+
+		const MultiNodeMsg& operator*() const {
+			return *_multinodemsg_sorter;
+		}
+
+		ConfigurationModel&operator++() {
+			++_multinodemsg_sorter;
+
+			return *this;
+		}
+//! @}
+		// for testing
+		void clear() {
+			_reset();
+		}
 
 	protected:
 		MonotonicPowerlawRandomStream<false> _degrees;
-		// here we just insert a number (for the moment, should randomize this TODO)
 		MultiNodeMsgComparator _multinodemsg_comp;
-		MultiNodeSorter _multinodemsg_sorter;	
+		MultiNodeSorter _multinodemsg_sorter;
+
+		// internal algos
+		void _generateMultiNodes();
+
+		void _reset() {
+			_multinodemsg_sorter.clear();
+		}
 };
