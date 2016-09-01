@@ -5,7 +5,6 @@
 #include <gtest/gtest.h>
 
 #include <iomanip>
-#include <typeinfo>
 
 #include <ConfigurationModel.h>
 
@@ -58,9 +57,55 @@ TEST_F(TestConfigurationModel, multiNodeMsgComparator) {
 	ASSERT_FALSE(comp(msg3, msgmin));
 }
 
+// check when stream is empty...
+TEST_F(TestConfigurationModel, streamTest) {
+	using IntComparator = GenericComparator<int>::Ascending;
+	stxxl::sorter<int, IntComparator> intsorter(IntComparator(), SORTER_MEM);
+
+	intsorter.push(1);
+
+	intsorter.sort();
+
+	ASSERT_EQ(*intsorter, 1);
+
+	ASSERT_FALSE(intsorter.empty());
+
+	++intsorter;
+
+	ASSERT_TRUE(intsorter.empty());
+}
+
+// Result: The Stream can give degree_sequence with odd sum.
+TEST_F(TestConfigurationModel, powerLawCount) {
+	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
+
+	int32_t count = 0;
+
+	for (; !degrees.empty(); ++degrees) {
+		auto & degree = *degrees;
+
+		count += degree;
+	}
+
+	ASSERT_FALSE(count & 1);
+}
+
+TEST_F(TestConfigurationModel, multiNodesOnly) {
+	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
+
+	ASSERT_FALSE(degrees.empty());
+
+	ConfigurationModel cm(degrees, static_cast<uint32_t>((1 << 15) + 1));
+	cm.run_onlyNodes();
+
+	std::cout << "ODD_NUMBER_OF_MULTINODES: " << cm.nodeNumberOdd() << std::endl;
+
+	cm.clear();
+}
+
 TEST_F(TestConfigurationModel, algoClass) {
 	// test sorter
-	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), 2, (1<<14));
+	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
 	
 	ASSERT_FALSE(degrees.empty());
 
@@ -73,6 +118,7 @@ TEST_F(TestConfigurationModel, algoClass) {
 	int count = 1;
 
 	auto prev_edge = *cm;
+	
 	++cm;
 
 	bool correct = prev_edge.first <= prev_edge.second;
@@ -87,6 +133,8 @@ TEST_F(TestConfigurationModel, algoClass) {
 
 	ASSERT_TRUE(correct);
 
+	std::cout << "COUNT: " << count << std::endl;
+
 	ASSERT_GT(count, (1<<14));
 
 	ASSERT_TRUE(cm.empty());
@@ -94,7 +142,7 @@ TEST_F(TestConfigurationModel, algoClass) {
 	cm.clear();
 
 	// test pusher
-	auto degrees2 = MonotonicPowerlawRandomStream<false>(1, (1<<9), 2, (1<<14));
+	auto degrees2 = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
 
 	ASSERT_FALSE(degrees2.empty());
 
@@ -111,5 +159,71 @@ TEST_F(TestConfigurationModel, algoClass) {
 	ASSERT_FALSE(degree_stream.empty());
 }
 
+TEST_F(TestConfigurationModel, outputAnalysis) {
+	int loopCount = 0;
+	int multiEdges_singleCount = 0;
+	int multiEdges_multiCount = 0;
+	
+	// we do 10 runs here.., with i as seed
+	for (uint32_t i = 1; i <= 10; ++i) {
+		auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
 
+		ASSERT_FALSE(degrees.empty());
 
+		ConfigurationModel cm(degrees, i);
+		cm.run();
+
+		ASSERT_FALSE(cm.empty());
+
+		bool prev_multi = false;
+
+		auto prev_edge = *cm;
+		++cm;
+
+		if (prev_edge.is_loop()) 
+			++loopCount;
+
+		for (; !cm.empty(); ++cm) {
+			const auto & edge = *cm;
+			//std::cout << "Edge: <" << edge.first << ", " << edge.second << ">" << std::endl;	
+
+			if (edge.is_loop()) {
+				++loopCount;
+				prev_edge = edge;
+				prev_multi = false;
+				continue;
+			}
+			if (prev_edge == edge) {
+				++multiEdges_multiCount;
+
+				if (!prev_multi) {
+					++multiEdges_singleCount;
+					prev_multi = true;
+				}
+
+				prev_edge = edge;
+
+				continue;
+			}
+
+			prev_edge = edge;
+
+			prev_multi = false;
+		}
+
+		// outputmessage
+		std::cout << "RUN[" << i << "]:" << std::endl;
+		std::cout << "         # SELF_LOOPS: " << loopCount << std::endl;
+		std::cout << "        # MULTI_EDGES: " << multiEdges_singleCount << std::endl;
+		std::cout << "# EDGES_IN_MULTI_EDGE: " << multiEdges_multiCount << std::endl;
+		std::cout << "=======================" << std::endl;
+
+		ASSERT_TRUE(cm.empty());
+
+		cm.clear();
+
+		loopCount = 0;
+		multiEdges_multiCount = 0;
+		multiEdges_singleCount = 0;
+	}
+}

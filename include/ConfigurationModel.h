@@ -200,6 +200,21 @@ class ConfigurationModel {
 		// implements execution of algorithm
 		void run();
 
+		// for tests
+		void run_onlyNodes() {
+			_generateMultiNodes();
+		}
+
+		bool nodeNumberOdd() {
+			assert(!_multinodemsg_sorter.empty());
+
+			uint64_t count = 0;
+
+			for (; !_multinodemsg_sorter.empty(); ++count, ++_multinodemsg_sorter) {}
+
+			return (count & 1);
+		}
+
 //! @name STXXL Streaming Interface
 //! @{
 		bool empty() const {
