@@ -13,6 +13,7 @@
 #include "nmmintrin.h"
 
 constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFF;
+constexpr uint32_t LIMITS_LSB = 0xFFFF7FFE;
 
 using multinode_t = uint64_t;
 
@@ -87,6 +88,7 @@ class MultiNodeMsgComparator {
 		MultiNodeMsgComparator() {}
 		MultiNodeMsgComparator(const uint32_t seed_) : _seed(seed_) {
 			_setMinMax(seed_);
+			std::cout << "MultiNodeMsgComparator instantiated..." << std::endl;
 		}
 		
 		// if not chained then const seed
@@ -151,28 +153,9 @@ class MultiNodeMsgComparator {
 			assert(max);
 			assert(min);
 
-			max = false;
-			min = false;
-
-			// get LSB
-			for (i = 0; i < UINT32_MAX; ++i) {
-				if (_mm_crc32_u32(~max_msb, i) == UINT32_MAX) {
-					max_lsb = i;
-					max = true;
-				}
-				if (_mm_crc32_u32(~min_msb, i) == 0) {
-					min_lsb = i;
-					min = true;
-				}
-				if (max && min) break;
-			}
-
-			assert(max);
-			assert(min);
-
 			// assign
-			_crc_max = (static_cast<uint64_t>(max_msb) << 32) | max_lsb;
-			_crc_min = (static_cast<uint64_t>(min_msb) << 32) | min_lsb;
+			_crc_max = (static_cast<uint64_t>(max_msb) << 32) | LIMITS_LSB;
+			_crc_min = (static_cast<uint64_t>(min_msb) << 32) | LIMITS_LSB;
 		}
 	};
 
