@@ -19,14 +19,12 @@ void ConfigurationModel::_generateMultiNodes() {
 	assert(!_multinodemsg_sorter.empty());
 }
 
-#ifndef NDEBUG
 void ConfigurationModel::_generateSortedEdgeList() {
 	assert(!_multinodemsg_sorter.empty());
 
 	/**
 	 * just scan through the permutated multinodes, extract the node only though (wo eid)
 	 */
-	// TODOASK support 36bit container? 4.5Bytes...? 
 	for(; !_multinodemsg_sorter.empty(); ) {
 		auto & fst_node = *_multinodemsg_sorter;	
 
@@ -42,8 +40,6 @@ void ConfigurationModel::_generateSortedEdgeList() {
 		uint64_t fst_nodeid{fst_node.node()};
 		uint64_t snd_nodeid{snd_node.node()}; 
 
-		// TODOASK better to normalize here? or later?
-		// have to use edge64_t here, def in Header
 		if (fst_nodeid < snd_nodeid) 
 			_edge_sorter.push(edge64_t{fst_nodeid, snd_nodeid});
 		else
@@ -57,7 +53,6 @@ void ConfigurationModel::_generateSortedEdgeList() {
 
 	_edge_sorter.sort();
 }
-#endif
 
 void ConfigurationModel::run() {
 	_generateMultiNodes();

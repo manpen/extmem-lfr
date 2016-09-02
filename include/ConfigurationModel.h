@@ -16,7 +16,6 @@ constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFF;
 
 using multinode_t = uint64_t;
 
-#ifndef NDEBUG
 //! Type for every (un)directed 64bit
 // ommited invalid() member function
 // TODOASK here the edge amountcount already?
@@ -53,8 +52,6 @@ struct Edge64Comparator {
 		return edge64_t(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max());
 	}
 };
-
-#endif
 
 /**
  * @typedef multinode_t
@@ -191,10 +188,7 @@ class ConfigurationModel {
 									_degrees(degrees), 
 									_multinodemsg_comp(seed),
 									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM),
-									#ifndef NDEBUG
 									_edge_sorter(Edge64Comparator(), SORTER_MEM)
-									#endif
-
 		{ }
 	
 		// implements execution of algorithm
@@ -247,17 +241,12 @@ class ConfigurationModel {
 		MultiNodeMsgComparator _multinodemsg_comp;
 		MultiNodeSorter _multinodemsg_sorter;
 
-		#ifndef NDEBUG
 		using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
 		EdgeSorter _edge_sorter; 
-		#endif
 
 		// internal algos
 		void _generateMultiNodes();
-
-		#ifndef NDEBUG
 		void _generateSortedEdgeList();
-		#endif
 
 		void _reset() {
 			_multinodemsg_sorter.clear();
