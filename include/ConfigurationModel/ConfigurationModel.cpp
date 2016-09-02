@@ -3,7 +3,12 @@
  */
 #include "ConfigurationModel.h"
 
+#ifdef NDEBUG
 void ConfigurationModel::_generateMultiNodes() {
+#else
+template <class T>
+void ConfigurationModel<T>::_generateMultiNodes() {
+#endif
 	assert(!_degrees.empty());
 	
 	uint64_t i = 1;
@@ -19,7 +24,12 @@ void ConfigurationModel::_generateMultiNodes() {
 	assert(!_multinodemsg_sorter.empty());
 }
 
+#ifdef NDEBUG
 void ConfigurationModel::_generateSortedEdgeList() {
+#else
+template <class T>
+void ConfigurationModel<T>::_generateSortedEdgeList() {
+#endif
 	assert(!_multinodemsg_sorter.empty());
 
 	/**
@@ -54,6 +64,7 @@ void ConfigurationModel::_generateSortedEdgeList() {
 	_edge_sorter.sort();
 }
 
+#ifdef NDEBUG
 void ConfigurationModel::run() {
 	_generateMultiNodes();
 
@@ -65,3 +76,4 @@ void ConfigurationModel::run() {
 
 	//_reset();
 }
+#endif

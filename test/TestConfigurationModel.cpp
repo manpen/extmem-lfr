@@ -57,59 +57,13 @@ TEST_F(TestConfigurationModel, multiNodeMsgComparator) {
 	ASSERT_FALSE(comp(msg3, msgmin));
 }
 
-// check when stream is empty...
-TEST_F(TestConfigurationModel, streamTest) {
-	using IntComparator = GenericComparator<int>::Ascending;
-	stxxl::sorter<int, IntComparator> intsorter(IntComparator(), SORTER_MEM);
-
-	intsorter.push(1);
-
-	intsorter.sort();
-
-	ASSERT_EQ(*intsorter, 1);
-
-	ASSERT_FALSE(intsorter.empty());
-
-	++intsorter;
-
-	ASSERT_TRUE(intsorter.empty());
-}
-
-// Result: The Stream can give degree_sequence with odd sum.
-TEST_F(TestConfigurationModel, powerLawCount) {
-	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
-
-	int32_t count = 0;
-
-	for (; !degrees.empty(); ++degrees) {
-		auto & degree = *degrees;
-
-		count += degree;
-	}
-
-	ASSERT_FALSE(count & 1);
-}
-
-TEST_F(TestConfigurationModel, multiNodesOnly) {
-	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
-
-	ASSERT_FALSE(degrees.empty());
-
-	ConfigurationModel cm(degrees, static_cast<uint32_t>((1 << 15) + 1));
-	cm.run_onlyNodes();
-
-	std::cout << "ODD_NUMBER_OF_MULTINODES: " << cm.nodeNumberOdd() << std::endl;
-
-	cm.clear();
-}
-
 TEST_F(TestConfigurationModel, algoClass) {
 	// test sorter
 	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
 	
 	ASSERT_FALSE(degrees.empty());
 
-	ConfigurationModel cm(degrees, static_cast<uint32_t>((2 << 15) + 1));
+	ConfigurationModel<> cm(degrees, static_cast<uint32_t>((2 << 15) + 1));
 	cm.run();
 
 	ASSERT_FALSE(cm.empty());
@@ -170,7 +124,7 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 		ASSERT_FALSE(degrees.empty());
 
-		ConfigurationModel cm(degrees, i);
+		ConfigurationModel<> cm(degrees, i);
 		cm.run();
 
 		ASSERT_FALSE(cm.empty());

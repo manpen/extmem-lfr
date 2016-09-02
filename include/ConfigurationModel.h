@@ -151,15 +151,20 @@ class MultiNodeMsgComparator {
 
 };
 
-// TODO
+#ifndef NDEBUG
+template <typename T = MonotonicPowerlawRandomStream<false>>
+#endif
 class ConfigurationModel {
 	public:
 		ConfigurationModel() = delete; 
 
 		ConfigurationModel(const ConfigurationModel&) = delete;
-
+#ifdef NDEBUG
 		using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
 		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) : 
+#else
+		ConfigurationModel(T &degrees, const uint32_t seed) :
+#endif
 									_degrees(degrees), 
 									_multinodemsg_comp(seed),
 									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM),
@@ -167,22 +172,19 @@ class ConfigurationModel {
 		{ }
 	
 		// implements execution of algorithm
+#ifdef NDEBUG
 		void run();
-
-		// for tests
-		void run_onlyNodes() {
+#else
+		void run() {
 			_generateMultiNodes();
-		}
 
-		bool nodeNumberOdd() {
 			assert(!_multinodemsg_sorter.empty());
 
-			uint64_t count = 0;
+			_generateSortedEdgeList();
 
-			for (; !_multinodemsg_sorter.empty(); ++count, ++_multinodemsg_sorter) {}
-
-			return (count & 1);
+			assert(!_edge_sorter.empty());
 		}
+#endif
 
 //! @name STXXL Streaming Interface
 //! @{
@@ -219,10 +221,56 @@ class ConfigurationModel {
 		using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
 		EdgeSorter _edge_sorter; 
 
-		// internal algos
+
+#ifdef NDEBUG
 		void _generateMultiNodes();
 		void _generateSortedEdgeList();
+#else
+		// internal algos
+		void _generateMultiNodes() {
+			assert(!_degrees.empty());
 
+			for (uint64_t i = 1; !_degrees.empty(); ++i, ++_degrees)
+				for (degree_t j = 0; j < *_degrees; ++j)
+					_multinodemsg_sorter.push(MultiNodeMsg{(static_cast<multinode_t>(j) << 36) | i});
+
+			_multinodemsg_sorter.sort();
+
+			assert(!_multinodemsg_sorter.empty());
+		}
+		
+		void _generateSortedEdgeList() {
+			assert(!_multinodemsg_sorter.empty());
+
+			for(; !_multinodemsg_sorter.empty(); ) {
+				auto & fst_node = *_multinodemsg_sorter;
+
+				++_multinodemsg_sorter;
+
+				MultiNodeMsg snd_node;
+
+				if (!_multinodemsg_sorter.empty())
+					snd_node = *_multinodemsg_sorter;
+				else
+					snd_node = fst_node;
+
+				uint64_t fst_nodeid{fst_node.node()};
+				uint64_t snd_nodeid{snd_node.node()};
+
+				if (fst_nodeid < snd_nodeid)
+					_edge_sorter.push(edge64_t{fst_nodeid, snd_nodeid});
+				else
+					_edge_sorter.push(edge64_t{snd_nodeid, fst_nodeid});
+
+				if (!_multinodemsg_sorter.empty())
+					++_multinodemsg_sorter;
+				else
+					break;
+			}
+
+			_edge_sorter.sort();
+		}
+#endif
 		void _reset() {
 			_multinodemsg_sorter.clear();
 			_edge_sorter.clear();

@@ -92,7 +92,7 @@ add_library(libextmemgraphgen STATIC
     include/IMGraph.cpp
     include/CluewebReader.cpp
 	#Hung
-	include/ConfigurationModel/ConfigurationModel.cpp
+	#include/ConfigurationModel/ConfigurationModel.cpp
 	#include/ConfigurationModel/MultiNodeGenerator.cpp
 	${LFR_SRCS}
 )
