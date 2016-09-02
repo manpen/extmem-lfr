@@ -86,10 +86,10 @@ class MultiNodeMsg {
 class MultiNodeMsgComparator {	
 	public:
 		MultiNodeMsgComparator() {}
-		MultiNodeMsgComparator(const uint32_t seed_) : _seed(seed_) {
-			_setMinMax(seed_);
-			std::cout << "MultiNodeMsgComparator instantiated..." << std::endl;
-		}
+		MultiNodeMsgComparator(const uint32_t seed_) 
+			: _seed(seed_) 
+			, _limits(_setLimits(seed_))
+		{}
 		
 		// if not chained then const seed
 		// make a_hash_msb, a_hash_lsb, b_hash_msb, b_hash_lsb protected?
@@ -109,36 +109,29 @@ class MultiNodeMsgComparator {
 		}
 
 		uint64_t max_value() const {
-			return _crc_max;
+			return _limits.first;
 		}
 
 		uint64_t min_value() const {
-			return _crc_min;
+			return _limits.second;
 		}
 
 
 	protected:
 		// unnecessary initialization, compiler asks for it
 		const uint32_t _seed = 1;
-		uint64_t _crc_max = 0;
-		uint64_t _crc_min = 0;
-
-		void _setMinMax(const uint32_t seed_) {
-			static_assert(sizeof(seed_) == 4, "Seed should be 4 Bytes long!");
-			
+		const std::pair<uint64_t,uint64_t> _limits;
+	
+		std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
 			// initialization
 			uint32_t max_msb = 0;
-			uint32_t max_lsb = 0;
 			uint32_t min_msb = 0;
-			uint32_t min_lsb = 0;
 			
-			uint32_t i;
-
 			bool max = false;
 			bool min = false;
-			// leave it at this?
+			
 			// get MSB, iterate over all uint32_t's
-			for (i = 0; i < UINT32_MAX; ++i) {
+			for (uint32_t i = 0; i < UINT32_MAX; ++i) {
 				if (_mm_crc32_u32(seed_, i) == UINT32_MAX) {
 					max_msb = i;
 					max = true;
@@ -153,11 +146,10 @@ class MultiNodeMsgComparator {
 			assert(max);
 			assert(min);
 
-			// assign
-			_crc_max = (static_cast<uint64_t>(max_msb) << 32) | LIMITS_LSB;
-			_crc_min = (static_cast<uint64_t>(min_msb) << 32) | LIMITS_LSB;
+			return std::pair<multinode_t, multinode_t>{(static_cast<multinode_t>(max_msb) << 32) | LIMITS_LSB, (static_cast<multinode_t>(min_msb) << 32) | LIMITS_LSB};
 		}
-	};
+
+};
 
 // TODO
 class ConfigurationModel {
