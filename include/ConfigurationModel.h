@@ -89,7 +89,9 @@ class MultiNodeMsgComparator {
 		MultiNodeMsgComparator(const uint32_t seed_) 
 			: _seed(seed_) 
 			, _limits(_setLimits(seed_))
-		{}
+		{
+			std::cout << "WE IN COMP CONSTRUCTOR" << std::endl;
+		}
 		
 		// if not chained then const seed
 		// make a_hash_msb, a_hash_lsb, b_hash_msb, b_hash_lsb protected?
@@ -123,6 +125,7 @@ class MultiNodeMsgComparator {
 		const std::pair<uint64_t,uint64_t> _limits;
 	
 		std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
+			std::cout << "WE IN SETLIMITS YO" << std::endl;
 			// initialization
 			uint32_t max_msb = 0;
 			uint32_t min_msb = 0;
@@ -151,20 +154,14 @@ class MultiNodeMsgComparator {
 
 };
 
-#ifndef NDEBUG
 template <typename T = MonotonicPowerlawRandomStream<false>>
-#endif
 class ConfigurationModel {
 	public:
 		ConfigurationModel() = delete; 
 
 		ConfigurationModel(const ConfigurationModel&) = delete;
-#ifdef NDEBUG
 		using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
 		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) : 
-#else
-		ConfigurationModel(T &degrees, const uint32_t seed) :
-#endif
 									_degrees(degrees), 
 									_multinodemsg_comp(seed),
 									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM),
@@ -172,9 +169,6 @@ class ConfigurationModel {
 		{ }
 	
 		// implements execution of algorithm
-#ifdef NDEBUG
-		void run();
-#else
 		void run() {
 			_generateMultiNodes();
 
@@ -184,7 +178,6 @@ class ConfigurationModel {
 
 			assert(!_edge_sorter.empty());
 		}
-#endif
 
 //! @name STXXL Streaming Interface
 //! @{
@@ -222,10 +215,6 @@ class ConfigurationModel {
 		EdgeSorter _edge_sorter; 
 
 
-#ifdef NDEBUG
-		void _generateMultiNodes();
-		void _generateSortedEdgeList();
-#else
 		// internal algos
 		void _generateMultiNodes() {
 			assert(!_degrees.empty());
@@ -270,7 +259,7 @@ class ConfigurationModel {
 
 			_edge_sorter.sort();
 		}
-#endif
+		
 		void _reset() {
 			_multinodemsg_sorter.clear();
 			_edge_sorter.clear();

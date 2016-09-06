@@ -2,7 +2,8 @@
  * Hung
  */
 #include "ConfigurationModel.h"
-
+/**
+ 
 #ifdef NDEBUG
 void ConfigurationModel::_generateMultiNodes() {
 #else
@@ -32,9 +33,9 @@ void ConfigurationModel<T>::_generateSortedEdgeList() {
 #endif
 	assert(!_multinodemsg_sorter.empty());
 
-	/**
-	 * just scan through the permutated multinodes, extract the node only though (wo eid)
-	 */
+	
+	//just scan through the permutated multinodes, extract the node only though (wo eid)
+	 
 	for(; !_multinodemsg_sorter.empty(); ) {
 		auto & fst_node = *_multinodemsg_sorter;	
 
@@ -77,3 +78,5 @@ void ConfigurationModel::run() {
 	//_reset();
 }
 #endif
+
+**/

@@ -11,6 +11,17 @@
 class TestConfigurationModel : public ::testing::Test {
 };
 
+TEST_F(TestConfigurationModel, comparator) {
+	MultiNodeMsgComparator mnmc(static_cast<uint32_t>(1<<3));
+	
+	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<19));
+
+	ConfigurationModel<> cm(degrees, static_cast<uint32_t>((1<<3)));
+	cm.run();	
+	
+	ASSERT_FALSE(cm.empty());	
+}
+/**
 TEST_F(TestConfigurationModel, algoClass) {
 	// test sorter
 	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
@@ -73,8 +84,8 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 	int multiEdges_multiCount = 0;
 	
 	// we do 10 runs here.., with i as seed
-	for (uint32_t i = 1; i <= 10; ++i) {
-		auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
+	for (uint32_t i = 1; i <= 1; ++i) {
+		auto degrees = MonotonicPowerlawRandomStream<false>(10, (1<<5), -2, (1<<15));
 
 		ASSERT_FALSE(degrees.empty());
 
@@ -135,3 +146,4 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 		multiEdges_singleCount = 0;
 	}
 }
+*/
