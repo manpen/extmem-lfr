@@ -8,8 +8,43 @@
 
 #include <ConfigurationModel.h>
 
+#include <string>
+
+#include <iostream>
+
 class TestConfigurationModel : public ::testing::Test {
 };
+
+TEST_F(TestConfigurationModel, findInverse) {
+	bool found = false;
+	for (uint32_t i = 0; i < UINT32_MAX; ++i) {
+		if (_mm_crc32_u32(static_cast<uint32_t>(0), i) == 0xFFFFFFFF){
+			std::cout << "POLY: " << std::hex << i << std::endl;
+			found = true;
+		}
+	}
+
+	ASSERT_TRUE(found);
+
+	// WE FOUND THE CONSTANTTTTTTT:
+	// from line 5 in intel intrinsics of _mm_crc32_u32:
+	// tmp5[95:0] = 0x4546F146|00000000
+	// therefore the seed XOR 0x641F6454, endianness is important here...
+	// is the inverse! WE TEST:
+	for (uint32_t seed = 0; seed < UINT32_MAX; ++seed) {
+		uint32_t inverse_to_seed = reinterpret_cast<uint32_t>(0x641F6454 ^ seed);
+		ASSERT_EQ(reinterpret_cast<uint32_t>(inverse_to_seed ^ seed), static_cast<uint32_t>(0x641F6454));
+		ASSERT_EQ(_mm_crc32_u32(seed, inverse_to_seed), static_cast<uint32_t>(0xFFFFFFFF));	
+	}
+}
+
+TEST_F(TestConfigurationModel, searchMax) {
+	for (uint32_t i = 0; i < UINT32_MAX; ++i) {
+		if (_mm_crc32_u32(0xFFFFFFFF, i) == 0xFFFFFFFF) {
+			std::cout << std::hex << "MAXI" << i << std::endl;
+		}
+	}
+}
 
 TEST_F(TestConfigurationModel, comparator) {
 	MultiNodeMsgComparator mnmc(static_cast<uint32_t>(1<<3));
@@ -19,9 +54,21 @@ TEST_F(TestConfigurationModel, comparator) {
 	ConfigurationModel<> cm(degrees, static_cast<uint32_t>((1<<3)));
 	cm.run();	
 	
-	ASSERT_FALSE(cm.empty());	
+	ASSERT_FALSE(cm.empty());
+
+	ASSERT_TRUE(true);
+
+	auto degrees2 = MonotonicPowerlawRandomStream<false>(10, (1<<5), -2, (1<<15));
+
+	std::vector<degree_t> ref_degrees (1<<15);
+
+	stxxl::stream::materialize(degrees2, ref_degrees.begin());
+
+	auto deg_stream = stxxl::stream::streamify(ref_degrees.begin(), ref_degrees.end());
+
+	//ConfigurationModel<stxxl::stream::vector_iterator2stream<stxxl::vector<degree_t>::const_iterator>> cm2(deg_stream, static_cast<uint32_t>(1<<3));
 }
-/**
+
 TEST_F(TestConfigurationModel, algoClass) {
 	// test sorter
 	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
@@ -76,6 +123,101 @@ TEST_F(TestConfigurationModel, algoClass) {
 	auto degree_stream = stxxl::stream::streamify(ref_degrees.begin(), ref_degrees.end());
 
 	ASSERT_FALSE(degree_stream.empty());
+}
+
+TEST_F(TestConfigurationModel, finalOutput) {
+	// we do 100 Runs
+	constexpr uint32_t dmin = 1;
+	constexpr uint32_t dmax = 100000;
+	constexpr uint32_t gamma = 2;
+	constexpr uint32_t n = 1000000;
+	constexpr uint32_t c = 1;
+
+	std::ostringstream stringStream;
+	stringStream << "data_";
+	stringStream << std::to_string(c);
+	stringStream << "_";
+	stringStream << std::to_string(dmin);
+	stringStream << "_";
+	stringStream << std::to_string(dmax);
+	stringStream << "_";
+	stringStream << std::to_string(gamma);
+	stringStream << "_";
+	stringStream << std::to_string(n);
+	stringStream << ".txt";
+	std::string copyOfStr = stringStream.str();
+
+	std::ofstream outputFile(copyOfStr);
+
+	std::cout << "GOING" << std::endl;
+
+	for (uint32_t i = 0; i < c; ++i) {
+		uint64_t loopCount = 0;
+		uint64_t me_single = 0;
+		uint64_t me_multi  = 0;
+
+		auto degrees = MonotonicPowerlawRandomStream<false>(dmin, dmax, -gamma, n);
+
+		ASSERT_FALSE(degrees.empty());
+
+		ConfigurationModel<> cm(degrees, i);
+		cm.run();
+
+		ASSERT_FALSE(cm.empty());
+
+		auto prev_edge = *cm;
+		++cm;
+
+		bool prev_multi = false;
+
+
+		if (prev_edge.is_loop())
+			++loopCount;
+
+		for(; !cm.empty(); ++cm) {
+			auto & edge = *cm;
+
+			if (edge.is_loop()) {
+				++loopCount;
+				prev_edge = edge;
+				prev_multi = false;
+				continue;
+			}
+			if (prev_edge == edge) {
+				++me_multi;
+
+				if (!prev_multi) {
+					++me_single;
+					prev_multi = true;
+				}
+
+				prev_edge = edge;
+
+				continue;
+			}
+
+			prev_edge = edge;
+
+			prev_multi = false;
+
+		}
+
+		std::ostringstream stringStream2;
+		stringStream2 << std::to_string(loopCount);
+		stringStream2 << "\t";
+		stringStream2 << std::to_string(me_single);
+		stringStream2 << "\t";
+		stringStream2 << std::to_string(me_multi);
+		stringStream2 << " #LSM\n";
+
+		std::string lineInfo = stringStream2.str();
+
+		std::cout << lineInfo << std::endl;
+
+		outputFile << lineInfo;
+
+		stringStream2.str(std::string());
+	}
 }
 
 TEST_F(TestConfigurationModel, outputAnalysis) {
@@ -146,4 +288,4 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 		multiEdges_singleCount = 0;
 	}
 }
-*/
+

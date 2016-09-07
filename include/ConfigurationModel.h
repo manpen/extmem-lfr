@@ -13,7 +13,7 @@
 #include "nmmintrin.h"
 
 constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFF;
-constexpr uint32_t LIMITS_LSB = 0xFFFF7FFE;
+constexpr uint32_t LIMITS_LSB = 0x9BE09BAB;
 
 using multinode_t = uint64_t;
 
@@ -102,8 +102,8 @@ class MultiNodeMsgComparator {
 			const uint32_t b_hash_msb = _mm_crc32_u32(_seed, static_cast<uint32_t>(b.eid_node() >> 32));
 
 			if (UNLIKELY(a_hash_msb == b_hash_msb)) {
-				const uint32_t a_hash_lsb = _mm_crc32_u32(~a_hash_msb, static_cast<uint32_t>(a.eid_node()));
-				const uint32_t b_hash_lsb = _mm_crc32_u32(~b_hash_msb, static_cast<uint32_t>(b.eid_node()));
+				const uint32_t a_hash_lsb = _mm_crc32_u32(a_hash_msb, static_cast<uint32_t>(a.eid_node()));
+				const uint32_t b_hash_lsb = _mm_crc32_u32(b_hash_msb, static_cast<uint32_t>(b.eid_node()));
 				return a_hash_lsb < b_hash_lsb;
 			} else {
 				return a_hash_msb < b_hash_msb;
@@ -160,12 +160,16 @@ class ConfigurationModel {
 		ConfigurationModel() = delete; 
 
 		ConfigurationModel(const ConfigurationModel&) = delete;
+#ifdef NDEBUG
 		using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
-		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) : 
-									_degrees(degrees), 
-									_multinodemsg_comp(seed),
-									_multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM),
-									_edge_sorter(Edge64Comparator(), SORTER_MEM)
+		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) 
+#else
+		ConfigurationModel(T &degrees, const uint32_t seed)
+#endif
+									: _degrees(degrees) 
+									, _multinodemsg_comp(seed)
+									, _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
+									, _edge_sorter(Edge64Comparator(), SORTER_MEM)
 		{ }
 	
 		// implements execution of algorithm
@@ -205,8 +209,13 @@ class ConfigurationModel {
 		}
 
 	protected:
+#ifdef NDEBUG
 		MonotonicPowerlawRandomStream<false> _degrees;
-	
+#else
+		T _degrees;
+#endif
+
+
 		typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
 		MultiNodeMsgComparator _multinodemsg_comp;
 		MultiNodeSorter _multinodemsg_sorter;
