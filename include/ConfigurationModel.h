@@ -14,6 +14,7 @@
 
 constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFF;
 constexpr uint32_t LIMITS_LSB = 0x9BE09BAB;
+constexpr uint32_t MAX_CRCFORWARD = 0x641F6454;
 
 using multinode_t = uint64_t;
 
@@ -125,31 +126,11 @@ class MultiNodeMsgComparator {
 		const std::pair<uint64_t,uint64_t> _limits;
 	
 		std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
-			std::cout << "WE IN SETLIMITS YO" << std::endl;
-			// initialization
-			uint32_t max_msb = 0;
-			uint32_t min_msb = 0;
-			
-			bool max = false;
-			bool min = false;
-			
-			// get MSB, iterate over all uint32_t's
-			for (uint32_t i = 0; i < UINT32_MAX; ++i) {
-				if (_mm_crc32_u32(seed_, i) == UINT32_MAX) {
-					max_msb = i;
-					max = true;
-				}
-				if (_mm_crc32_u32(seed_, i) == 0) {
-					min_msb = i;
-					min = true;
-				}
-				if (max && min) break;
-			}
+			std::cout << "In method _setLimits..." << std::endl;
+			uint64_t max_inv_msb = static_cast<uint64_t>(MAX_CRCFORWARD ^ seed_) << 32;
+			uint64_t min_inv_msb = static_cast<uint64_t>(0x00000000 ^ seed_) << 32;
 
-			assert(max);
-			assert(min);
-
-			return std::pair<multinode_t, multinode_t>{(static_cast<multinode_t>(max_msb) << 32) | LIMITS_LSB, (static_cast<multinode_t>(min_msb) << 32) | LIMITS_LSB};
+			return std::pair<multinode_t, multinode_t>{max_inv_msb | LIMITS_LSB, min_inv_msb | LIMITS_LSB};
 		}
 
 };

@@ -17,7 +17,7 @@ class TestConfigurationModel : public ::testing::Test {
 
 TEST_F(TestConfigurationModel, findInverse) {
 	bool found = false;
-	for (uint32_t i = 0; i < UINT32_MAX; ++i) {
+	for (uint32_t i = 1; i < UINT32_MAX; ++i) {
 		if (_mm_crc32_u32(static_cast<uint32_t>(0), i) == 0xFFFFFFFF){
 			std::cout << "POLY: " << std::hex << i << std::endl;
 			found = true;
@@ -26,7 +26,7 @@ TEST_F(TestConfigurationModel, findInverse) {
 
 	ASSERT_TRUE(found);
 
-	// WE FOUND THE CONSTANTTTTTTT:
+	// WE FOUND THE CONSTANT:
 	// from line 5 in intel intrinsics of _mm_crc32_u32:
 	// tmp5[95:0] = 0x4546F146|00000000
 	// therefore the seed XOR 0x641F6454, endianness is important here...
@@ -36,6 +36,7 @@ TEST_F(TestConfigurationModel, findInverse) {
 		ASSERT_EQ(reinterpret_cast<uint32_t>(inverse_to_seed ^ seed), static_cast<uint32_t>(0x641F6454));
 		ASSERT_EQ(_mm_crc32_u32(seed, inverse_to_seed), static_cast<uint32_t>(0xFFFFFFFF));	
 	}
+	// the constant for min_value is simply 0x00000000.
 }
 
 TEST_F(TestConfigurationModel, searchMax) {
@@ -133,6 +134,7 @@ TEST_F(TestConfigurationModel, finalOutput) {
 	constexpr uint32_t n = 1000000;
 	constexpr uint32_t c = 1;
 
+#ifdef NDEBUG
 	std::ostringstream stringStream;
 	stringStream << "data_";
 	stringStream << std::to_string(c);
@@ -148,9 +150,9 @@ TEST_F(TestConfigurationModel, finalOutput) {
 	std::string copyOfStr = stringStream.str();
 
 	std::ofstream outputFile(copyOfStr);
-
+#endif
 	std::cout << "GOING" << std::endl;
-
+	
 	for (uint32_t i = 0; i < c; ++i) {
 		uint64_t loopCount = 0;
 		uint64_t me_single = 0;
@@ -201,7 +203,7 @@ TEST_F(TestConfigurationModel, finalOutput) {
 			prev_multi = false;
 
 		}
-
+#ifdef NDEBUG
 		std::ostringstream stringStream2;
 		stringStream2 << std::to_string(loopCount);
 		stringStream2 << "\t";
@@ -217,6 +219,7 @@ TEST_F(TestConfigurationModel, finalOutput) {
 		outputFile << lineInfo;
 
 		stringStream2.str(std::string());
+#endif
 	}
 }
 
