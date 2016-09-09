@@ -48,6 +48,10 @@ TEST_F(TestConfigurationModel, searchMax) {
 }
 
 TEST_F(TestConfigurationModel, comparator) {
+	uint32_t test_Max = _mm_crc32_u32(0xFFFFFFFF, LIMITS_LSB);
+
+	ASSERT_EQ(test_Max, 0xFFFFFFFF);
+	
 	MultiNodeMsgComparator mnmc(static_cast<uint32_t>(1<<3));
 	
 	auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<19));
@@ -129,12 +133,11 @@ TEST_F(TestConfigurationModel, algoClass) {
 TEST_F(TestConfigurationModel, finalOutput) {
 	// we do 100 Runs
 	constexpr uint32_t dmin = 1;
-	constexpr uint32_t dmax = 100000;
+	constexpr uint32_t dmax = (1<<9);
 	constexpr uint32_t gamma = 2;
-	constexpr uint32_t n = 1000000;
+	constexpr uint32_t n = (1<<14);
 	constexpr uint32_t c = 1;
 
-#ifdef NDEBUG
 	std::ostringstream stringStream;
 	stringStream << "data_";
 	stringStream << std::to_string(c);
@@ -150,7 +153,7 @@ TEST_F(TestConfigurationModel, finalOutput) {
 	std::string copyOfStr = stringStream.str();
 
 	std::ofstream outputFile(copyOfStr);
-#endif
+	
 	std::cout << "GOING" << std::endl;
 	
 	for (uint32_t i = 0; i < c; ++i) {
@@ -203,7 +206,9 @@ TEST_F(TestConfigurationModel, finalOutput) {
 			prev_multi = false;
 
 		}
-#ifdef NDEBUG
+	
+		cm.clear();
+
 		std::ostringstream stringStream2;
 		stringStream2 << std::to_string(loopCount);
 		stringStream2 << "\t";
@@ -219,7 +224,6 @@ TEST_F(TestConfigurationModel, finalOutput) {
 		outputFile << lineInfo;
 
 		stringStream2.str(std::string());
-#endif
 	}
 }
 
@@ -230,11 +234,11 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 	
 	// we do 10 runs here.., with i as seed
 	for (uint32_t i = 1; i <= 1; ++i) {
-		auto degrees = MonotonicPowerlawRandomStream<false>(10, (1<<5), -2, (1<<15));
+		auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
 
 		ASSERT_FALSE(degrees.empty());
 
-		ConfigurationModel<> cm(degrees, i);
+		ConfigurationModel<> cm(degrees, (1<<16)+i);
 		cm.run();
 
 		ASSERT_FALSE(cm.empty());
@@ -243,6 +247,8 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 		auto prev_edge = *cm;
 		++cm;
+		std::cout << "EDGE<" << prev_edge.first << ", " << prev_edge.second << ">" << std::endl;
+
 
 		if (prev_edge.is_loop()) 
 			++loopCount;
@@ -250,6 +256,9 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 		for (; !cm.empty(); ++cm) {
 			const auto & edge = *cm;
 			//std::cout << "Edge: <" << edge.first << ", " << edge.second << ">" << std::endl;	
+		
+			std::cout << "EDGE<" << edge.first << ", " << edge.second << ">" << std::endl;
+
 
 			if (edge.is_loop()) {
 				++loopCount;

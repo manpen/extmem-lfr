@@ -20,7 +20,6 @@ using multinode_t = uint64_t;
 
 //! Type for every (un)directed 64bit
 // ommited invalid() member function
-// TODOASK here the edge amountcount already?
 struct edge64_t : public std::pair<multinode_t, multinode_t> {
 	edge64_t() : std::pair<multinode_t, multinode_t>() {}
 	edge64_t(const std::pair<multinode_t, multinode_t> & edge) : std::pair<multinode_t, multinode_t>(edge) {}
@@ -54,6 +53,18 @@ struct Edge64Comparator {
 		return edge64_t(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max());
 	}
 };
+
+#ifndef NDEBUG
+struct TestNodeMsg {
+	const uint_t _key;
+	const uint_t _eid_node;
+
+	TestNodeMsg() { }
+	TestNodeMsg(const uint_t key_, const uint_t eid_node_) : _key(key_), _eid_node(eid_node_) {}
+
+	DECL_LEX_COMPARE_OS(TestNodeMsg, uint_t, uint_t);
+};
+#endif
 
 /**
  * @typedef multinode_t
@@ -91,11 +102,9 @@ class MultiNodeMsgComparator {
 			: _seed(seed_) 
 			, _limits(_setLimits(seed_))
 		{
-			std::cout << "WE IN COMP CONSTRUCTOR" << std::endl;
+			//std::cout << "WE IN COMP CONSTRUCTOR" << std::endl;
 		}
 		
-		// if not chained then const seed
-		// make a_hash_msb, a_hash_lsb, b_hash_msb, b_hash_lsb protected?
 		// invert msb's since lsb = seed then for max_value
 		bool operator() (const MultiNodeMsg& a, const MultiNodeMsg& b) const {
 			// the MSB's of hash should be enough to decide 
@@ -126,7 +135,7 @@ class MultiNodeMsgComparator {
 		const std::pair<uint64_t,uint64_t> _limits;
 	
 		std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
-			std::cout << "In method _setLimits..." << std::endl;
+			//std::cout << "In method _setLimits..." << std::endl;
 			uint64_t max_inv_msb = static_cast<uint64_t>(MAX_CRCFORWARD ^ seed_) << 32;
 			uint64_t min_inv_msb = static_cast<uint64_t>(0x00000000 ^ seed_) << 32;
 
@@ -135,22 +144,25 @@ class MultiNodeMsgComparator {
 
 };
 
+#ifndef NDEBUG
+using TestNodeComparator = GenericComparatorStruct<TestNodeMsg>::Ascending;
+using TestNodeSorter = stxxl::sorter<TestNodeMsg, TestNodeComparator>;
+#endif
+
 template <typename T = MonotonicPowerlawRandomStream<false>>
 class ConfigurationModel {
 	public:
 		ConfigurationModel() = delete; 
 
 		ConfigurationModel(const ConfigurationModel&) = delete;
-#ifdef NDEBUG
-		using degree_buffer_t = MonotonicPowerlawRandomStream<false>;
-		ConfigurationModel(degree_buffer_t &degrees, const uint32_t seed) 
-#else
 		ConfigurationModel(T &degrees, const uint32_t seed)
-#endif
 									: _degrees(degrees) 
 									, _multinodemsg_comp(seed)
 									, _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
 									, _edge_sorter(Edge64Comparator(), SORTER_MEM)
+#ifndef NDEBUG
+									, _testnode_sorter(TestNodeComparator{}, SORTER_MEM)
+#endif
 		{ }
 	
 		// implements execution of algorithm
@@ -190,13 +202,11 @@ class ConfigurationModel {
 		}
 
 	protected:
-#ifdef NDEBUG
-		MonotonicPowerlawRandomStream<false> _degrees;
-#else
 		T _degrees;
+
+#ifndef NDEBUG
+		TestNodeSorter _testnode_sorter;
 #endif
-
-
 		typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
 		MultiNodeMsgComparator _multinodemsg_comp;
 		MultiNodeSorter _multinodemsg_sorter;
