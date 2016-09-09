@@ -184,7 +184,9 @@ TEST_F(TestConfigurationModel, finalOutput) {
 
 			if (edge.is_loop()) {
 				++loopCount;
-				prev_edge = edge;
+                if (prev_multi)
+                    ++me_multi;
+                prev_edge = edge;
 				prev_multi = false;
 				continue;
 			}
@@ -200,6 +202,9 @@ TEST_F(TestConfigurationModel, finalOutput) {
 
 				continue;
 			}
+
+            if (prev_multi)
+                ++me_multi;
 
 			prev_edge = edge;
 
@@ -231,14 +236,16 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 	int loopCount = 0;
 	int multiEdges_singleCount = 0;
 	int multiEdges_multiCount = 0;
-	
+
+    std::cout << "(1<<9): " << (1<<9) << std::endl;
+
 	// we do 10 runs here.., with i as seed
-	for (uint32_t i = 1; i <= 1; ++i) {
-		auto degrees = MonotonicPowerlawRandomStream<false>(1, (1<<9), -2, (1<<14));
+	for (uint32_t i = 0; i < 10; ++i) {
+		auto degrees = MonotonicPowerlawRandomStream<false>(1, 512, -2, 16384);
 
 		ASSERT_FALSE(degrees.empty());
 
-		ConfigurationModel<> cm(degrees, (1<<16)+i);
+		ConfigurationModel<> cm(degrees, (1<<16) + 10*i);
 		cm.run();
 
 		ASSERT_FALSE(cm.empty());
@@ -247,7 +254,7 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 		auto prev_edge = *cm;
 		++cm;
-		std::cout << "EDGE<" << prev_edge.first << ", " << prev_edge.second << ">" << std::endl;
+		//std::cout << "EDGE<" << prev_edge.first << ", " << prev_edge.second << ">" << std::endl;
 
 
 		if (prev_edge.is_loop()) 
@@ -255,13 +262,15 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 		for (; !cm.empty(); ++cm) {
 			const auto & edge = *cm;
-			//std::cout << "Edge: <" << edge.first << ", " << edge.second << ">" << std::endl;	
 		
-			std::cout << "EDGE<" << edge.first << ", " << edge.second << ">" << std::endl;
+			//std::cout << "EDGE<" << edge.first << ", " << edge.second << ">" << std::endl;
 
 
 			if (edge.is_loop()) {
 				++loopCount;
+                if (prev_multi) 
+                    ++multiEdges_multiCount;
+                        
 				prev_edge = edge;
 				prev_multi = false;
 				continue;
@@ -278,6 +287,9 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 				continue;
 			}
+
+            if (prev_multi)
+                ++multiEdges_multiCount;
 
 			prev_edge = edge;
 

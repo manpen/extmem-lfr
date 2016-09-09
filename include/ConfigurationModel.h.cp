@@ -58,6 +58,19 @@
             return edge64_t(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max());
         }
     };
+  #ifndef NDEBUG
+    struct TestNodeMsg {
+        multinode_t key;
+        multinode_t eid_node;
+
+        TestNodeMsg() { }
+        TestNodeMsg(const multinode_t &key_, const multinode_t &eid_node_) : key(key_), eid_node(eid_node_) {}
+
+        //DECL_TO_TUPLE(key, eid_node);
+        //DECL_TUPLS_OS(TestNodeMsg);
+        DECL_LEX_COMPARE_OS(TestNodeMsg, key, eid_node);
+    };
+  #endif
     /**
      * @typedef multinode_t
      * @brief The default signed integer to be used.
@@ -136,7 +149,12 @@
 
     };
 
-    template<typename T = MonotonicPowerlawRandomStream<false>>
+  #ifndef NDEBUG
+    using TestNodeComparator = typename GenericComparatorStruct<TestNodeMsg>::Ascending;
+    using TestNodeSorter = stxxl::sorter<TestNodeMsg, TestNodeComparator>;
+  #endif
+
+    template <typename T = MonotonicPowerlawRandomStream<false>>
     class ConfigurationModel {
         public:
             ConfigurationModel() = delete; 
@@ -144,9 +162,15 @@
             ConfigurationModel(const ConfigurationModel&) = delete;
             ConfigurationModel(T &degrees, const uint32_t seed)
                                         : _degrees(degrees) 
+                                      #ifndef NDEBUG
+                                        , _testnode_sorter(TestNodeComparator{}, SORTER_MEM)
+                                      #endif
                                         , _multinodemsg_comp(seed)
                                         , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
                                         , _edge_sorter(Edge64Comparator(), SORTER_MEM)
+                                      #ifndef NDEBUG
+                                        , _test_edge_sorter(Edge64Comparator(), SORTER_MEM)
+                                      #endif
             { }
         
             // implements execution of algorithm
@@ -182,6 +206,29 @@
                 return *this;
             }
     //! @}
+          #else
+    //! @name STXXL Streaming Interface
+    //! @{
+            bool empty() const {
+                return _test_edge_sorter.empty();
+            }
+
+            const edge64_t& operator*() const {
+                assert(!_test_edge_sorter.empty());
+
+                return *_test_edge_sorter;
+            }
+
+            ConfigurationModel&operator++() {
+                assert(!_test_edge_sorter.empty());
+              
+                std::cout << "_test_edge_sorter" << std::endl;
+
+                ++_test_edge_sorter;
+
+                return *this;
+            }
+    //! @}
           #endif
             // for testing
             void clear() {
@@ -191,22 +238,37 @@
         protected:
             T _degrees;
 
+          #ifndef NDEBUG
+            TestNodeSorter _testnode_sorter;
+          #endif
             typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
             MultiNodeMsgComparator _multinodemsg_comp;
             MultiNodeSorter _multinodemsg_sorter;
 
             using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
             EdgeSorter _edge_sorter; 
+          #ifndef NDEBUG
+            EdgeSorter _test_edge_sorter;
+          #endif
             // internal algos
             uint64_t _generateMultiNodes() {
                 assert(!_degrees.empty());
+              #ifndef NDEBUG
+                stxxl::random_number64 _random_integer;
+              #endif
                 uint64_t i;
                 for (i = 1; !_degrees.empty(); ++i, ++_degrees)
                     for (degree_t j = 0; j < *_degrees; ++j)
                     {
-                         _multinodemsg_sorter.push(MultiNodeMsg{(static_cast<multinode_t>(j) << 36) | i});
+                      #ifndef NDEBUG
+                        _testnode_sorter.push(TestNodeMsg{_random_integer(INT64_MAX), i});
+                      #endif
+                        _multinodemsg_sorter.push(MultiNodeMsg{(static_cast<multinode_t>(j) << 36) | i});
                     }
                 _multinodemsg_sorter.sort();
+              #ifndef NDEBUG
+                _testnode_sorter.sort();
+              #endif
 
                 assert(!_multinodemsg_sorter.empty());
             
@@ -251,6 +313,37 @@
                 }
 
                 _edge_sorter.sort();
+
+              #ifndef NDEBUG
+                 for(; !_testnode_sorter.empty(); ) {
+                    auto & fst_node = *_testnode_sorter;
+
+                    ++_testnode_sorter;
+
+                    TestNodeMsg snd_node;
+
+                    if (!_testnode_sorter.empty())
+                        snd_node = *_testnode_sorter;
+                    else {
+                        snd_node = fst_node;
+                    }
+
+                    uint64_t fst_nodeid{fst_node.eid_node & NODEMASK};
+                    uint64_t snd_nodeid{snd_node.eid_node & NODEMASK};
+
+                    if (fst_nodeid < snd_nodeid)
+                        _test_edge_sorter.push(edge64_t{fst_nodeid, snd_nodeid});
+                    else
+                        _test_edge_sorter.push(edge64_t{snd_nodeid, fst_nodeid});
+
+                    if (!_testnode_sorter.empty())
+                        ++_testnode_sorter;
+                    else
+                        break;
+                }
+
+                _test_edge_sorter.sort();
+              #endif
             }
             
             void _reset() {
