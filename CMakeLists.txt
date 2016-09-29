@@ -91,10 +91,8 @@ add_library(libextmemgraphgen STATIC
     include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
     include/CluewebReader.cpp
-	#Hung
-	include/ConfigurationModel/ConfigurationModel.cpp
-	#include/ConfigurationModel/MultiNodeGenerator.cpp
-	${LFR_SRCS}
+    include/ConfigurationModel/ConfigurationModel.cpp
+    ${LFR_SRCS}
 )
 
 
@@ -119,6 +117,9 @@ target_link_libraries(pa_edge_swaps libextmemgraphgen ${STXXL_LIBRARIES} ${Boost
 add_executable(pa_lfr main_lfr.cpp)
 target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
 
+#Hung
+add_executable(data_configurationmodel cm_data.cpp)
+target_link_libraries(data_configurationmodel libextmemgraphgen ${STXXL_LIBRARIES})
 
 
 include(CMakeLocal.cmake)

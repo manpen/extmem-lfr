@@ -2,6 +2,12 @@
  * Hung
  */
 #include "ConfigurationModel.h"
+
+template class ConfigurationModel<MonotonicPowerlawRandomStream<false>>;
+
+void nothing() {
+    std::cout << "Make?" << std::endl;
+}
 /**
  
 #ifdef NDEBUG

@@ -3,7 +3,12 @@
 #include <type_traits>
 #include "nmmintrin.h"
 
-void generate() {
+void nothing() {
+    auto degrees = MonotonicPowerlawRandomStream<false>(10, 15, -2, 100);
+    //ConfigurationModel<MonotonicPowerlawRandomStream<false>> cm(degrees, 10);
+}
+
+/*void generate() {
 	std::vector<uint64_t> nodes;
 
 	std::vector<uint64_t> hash_values;
@@ -92,4 +97,4 @@ void generate() {
 		auto & msg = *_multinode_sorter;
 		printf("%" PRIu64 "\n", msg.key_node & 0x0000000FFFFFFFFF);
 	}
-}
+}*/

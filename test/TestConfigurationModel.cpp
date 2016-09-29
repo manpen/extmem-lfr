@@ -12,8 +12,95 @@
 
 #include <iostream>
 
+#define NDEBUG
+#define CHANGECRC
+
 class TestConfigurationModel : public ::testing::Test {
 };
+/*
+TEST_F(TestConfigurationModel, nothing) {
+    nothing();
+}
+
+TEST_F(TestConfigurationModel, testNode) {
+    stxxl::random_number64 rng;
+    std::cout << rng(UINT64_MAX) << std::endl;
+    std::cout << rng(UINT64_MAX) << std::endl;
+    std::cout << rng(UINT64_MAX) << std::endl;
+    std::cout << rng(UINT64_MAX) << std::endl;
+    
+
+  #ifndef NDEBUG
+    auto a = TestNodeMsg{20, 20};
+    std::cout << a.key << std::endl;
+  #else
+    auto b = MultiNodeMsg{0xFFFFFFFFFFFFFFFF};
+    std::cout << "LSB of UINT64_MAX: " << std::hex << b.lsb() << std::endl;
+    std::cout << "MSB of UINT64_MAX: " << std::hex << b.msb() << std::endl;
+    
+    uint32_t seed = (1<<16) + 1;
+
+    MultiNodeMsgComparator mnmc{seed};
+    std::cout << "Comparator_MAX: " << std::hex << mnmc.max_value() << std::endl;
+    std::cout << "Comparator_MIN: " << std::hex << mnmc.min_value() << std::endl;
+ 
+  #ifdef CHANGECRC
+    MultiNodeMsg maxmsg{mnmc.max_value()};
+    MultiNodeMsg minmsg{mnmc.min_value()};
+
+    uint32_t maxhashmsb = _mm_crc32_u32(seed, maxmsg.lsb());
+    uint32_t maxhashlsb = _mm_crc32_u32(maxhashmsb, maxmsg.msb());
+
+    ASSERT_EQ(maxhashmsb, 0xFFFFFFFF);
+    ASSERT_EQ(maxhashlsb, 0xFFFFFFFF);
+
+    uint32_t minhashmsb = _mm_crc32_u32(seed, minmsg.lsb());
+    uint32_t minhashlsb = _mm_crc32_u32(minhashmsb, minmsg.msb());
+
+    ASSERT_EQ(minhashmsb, static_cast<uint32_t>(0));
+    ASSERT_EQ(minhashlsb, static_cast<uint32_t>(0));
+    
+    ASSERT_TRUE(mnmc(minmsg, maxmsg));
+  #endif
+  #endif
+}
+
+TEST_F(TestConfigurationModel, testCRC) {
+    uint32_t max_lsb = 0;
+    uint32_t min_lsb = 0;
+    
+    bool found_max = false;
+    bool found_min = true;
+
+    // Test static_cast
+    ASSERT_EQ(static_cast<uint32_t>(0x00000000), static_cast<uint32_t>(0));
+    ASSERT_EQ(static_cast<uint32_t>(0xFFFFFFFF), UINT32_MAX);
+
+    // Find LSB for MAX and MIN
+    for (uint32_t i; i < UINT32_MAX; ++i) {
+        if (_mm_crc32_u32(0xFFFFFFFF, i) == static_cast<uint32_t>(0xFFFFFFFF)) {
+            max_lsb = i;
+            found_max = true;
+        }
+        if (_mm_crc32_u32(0x00000000, i) == static_cast<uint32_t>(0x00000000)) {
+            min_lsb = i;
+            found_min = true;
+        }
+        if (found_max && found_min) 
+            break;
+    }
+
+    ASSERT_TRUE(found_max);
+    ASSERT_TRUE(found_min);
+
+    // Compare current LSB constants to newly found
+    ASSERT_EQ(max_lsb, MAX_LSB);
+    ASSERT_EQ(min_lsb, MIN_LSB);
+
+    // Test current LSB constants for MAX and MIN
+    ASSERT_EQ(_mm_crc32_u32(0xFFFFFFFF, MAX_LSB), static_cast<uint32_t>(0xFFFFFFFF));
+    ASSERT_EQ(_mm_crc32_u32(0x00000000, MIN_LSB), static_cast<uint32_t>(0x00000000));
+}
 
 TEST_F(TestConfigurationModel, findInverse) {
 	bool found = false;
@@ -48,7 +135,7 @@ TEST_F(TestConfigurationModel, searchMax) {
 }
 
 TEST_F(TestConfigurationModel, comparator) {
-	uint32_t test_Max = _mm_crc32_u32(0xFFFFFFFF, LIMITS_LSB);
+	uint32_t test_Max = _mm_crc32_u32(0xFFFFFFFF, MAX_LSB);
 
 	ASSERT_EQ(test_Max, 0xFFFFFFFF);
 	
@@ -231,22 +318,39 @@ TEST_F(TestConfigurationModel, finalOutput) {
 		stringStream2.str(std::string());
 	}
 }
+*/
+
+TEST_F(TestConfigurationModel, reverse) {
+    ASSERT_EQ(reverse(static_cast<uint64_t>(0)), static_cast<uint64_t>(0));
+    ASSERT_EQ(reverse(static_cast<uint64_t>(1)), static_cast<uint64_t>(1) << 63);
+    ASSERT_EQ(reverse(static_cast<uint64_t>(2)), static_cast<uint64_t>(1) << 62);
+    ASSERT_EQ(reverse(static_cast<uint64_t>(3)), static_cast<uint64_t>(3) << 62);
+}
 
 TEST_F(TestConfigurationModel, outputAnalysis) {
-	int loopCount = 0;
+    std::cout << "aaaaaaaaaaxyz" << std::endl;
+
+    // Test Constants
+    std::cout << "STATIC CAST on MAXINT: " << static_cast<uint32_t>(0xFFFFFFFF) << std::endl;
+    std::cout << "STATIC CAST on ZERO: " << static_cast<uint32_t>(0x00000000) << std::endl;
+   
+    // Test Conversions of constexpr
+    std::cout << "MAX_LSB << 32: " << static_cast<uint64_t>(MAX_LSB) << std::endl;
+    std::cout << "MIN_LSB << 32: " << static_cast<uint64_t>(MIN_LSB) << std::endl;
+
+    int loopCount = 0;
 	int multiEdges_singleCount = 0;
 	int multiEdges_multiCount = 0;
 
     std::cout << "(1<<9): " << (1<<9) << std::endl;
 
 	// we do 10 runs here.., with i as seed
-	for (uint32_t i = 0; i < 10; ++i) {
-		auto degrees = MonotonicPowerlawRandomStream<false>(1, 512, -2, 16384);
+	for (uint32_t i = 0; i < 1; ++i) {
+		auto degrees = MonotonicPowerlawRandomStream<false>(1, 50000, -2, 500000);
 
 		ASSERT_FALSE(degrees.empty());
-
-		ConfigurationModel<> cm(degrees, (1<<16) + 10*i);
-		cm.run();
+        ConfigurationModel<> cm(degrees, 179273927, 500000);
+        cm.run();
 
 		ASSERT_FALSE(cm.empty());
 
@@ -254,7 +358,7 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 		auto prev_edge = *cm;
 		++cm;
-		//std::cout << "EDGE<" << prev_edge.first << ", " << prev_edge.second << ">" << std::endl;
+		//std::cout << "EDGE<" << std::dec << prev_edge.first << ", " << prev_edge.second << ">" << std::endl;
 
 
 		if (prev_edge.is_loop()) 
@@ -298,7 +402,7 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 		// outputmessage
 		std::cout << "RUN[" << i << "]:" << std::endl;
-		std::cout << "         # SELF_LOOPS: " << loopCount << std::endl;
+		std::cout << "         # SELF_LOOPS: " << std::dec << loopCount << std::endl;
 		std::cout << "        # MULTI_EDGES: " << multiEdges_singleCount << std::endl;
 		std::cout << "# EDGES_IN_MULTI_EDGE: " << multiEdges_multiCount << std::endl;
 		std::cout << "=======================" << std::endl;
