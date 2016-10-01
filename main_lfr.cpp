@@ -169,7 +169,9 @@ int main(int argc, char* argv[]) {
         lfr.run();
 
         if (!config.output_filename.empty()) {
-            export_as_metis(lfr.get_edges(), config.node_distribution_param.numberOfNodes, config.output_filename);
+            lfr.get_edges().rewind();
+            export_as_metis(lfr.get_edges(), config.output_filename);
+            lfr.get_edges().rewind();
         }
 
         if (!config.partition_filename.empty()) {
