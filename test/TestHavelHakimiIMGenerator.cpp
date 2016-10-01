@@ -4,6 +4,9 @@
 #include <stxxl/stream>
 #include <stxxl/bits/common/rand.h>
 
+#include <vector>
+#include <set>
+
 class TestHavelHakimiIMGenerator : public ::testing::Test {
 protected:
     void _check_hh(const std::vector<degree_t> & sequence, HavelHakimiIMGenerator::PushDirection dir, node_t initial_id, bool debug = false, bool strict = false) {
@@ -24,6 +27,9 @@ protected:
         std::vector<degree_t> degrees(sequence.size());
         degree_t no_edges = 0;
         edge_t previous_edge = {-1, -1};
+
+        std::vector<std::set<node_t>> edge_ids(sequence.size());
+
         for(; !hh.empty(); ++hh, ++no_edges) {
             const edge_t & edge = *hh;
             if (debug)
@@ -40,16 +46,14 @@ protected:
             ASSERT_GE(edge.second, initial_id);
             ASSERT_LE(edge.second, static_cast<node_t>(initial_id+sequence.size()-1));
 
+            // insert edge ids and ensure they are not already included
+            ASSERT_TRUE(edge_ids.at(edge.first-initial_id).insert(hh.edge_ids().first).second);
+            ASSERT_TRUE(edge_ids.at(edge.second-initial_id).insert(hh.edge_ids().second).second);
+
             degrees.at(edge.first - initial_id)++;
             degrees.at(edge.second - initial_id)++;
 
             previous_edge = edge;
-        }
-
-        // compare
-        if (!strict) {
-            // if errors are allowed, the degrees might not be ordered
-            //std::sort(degrees.begin(), degrees.end());
         }
 
         for(unsigned int i=0; i<sequence.size(); i++) {
@@ -63,6 +67,9 @@ protected:
                 ASSERT_EQ(degrees[i], required) << "node: " << i;
 
             ASSERT_LE(degrees[i], required) << "node: " << i;
+
+            for(const auto & d : edge_ids.at(i))
+               ASSERT_LT(d, required);
         }
     }
 

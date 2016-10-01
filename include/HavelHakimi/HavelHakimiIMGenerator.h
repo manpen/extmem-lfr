@@ -292,6 +292,10 @@ public:
         return _current_edge;
     }
 
+    const value_type edge_ids() const {
+        return {_remaining_neighbors, _blocks_checkedout.top().degree};
+    }
+
     const value_type* operator->() const {
         assert(_mode == Generate);
         return &_current_edge;
