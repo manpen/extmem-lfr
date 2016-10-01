@@ -123,6 +123,8 @@ target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
 add_executable(crc_test hungtest.cpp)
 target_link_libraries(crc_test libextmemgraphgen ${STXXL_LIBRARIES})
 
+add_executable(hh_demo main_hh_demo.cpp)
+target_link_libraries(hh_demo libextmemgraphgen ${STXXL_LIBRARIES})
 
 include(CMakeLocal.cmake)
 
