@@ -181,7 +181,7 @@ void benchmark(RunConfig & config) {
 
         // prepare generator
         HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-        MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree);
+        MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree, stxxl::get_next_seed());
         StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
         hh_gen.generate();
 
@@ -222,8 +222,7 @@ void benchmark(RunConfig & config) {
     }
 
     // Build swaps
-    int64_t numSwaps = config.edgeSizeFactor * edge_stream.size();
-    SwapGenerator swap_gen(numSwaps, edge_stream.size());
+    SwapGenerator swap_gen(config.numSwaps, edge_stream.size(), stxxl::get_next_seed());
 
     // Perform edge swaps
     {

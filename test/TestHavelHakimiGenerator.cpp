@@ -47,9 +47,8 @@ TEST_F(TestHavelHakimiGenerator, testClique) {
 }
 
 TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
-    stxxl::srandom_number32(42);
     constexpr int_t numNodes = 10 * IntScale::Mi;
-    MonotonicPowerlawRandomStream<> sequence(2, 100000, -2, numNodes);
+    MonotonicPowerlawRandomStream<> sequence(2, 100000, -2, numNodes, 1234);
 
     // store degree sequence
     stxxl::vector<degree_t> degrees(numNodes);

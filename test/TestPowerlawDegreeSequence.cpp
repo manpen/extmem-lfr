@@ -25,7 +25,7 @@ TEST_F(TestPowerlawDegreeSequence, testNonDecreasing) {
         const degree_t minDeg = 2;
         const degree_t maxDeg = numNodes / 4;
 
-        MonotonicPowerlawRandomStream<true> sequence(minDeg, maxDeg, -2, numNodes);
+        MonotonicPowerlawRandomStream<true> sequence(minDeg, maxDeg, -2, numNodes, i);
         
         degree_t last_value = std::numeric_limits<degree_t>::min();
         

@@ -150,7 +150,7 @@ void CommunityEdgeRewiringSwaps::run() {
         // generate vector of real swaps with internal ids and internal edge vector.
         _current_swaps.clear();
         _current_swaps.reserve(com_swap_edges.size());
-        RandomBoolStream _bool_stream;
+        RandomBoolStream _bool_stream(stxxl::get_next_seed());
         _edges_in_current_swaps.clear();
         _edges_in_current_swaps.reserve(com_swap_edges.size() * 2);
         _swap_has_successor[0].clear();

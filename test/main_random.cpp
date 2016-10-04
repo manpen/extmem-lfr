@@ -9,6 +9,7 @@
 #include <Utils/UniformRandomStream.h>
 #include <Utils/MonotonicUniformRandomStream.h>
 #include <Utils/MonotonicPowerlawRandomStream.h>
+#include <Utils/RandomBoolStream.h>
 
 struct RunConfig {
     stxxl::uint64 randomPoints;
@@ -18,7 +19,7 @@ struct RunConfig {
     stxxl::uint64  maxValue;
     double gamma;
 
-    unsigned int randomSeed;
+    seed_t randomSeed;
     std::string test;
 
     RunConfig() :
@@ -72,14 +73,14 @@ struct RunConfig {
 };
 
 void test_hist_unif(RunConfig& conf) {
-    UniformRandomStream rs(conf.randomPoints);
+    UniformRandomStream rs(conf.randomPoints, conf.randomSeed);
     FloatDistributionCount histogram(-0.1, 1.1, conf.histogramBins);
     histogram.consume(rs);
     histogram.dump();
 }
 
 void test_hist_mono_unif(RunConfig& conf) {
-    MonotonicUniformRandomStream<> rs(conf.randomPoints);
+    MonotonicUniformRandomStream<> rs(conf.randomPoints, conf.randomSeed);
     FloatDistributionCount histogram(-0.1, 1.1, conf.histogramBins);
     histogram.consume(rs);
     histogram.dump();
@@ -87,14 +88,14 @@ void test_hist_mono_unif(RunConfig& conf) {
 
 
 void test_hist_powerlaw(RunConfig& conf) {
-    MonotonicPowerlawRandomStream<> rs(conf.minValue, conf.maxValue, conf.gamma, conf.randomPoints);
+    MonotonicPowerlawRandomStream<> rs(conf.minValue, conf.maxValue, conf.gamma, conf.randomPoints, 1.0, conf.randomSeed);
     FloatDistributionCount histogram(conf.minValue/2, conf.maxValue*2, conf.maxValue*2-conf.minValue/2+1);
     histogram.consume(rs);
     histogram.dump();
 }
 
 void count_powerlaw(RunConfig& conf) {
-    MonotonicPowerlawRandomStream<> rs(conf.minValue, conf.maxValue, conf.gamma, conf.randomPoints);
+    MonotonicPowerlawRandomStream<> rs(conf.minValue, conf.maxValue, conf.gamma, conf.randomPoints, 1.0, conf.randomSeed);
 
     uint64_t count = 0;
     degree_t prev_degree = 0;
@@ -115,10 +116,11 @@ void count_powerlaw(RunConfig& conf) {
 
 
 int main(int argc, char* argv[]) {
-    RunConfig config;
-    if (!config.parse_cmdline(argc, argv)) abort();
+   RunConfig config;
+   if (!config.parse_cmdline(argc, argv)) abort();
 
-         if (!config.test.compare("hist_unif")) {test_hist_unif(config);}
+
+   if (!config.test.compare("hist_unif")) {test_hist_unif(config);}
     else if (!config.test.compare("hist_mono_unif")) {test_hist_mono_unif(config);}
     else if (!config.test.compare("hist_powerlaw")) {test_hist_powerlaw(config);}
     else if (!config.test.compare("count_powerlaw")) {count_powerlaw(config);}

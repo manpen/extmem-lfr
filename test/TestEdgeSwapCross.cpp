@@ -67,7 +67,7 @@ namespace {
       SwapVector _generate_swaps(int_t number_of_swaps, int_t edges_in_graph) const {
          SwapVector swaps(number_of_swaps);
 
-         SwapGenerator sgen(number_of_swaps, edges_in_graph);
+         SwapGenerator sgen(number_of_swaps, edges_in_graph, stxxl::get_next_seed());
          stxxl::stream::materialize(sgen, swaps.begin());
 
          return swaps;

@@ -346,7 +346,7 @@ void benchmark(RunConfig & config) {
                         if (init_algo.swaps_pushed() < min_swaps * 0.75) {
                             const swapid_t additional_swaps = min_swaps - init_algo.swaps_pushed();
 
-                            SwapGenerator swap_gen(additional_swaps, edge_stream.size());
+                            SwapGenerator swap_gen(additional_swaps, edge_stream.size(), stxxl::get_next_seed());
                             StreamPusher<decltype(swap_gen), decltype(init_algo)>pusher (swap_gen, init_algo);
 
                             std::cout << "Added additional swaps: " << additional_swaps << std::endl;
@@ -438,7 +438,7 @@ void benchmark(RunConfig & config) {
             writeSnapshots(0);
 
         } else  {
-            SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
+            SwapGenerator swap_gen(config.numSwaps, edge_stream.size(), stxxl::get_next_seed());
 
             EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem, writeSnapshots);
 

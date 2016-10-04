@@ -65,7 +65,7 @@ protected:
     }
 
 public:
-    MonotonicPowerlawRandomStream(int_t minDegree, int_t maxDegree, double gamma, int_t numberOfNodes, double scale = 1.0, unsigned int seed = stxxl::get_next_seed())
+    MonotonicPowerlawRandomStream(int_t minDegree, int_t maxDegree, double gamma, int_t numberOfNodes, double scale = 1.0, seed_t seed = stxxl::get_next_seed())
         : _uniform_random(numberOfNodes, seed)
         , _min_degree(minDegree)
         , _max_degree(maxDegree)
@@ -83,7 +83,7 @@ public:
         _update();
     }
 
-    MonotonicPowerlawRandomStream(const Parameters& p, unsigned int seed = stxxl::get_next_seed()) :
+    MonotonicPowerlawRandomStream(const Parameters& p, seed_t seed = stxxl::get_next_seed()) :
         MonotonicPowerlawRandomStream(p.minDegree, p.maxDegree, p.exponent, p.numberOfNodes, p.scale, seed)
     {}
 

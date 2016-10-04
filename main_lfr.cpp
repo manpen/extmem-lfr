@@ -180,7 +180,8 @@ int main(int argc, char* argv[]) {
 	LFR::LFR lfr(config.node_distribution_param,
 				 config.community_distribution_param,
 				 config.mixing,
-				 config.max_bytes);
+				 config.max_bytes,
+				 stxxl::get_next_seed());
 
 	LFR::OverlapConfig oconfig;
 	oconfig.constDegree.multiCommunityDegree = config.overlap_degree;

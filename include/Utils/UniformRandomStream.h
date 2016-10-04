@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stxxl/bits/common/rand.h>
+#include <defs.h>
 
 class UniformRandomStream {
 public:
@@ -9,12 +9,14 @@ public:
 private:
     uint_t _counter;
 
-    stxxl::random_uniform_fast _gen;
+    STDRandomEngine _rand_gen;
+    std::uniform_real_distribution<value_type> _rand_distr{0.0, 1.0};
+
     value_type _current;
 
 public:
-    UniformRandomStream(uint_t elements)
-        : _counter(elements), _current(_gen())
+    UniformRandomStream(uint_t elements, seed_t seed)
+        : _counter(elements+1), _rand_gen(seed)
     {}
 
     const value_type& operator * () const {
@@ -22,7 +24,7 @@ public:
     };
 
     UniformRandomStream & operator++ () {
-        _current = _gen();
+        _current = _rand_distr(_rand_gen);
         --_counter;
         return *this;
     };

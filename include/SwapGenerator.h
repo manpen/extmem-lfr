@@ -7,7 +7,7 @@
  */
 
 #pragma once
-#include <stxxl/random>
+#include <random>
 #include "Swaps.h"
 #include <Utils/RandomBoolStream.h>
 
@@ -22,16 +22,19 @@ protected:
     int64_t _current_number_of_swaps;
     value_type _current_swap;
 
-    stxxl::random_number64 _random_integer;
+    STDRandomEngine _rand_gen;
+    std::uniform_int_distribution<edgeid_t> _random_integer;
 
     RandomBoolStream _bool_stream;
 
 public:
-    SwapGenerator(int64_t number_of_swaps, int64_t edges_in_graph)
+    SwapGenerator(int64_t number_of_swaps, int64_t edges_in_graph, uint32_t seed)
         : _number_of_edges_in_graph(edges_in_graph)
         , _requested_number_of_swaps(number_of_swaps)
         , _current_number_of_swaps(0)
-        , _bool_stream(_random_integer)
+        , _rand_gen(seed)
+        , _random_integer(0, _number_of_edges_in_graph-1)
+        , _bool_stream(_rand_gen())
     {
         assert(_number_of_edges_in_graph > 1);
         ++(*this);
@@ -52,8 +55,8 @@ public:
 
         while (1) {
             // generate two disjoint random edge ids
-            edgeid_t e1 = _random_integer(_number_of_edges_in_graph);
-            edgeid_t e2 = _random_integer(_number_of_edges_in_graph);
+            edgeid_t e1 = _random_integer(_rand_gen);
+            edgeid_t e2 = _random_integer(_rand_gen);
             if (e1 == e2) continue;
 
             // direction flag

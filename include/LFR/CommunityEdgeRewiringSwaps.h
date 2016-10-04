@@ -3,8 +3,6 @@
 #include <stxxl/vector>
 #include <defs.h>
 #include "LFR.h"
-#include <random>
-#include <cassert>
 #include <Swaps.h>
 #include <EdgeSwaps/EdgeSwapInternalSwapsBase.h>
 #include <array>
@@ -88,7 +86,10 @@ private:
         };
     };
 public:
-    CommunityEdgeRewiringSwaps(stxxl::vector<edge_community_t> &intra_edges, size_t max_swaps) : _community_edges(intra_edges), _max_swaps(max_swaps) {};
+    CommunityEdgeRewiringSwaps(stxxl::vector<edge_community_t> &intra_edges, size_t max_swaps)
+            : _community_edges(intra_edges)
+            , _max_swaps(max_swaps)
+    {};
 
     void run();
 

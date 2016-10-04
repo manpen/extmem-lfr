@@ -52,12 +52,10 @@ using degree_t = int32_t; ///< Type for node degrees
 using edgeid_t = int_t; ///< Type used to address edges
 using community_t = int32_t; ///< Type used to address communities
 
-using seed_t = unsigned int;
-
 using STDRandomEngine = std::mt19937_64;
+using seed_t = uint32_t;
 
 static_assert(sizeof(external_size_t) >= sizeof(edgeid_t), "external_size_t needs to be able to store edgeid_t");
-
 //!Type for every (un)directed edge
 struct edge_t : public std::pair<node_t, node_t> {
     edge_t() : std::pair<node_t, node_t>() {}

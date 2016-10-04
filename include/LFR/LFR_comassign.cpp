@@ -125,7 +125,7 @@ void LFR::_compute_community_assignments() {
           assignments(GenericComparatorStruct<CommunityAssignment>::Ascending(), SORTER_MEM);
 
 
-    const node_t offline_alloc = (_overlap_max_memberships == 1) ? 0 : std::min(1024*1024, _number_of_nodes / 10);
+    const node_t offline_alloc = (_overlap_max_memberships == 1) ? 0 : std::min<node_t>(1024*1024, _number_of_nodes / 10);
     const node_t online_alloc = _number_of_nodes - offline_alloc;
 
     std::cout << "Will try to assign "
@@ -139,7 +139,8 @@ void LFR::_compute_community_assignments() {
 
     RandomIntervalTree<node_t> tree(com_sizes);
     const community_t number_of_communities = com_sizes.size();
-    stxxl::random_number64 randGen;
+    //auto & randGen = _seed_seq;
+    std::mt19937 randGen(_seed_seq());
 
     // find the smallest legal community and then uniformly
     // select it or larger one
@@ -193,8 +194,9 @@ void LFR::_compute_community_assignments() {
 
             // select legal community weighted by community size
             unsigned int retries = 100 * dgm.memberships();
+            std::uniform_int_distribution<edgeid_t> distr(0, legal_weight-1);
             while (1) {
-                community_t community_selected = tree.getLeaf(randGen(legal_weight));
+                community_t community_selected = tree.getLeaf(distr(randGen));
                 assert(community_selected < largest_illegal_com);
 
                 if (communities.insert(community_selected).second) {
@@ -263,8 +265,9 @@ void LFR::_compute_community_assignments() {
 
                     // select legal community weighted by community size
                     uint64_t retries = 100 * dgm.memberships();
+                    std::uniform_int_distribution<edgeid_t> distr(0, legal_weight-1);
                     while (1) {
-                        community_t community_selected = tree.getLeaf(randGen(legal_weight));
+                        community_t community_selected = tree.getLeaf(distr(randGen));
                         assert(community_selected < largest_illegal_com);
 
                         if (communities.insert(community_selected).second) {
@@ -280,7 +283,8 @@ void LFR::_compute_community_assignments() {
                         for(unsigned int r=0; !assigned && r < 10* static_cast<uint64_t>(dgm.memberships()); r++) {
                             ++swap_tests;
 
-                            auto & other = off_assignments[randGen(off_assignments.size())];
+                            std::uniform_int_distribution<community_t> distr{0, static_cast<community_t>(off_assignments.size())-1};
+                            auto & other = off_assignments[distr(randGen)];
                             if (UNLIKELY(other.node_id == i))
                                 // dont want to switch with ourselves ;)
                                 continue;

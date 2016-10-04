@@ -86,7 +86,7 @@ namespace LFR {
                         uint_t numSwaps = 10*graph.numEdges();
 
                         IMEdgeSwap swapAlgo(graph);
-                        for (SwapGenerator swapGen(numSwaps, graph.numEdges()); !swapGen.empty(); ++swapGen) {
+                        for (SwapGenerator swapGen(numSwaps, graph.numEdges(), _seed_seq()); !swapGen.empty(); ++swapGen) {
                             swapAlgo.push(*swapGen);
                         }
 
@@ -118,7 +118,7 @@ namespace LFR {
 
                     // Generate swaps
                     uint_t numSwaps = 10*intra_edges.size();
-                    SwapGenerator swap_gen(numSwaps, intra_edges.size());
+                    SwapGenerator swap_gen(numSwaps, intra_edges.size(), _seed_seq());
 
                     uint_t run_length = intra_edges.size() / 8;
 
