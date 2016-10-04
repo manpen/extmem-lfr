@@ -61,7 +61,7 @@ struct RunConfig {
 
     unsigned int edgeSizeFactor;
 
-    RunConfig() 
+    RunConfig()
         : numNodes(10 * IntScale::Mi)
         , minDeg(2)
         , maxDeg(100000)
@@ -93,7 +93,7 @@ struct RunConfig {
     #define CMDLINE_COMP(chr, str, dest, args...) \
         chr, str, args, dest
 #endif
-    
+
     bool parse_cmdline(int argc, char* argv[]) {
         stxxl::cmdline_parser cp;
         std::string swap_algo_name;
@@ -116,7 +116,7 @@ struct RunConfig {
             cp.add_string(CMDLINE_COMP('e', "swap-algo", swap_algo_name, "SwapAlgo to use: IM, SEMI, TFP, PTFP (default)"));
 
             cp.add_flag(CMDLINE_COMP('v', "verbose", verbose, "Include debug information selectable at runtime"));
-            
+
             cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
@@ -214,7 +214,7 @@ void benchmark(RunConfig & config) {
     if (config.factorNoSwaps > 0) {
        config.numSwaps = edge_stream.size() * config.factorNoSwaps;
        std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
-    }   
+    }
 
     if (config.noRuns > 0) {
        config.runSize = config.numSwaps / config.noRuns + 1;
@@ -300,7 +300,7 @@ int main(int argc, char* argv[]) {
     stxxl::set_seed(config.randomSeed);
 
     benchmark(config);
-    std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;    
+    std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
 
     return 0;
