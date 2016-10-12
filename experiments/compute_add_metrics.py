@@ -9,6 +9,7 @@ import timeit
 import socket
 import glob
 import re
+import numpy as np
 
 print("HOST: " + socket.gethostname())
 sysTempDir = None
@@ -67,27 +68,19 @@ def loadGraph(path):
         G = graphio.readGraph(path, fileformat=graphio.Format.LFR)
         bpath = path.replace('.network.dat', '')
         cpath = bpath + '.comm.dat'
-        if ovlFac == 1:
-            C = community.readCommunities(cpath, format='edgelist-t1')
-            print("finished reading orig lfr")
-        else:
-            C = graphio.EdgeListCoverReader(1).read(cpath, G)
+        C = graphio.EdgeListCoverReader(1).read(cpath, G)
         
     elif (gen == "NetworKit" or gen == "EM"):
         assert("metis.graph" in path)
         G = graphio.readGraph(path, fileformat=graphio.Format.METIS)
         bpath = path.replace(".metis.graph", "")
         cpath = bpath + ".part"
-
-        if ovlFac == 1:
-            C = community.readCommunities(cpath, format='edgelist-s0')
-        else:
-            C = graphio.EdgeListCoverReader(0).read(cpath, G)
+        C = graphio.EdgeListCoverReader(0).read(cpath, G)
 
     return (G, C, bpath, gen, n, minDeg, maxDeg, mu, minCom, maxCom, ovlNodes, ovlFac) 
 
 def processFile(path):
-    afile = path.replace(".metis.graph", "").replace(".network.dat", "") + ".analysis"
+    afile = path.replace(".metis.graph", "").replace(".network.dat", "") + ".analysis1"
     if os.path.isfile(afile):
         return False
 
@@ -107,34 +100,48 @@ def processFile(path):
 
         pref = [n, minDeg, maxDeg, degExp, minCom, maxCom, comExp, mu, ovlNodes, ovlFac, G.numberOfEdges(), gen, run]
 
-        for alg in ["Infomap", "Louvain"]:
-            with Walltime(alg):
-               if alg == "Infomap":
-                   with open(afile + "infomap", 'w') as log_outf:
-                       foundP = clusterInfomap(G, log_outf)
-               elif alg == "Louvain":
-                   if (ovlFac > 1):
-                       print("Overlapping comm not supported; skip")
-                       continue
-                   foundP = community.PLM(G, par="none randomized").run().getPartition()
-               else:
-                   raise RuntimeError("wrong algorithm name!")
+        assort = computeAssort(G)
+        outf.write(", ".join(map(str, pref + ["Assort", '', assort]))+"\n")
 
-            for compAlg, compName in [(community.NMIDistance(), "NMI"), (community.AdjustedRandMeasure(), "AR")]:
-                if (ovlFac > 1 and compName == "AR"): continue
-                score = 1.0 - compAlg.getDissimilarity(G, foundP, P)
 
-                outf.write(", ".join(map(str, pref + [alg, compName, score])) + "\n")
-
-        avgcc = globals.ClusteringCoefficient().avgLocal(G, turbo=True)
-        outf.write(", ".join(map(str, pref + ["AvgCC", '', avgcc]))+"\n")
+        ginis = computeGini(G, P)
+        for g in ginis:
+            outf.write(", ".join(map(str, pref + ["Gini", g[0], g[1]]))+"\n")
 
     return True
 
+def giniCoeff(array):
+    """Calculate the Gini coefficient of a numpy array."""
+    # based on bottom eq: http://www.statsdirect.com/help/content/image/stat0206_wmf.gif
+    # from: http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    array = array.flatten() #all values are treated equally, arrays must be 1d
+    if np.amin(array) < 0:
+        array -= np.amin(array) #values cannot be negative
+    array += 0.0000001 #values cannot be 0
+    array = np.sort(array) #values must be sorted
+    index = np.arange(1,array.shape[0]+1) #index per array element
+    n = array.shape[0]#number of array elements
+    return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array))) #Gini coefficient
+
+
+def computeGini(graph, cover):
+    comms = []
+    for subsetId in cover.getSubsetIds():
+        degs = np.array([graph.degree(node)*1.0 for node in cover.getMembers(subsetId)])
+        gini = giniCoeff(degs)
+        size = len(cover.getMembers(subsetId))
+
+        comms.append([size, gini])
+
+    return comms
+
+def computeAssort(graph):
+    degs = [graph.degree(x) for x in graph.nodes()]
+    return correlation.Assortativity(graph, degs).run().getCoefficient()
+
 
 networks = []
-networks += glob.glob("/home/memhierarchy/penschuck/scratch/networks_*/proc*/*of1-*.metis.graph")
-networks += glob.glob("/home/memhierarchy/penschuck/scratch/networks_*/proc*/*of1*.network.dat")
+networks += glob.glob("/mnt/data/manpen/networks_357700*/proc*/*.network.dat")
 
 random.shuffle(networks)
 for x in networks:
