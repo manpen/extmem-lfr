@@ -9,6 +9,41 @@ rm -r plot_clusters
 mkdir -p plot_clusters/data
 cd plot_clusters
 
+#Assort
+for ovl in 1 2 3 4; do
+for mu in 2 4 6; do
+     label="assort_${ovl}_$mu"
+     grep -P ", 0.$mu, [0-9]+, $ovl, .+, Assort, " ../gini.csv > data/$label.all
+     for gen in Orig EM; do
+        grep $gen data/$label.all | perl -pe 's/^(\d+),.+, ([01]\.\d+)\s*$/$1 $2\n/g' | sort -n > data/$label.$gen
+        echo "\"$gen\"" >> data/$label.dat
+        cat data/$label.$gen | $stats 0 >> data/$label.dat     
+        echo >> data/$label.dat
+        echo >> data/$label.dat
+     done  
+     
+     gpargs="fnlabel=\"$label\"; NORMY=1; set title \"Mixing: \\\$\\\\mu = 0.$mu\\\$, Degree Assortativity, Overlap: \\\$\\\\nu = $ovl\\\$\"; set xrange [5e2 : 2e5]; set ylabel \"Degree Assortativity\"; NORMX=1"
+     gnuplot -e "TEXBUILD=1; $gpargs" ../plot_clusters.gp & 
+done
+done
+
+#Gini
+for ovl in 1 2 3 4; do
+for mu in 2 4 6; do
+     label="gini_${ovl}_$mu"
+     grep -P ", 0.$mu, [0-9]+, $ovl, .+, Gini, " ../gini.csv > data/$label.all
+     for gen in Orig EM; do
+         echo "\"$gen\"" >> data/$label.dat
+         grep $gen data/$label.all | perl -pe 's/^(\d+),.+, (\d+), ([01]\.\d+)\s*$/$1 $2 $3\n/g' | sort -n | ../boxplot.py >> data/$label.dat
+         echo >> data/$label.dat
+         echo >> data/$label.dat
+     done  
+     
+     gpargs="fnlabel=\"$label\"; $nx; set title \"Mixing: \\\$\\\\mu = 0.$mu\\\$\"; set ylabel \"Gini Coefficient\";"
+     gnuplot -e "TEXBUILD=1; $gpargs" ../plot_boxplot.gp &     
+done
+done
+
 for mu in 2 4 6; do
 #for mu in ; do
      for clu in Louvain Infomap; do
@@ -84,6 +119,7 @@ for mu in 2 4 6; do
      done  
 done
 done
+
 
 
 

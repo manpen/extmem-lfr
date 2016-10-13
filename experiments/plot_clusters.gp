@@ -2,7 +2,7 @@ set terminal png
 if (exists("TEXBUILD")) set terminal epslatex size 12cm, 6.375cm color colortext
 FILEEXT= exists("TEXBUILD") ? ".tex" : "_prev.png"
 
-set output "lfr_no_" . fnlabel . FILEEXT
+set output "lfr_" . fnlabel . FILEEXT
 
 set pointsize 4
 set grid ytics lc rgb "#bbbbbb" lw 1 lt 0
