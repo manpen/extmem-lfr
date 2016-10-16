@@ -4,12 +4,14 @@
 #include <stxxl/random>
 #include <Swaps.h>
 
+#include <Utils/RandomSeed.h>
+
 namespace LFR {
 
     void LFR::_compute_node_distributions() {
         // setup distributions
-        NodeDegreeDistribution ndd(_degree_distribution_params, _seed_seq() );
-        auto & generator = _seed_seq;
+        NodeDegreeDistribution ndd(_degree_distribution_params, RandomSeed::get_instance().get_next_seed());
+        std::mt19937 generator(RandomSeed::get_instance().get_next_seed());
         std::geometric_distribution<int> geo_dist(0.1);
 
         _degree_sum = 0;
@@ -94,12 +96,12 @@ namespace LFR {
         _community_cumulative_sizes.clear();
         _community_cumulative_sizes.reserve(_number_of_communities+1);
 
-        std::mt19937 gen(_seed_seq());
+        std::mt19937 gen(RandomSeed::get_instance().get_next_seed());
 
         uint_t needed_memberships = (_number_of_nodes + (_overlap_config.constDegree.overlappingNodes * (_overlap_config.constDegree.multiCommunityDegree - 1)));
 
         // generate prefix sum of random powerlaw degree distribution
-        CommunityDistribution cdd(_community_distribution_params, _seed_seq());
+        CommunityDistribution cdd(_community_distribution_params, RandomSeed::get_instance().get_next_seed());
         uint_t members_sum = 0;
         for(community_t c = 0; !cdd.empty(); ++cdd, ++c) {
             assert(static_cast<community_t>(_community_cumulative_sizes.size()) == c);

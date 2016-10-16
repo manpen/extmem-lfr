@@ -163,9 +163,6 @@ protected:
     EdgeStream _inter_community_edges;
     EdgeStream _edges;
 
-    const seed_t _seed;
-    STDRandomEngine _seed_seq;
-
 
     /// Get community size based on _community_cumulative_sizes
     node_t _community_size(community_t com) const {
@@ -188,8 +185,7 @@ public:
     LFR(const NodeDegreeDistribution::Parameters & node_degree_dist,
         const NodeDegreeDistribution::Parameters & community_degree_dist,
         double mixing_parameter,
-        uint_t max_memory_usage,
-        seed_t seed
+        uint_t max_memory_usage
     ) :
         _number_of_nodes(node_degree_dist.numberOfNodes),
         _degree_distribution_params(node_degree_dist),
@@ -197,9 +193,7 @@ public:
         _community_distribution_params(community_degree_dist),
         _mixing(mixing_parameter),
         _max_memory_usage(max_memory_usage),
-        _node_sorter(NodeDegreeMembershipInternalDegComparator(_mixing), SORTER_MEM),
-        _seed(seed),
-        _seed_seq(seed)
+        _node_sorter(NodeDegreeMembershipInternalDegComparator(_mixing), SORTER_MEM)
     {
         _overlap_method = geometric;
         _overlap_config.geometric.maxDegreeIntraDegree = (uint_t)node_degree_dist.maxDegree;
@@ -213,7 +207,7 @@ public:
     }
 
     LFR(const LFR& other)
-          : LFR(other._degree_distribution_params, other._community_distribution_params, other._mixing, other._max_memory_usage, other._seed)
+          : LFR(other._degree_distribution_params, other._community_distribution_params, other._mixing, other._max_memory_usage)
     {
         setOverlap(other._overlap_method, other._overlap_config);
     }

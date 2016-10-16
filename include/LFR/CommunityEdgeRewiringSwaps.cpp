@@ -2,7 +2,11 @@
 #include <EdgeSwaps/EdgeSwapInternalSwapsBase_impl.h>
 #include <Utils/RandomBoolStream.h>
 
+#include <Utils/RandomSeed.h>
+
 void CommunityEdgeRewiringSwaps::run() {
+    std::mt19937_64 gen(RandomSeed::get_instance().get_next_seed());
+
     while (true) {
         // generate vector of struct { community, duplicate edge, partner edge }.
         std::vector<community_swap_edges_t> com_swap_edges;
@@ -14,8 +18,6 @@ void CommunityEdgeRewiringSwaps::run() {
             }
             ++_community_sizes[c];
         };
-
-        std::mt19937 gen(stxxl::get_next_seed());
 
         { // first pass: load at most max_swaps duplicate edges duplicate edge in com_swap_edges
             edge_community_t last_edge = {0, {-1, -1}};
@@ -38,7 +40,7 @@ void CommunityEdgeRewiringSwaps::run() {
                     assert(com_swap_edges.size() == _edge_ids_in_current_swaps.size());
                 } else if (inDuplicates) {
                     do {
-                        std::uniform_int_distribution<> dis(first_dup, com_swap_edges.size()-1);
+                        std::uniform_int_distribution<int_t> dis(first_dup, com_swap_edges.size()-1);
                         int_t x = dis(gen);
 
                         assert(com_swap_edges.size() == _edge_ids_in_current_swaps.size());
@@ -111,9 +113,7 @@ void CommunityEdgeRewiringSwaps::run() {
         // and shuffle swaps of same community.
         #pragma omp parallel
         {
-
-            std::random_device lrd;
-            std::minstd_rand fast_gen(lrd());
+            std::minstd_rand fast_gen(gen());
 
             #pragma omp for schedule(guided)
             for (community_t com = 0; com < numCommunities; ++com) {
@@ -144,13 +144,13 @@ void CommunityEdgeRewiringSwaps::run() {
 
 
         // Shuffle all swaps.
-        std::minstd_rand fast_gen(stxxl::get_next_seed());
+        std::minstd_rand fast_gen(gen());
         std::shuffle(com_swap_edges.begin(), com_swap_edges.end(), fast_gen);
 
         // generate vector of real swaps with internal ids and internal edge vector.
         _current_swaps.clear();
         _current_swaps.reserve(com_swap_edges.size());
-        RandomBoolStream _bool_stream(stxxl::get_next_seed());
+        RandomBoolStream _bool_stream(gen());
         _edges_in_current_swaps.clear();
         _edges_in_current_swaps.reserve(com_swap_edges.size() * 2);
         _swap_has_successor[0].clear();

@@ -11,6 +11,8 @@
 #include <EdgeSwaps/EdgeSwapTFP.h>
 #include <Utils/StreamPusher.h>
 
+#include <Utils/RandomSeed.h>
+
 namespace LFR {
     void LFR::_generate_community_graphs() {
         stxxl::sorter<CommunityEdge, GenericComparatorStruct<CommunityEdge>::Ascending> edgeSorter(GenericComparatorStruct<CommunityEdge>::Ascending(), SORTER_MEM);
@@ -86,7 +88,7 @@ namespace LFR {
                         uint_t numSwaps = 10*graph.numEdges();
 
                         IMEdgeSwap swapAlgo(graph);
-                        for (SwapGenerator swapGen(numSwaps, graph.numEdges(), _seed_seq()); !swapGen.empty(); ++swapGen) {
+                        for (SwapGenerator swapGen(numSwaps, graph.numEdges(), RandomSeed::get_instance().get_seed(com)); !swapGen.empty(); ++swapGen) {
                             swapAlgo.push(*swapGen);
                         }
 
@@ -118,12 +120,12 @@ namespace LFR {
 
                     // Generate swaps
                     uint_t numSwaps = 10*intra_edges.size();
-                    SwapGenerator swap_gen(numSwaps, intra_edges.size(), _seed_seq());
+                    SwapGenerator swap_gen(numSwaps, intra_edges.size(), RandomSeed::get_instance().get_seed(com));
 
                     uint_t run_length = intra_edges.size() / 8;
 
                     // perform swaps
-                    EdgeSwapTFP::EdgeSwapTFP swap_algo(intra_edges, run_length, _number_of_nodes, _max_memory_usage);
+                    EdgeSwapTFP::EdgeSwapTFP swap_algo(intra_edges, run_length, _number_of_nodes, memory_per_thread);
 
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
 

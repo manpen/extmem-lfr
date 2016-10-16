@@ -2,6 +2,7 @@
 #include "LFR.h"
 
 #include <Utils/RandomIntervalTree.h>
+#include <Utils/RandomSeed.h>
 
 
 namespace LFR {
@@ -140,7 +141,7 @@ void LFR::_compute_community_assignments() {
     RandomIntervalTree<node_t> tree(com_sizes);
     const community_t number_of_communities = com_sizes.size();
     //auto & randGen = _seed_seq;
-    std::mt19937 randGen(_seed_seq());
+    std::mt19937 randGen(RandomSeed::get_instance().get_next_seed());
 
     // find the smallest legal community and then uniformly
     // select it or larger one
