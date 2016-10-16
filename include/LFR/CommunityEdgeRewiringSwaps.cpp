@@ -6,6 +6,11 @@
 
 void CommunityEdgeRewiringSwaps::run() {
     std::mt19937_64 gen(RandomSeed::get_instance().get_next_seed());
+    std::minstd_rand fast_gen(RandomSeed::get_instance().get_next_seed());
+    RandomBoolStream _bool_stream(RandomSeed::get_instance().get_next_seed());
+
+    size_t last_edges_found = std::numeric_limits<size_t>::max();
+    unsigned int retry_count = 0;
 
     while (true) {
         // generate vector of struct { community, duplicate edge, partner edge }.
@@ -63,8 +68,19 @@ void CommunityEdgeRewiringSwaps::run() {
         STXXL_MSG("Found " << com_swap_edges.size() << " duplicates which shall be rewired");
 
         // no duplicates found - nothing to do anymore!
-        // FIXME introduce threshold
         if (com_swap_edges.empty()) return;
+
+        // FIXME dont die
+        if (com_swap_edges.size() == last_edges_found && last_edges_found < 100) {
+            if (++retry_count == 3) {
+                std::cout << "CommunityEdgeRewiringSwaps does not converge; give up" << std::endl;
+                abort();
+            }
+        } else {
+            retry_count = 0;
+            last_edges_found = com_swap_edges.size();
+        }
+
 
         // bucket sort of com_swap_edges
         std::vector<uint_t> duplicates_per_community(_community_sizes.size() + 1);
@@ -111,12 +127,12 @@ void CommunityEdgeRewiringSwaps::run() {
 
         // sort swap partners per community in decreasing order
         // and shuffle swaps of same community.
+        const auto tmp_seed = RandomSeed::get_instance().get_next_seed();
         #pragma omp parallel
         {
-            std::minstd_rand fast_gen(gen());
-
             #pragma omp for schedule(guided)
             for (community_t com = 0; com < numCommunities; ++com) {
+                std::minstd_rand fast_gen(RandomSeed::get_instance().get_seed(tmp_seed + com));
                 std::sort(swap_partner_id_per_community.begin() + duplicates_per_community[com], swap_partner_id_per_community.begin() + duplicates_per_community[com+1], std::greater<edgeid_t>());
                 std::shuffle(com_swap_edges.begin() + duplicates_per_community[com], com_swap_edges.begin() + duplicates_per_community[com+1], fast_gen);
             }
@@ -144,13 +160,11 @@ void CommunityEdgeRewiringSwaps::run() {
 
 
         // Shuffle all swaps.
-        std::minstd_rand fast_gen(gen());
         std::shuffle(com_swap_edges.begin(), com_swap_edges.end(), fast_gen);
 
         // generate vector of real swaps with internal ids and internal edge vector.
         _current_swaps.clear();
         _current_swaps.reserve(com_swap_edges.size());
-        RandomBoolStream _bool_stream(gen());
         _edges_in_current_swaps.clear();
         _edges_in_current_swaps.reserve(com_swap_edges.size() * 2);
         _swap_has_successor[0].clear();
