@@ -7,7 +7,7 @@ private:
     unsigned int _flag_bits_remaining = 0;
     uint64_t _flag_bits;
 
-    STDRandomEngine _rand_gen;
+    std::mt19937_64 _rand_gen;
 
 
 public:
