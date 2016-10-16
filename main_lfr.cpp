@@ -16,6 +16,9 @@ enum OutputFileType {
 	SNAP
 };
 
+#include <Utils/RandomSeed.h>
+
+
 class RunConfig {
   void _update_structs() {
 	  node_distribution_param.exponent = node_gamma;
@@ -176,12 +179,12 @@ int main(int argc, char* argv[]) {
 
 	stxxl::srandom_number32(config.randomSeed);
 	stxxl::set_seed(config.randomSeed);
+	RandomSeed::get_instance().seed(config.randomSeed);
 
 	LFR::LFR lfr(config.node_distribution_param,
 				 config.community_distribution_param,
 				 config.mixing,
-				 config.max_bytes,
-				 stxxl::get_next_seed());
+				 config.max_bytes);
 
 	LFR::OverlapConfig oconfig;
 	oconfig.constDegree.multiCommunityDegree = config.overlap_degree;
