@@ -91,6 +91,7 @@ add_library(libextmemgraphgen STATIC
     include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
     include/CluewebReader.cpp
+    include/Utils/RandomSeed.cpp
     ${LFR_SRCS}
 )
 
