@@ -1,6 +1,6 @@
 #pragma once
 #include <defs.h>
-#include <memory>
+#include <random>
 
 class RandomBoolStream {
 private:
@@ -14,6 +14,8 @@ public:
     RandomBoolStream(seed_t seed)
           : _rand_gen(seed)
     {
+
+        std::cout << "Seed: " << seed << std::endl;
        operator++();
     }
 
@@ -22,7 +24,7 @@ public:
     bool operator *() const { return _flag_bits & 1; }
 
     RandomBoolStream& operator++() {
-        if (!_flag_bits_remaining) {
+        if (UNLIKELY(!_flag_bits_remaining)) {
             _flag_bits_remaining = 8 * sizeof(_flag_bits);
             _flag_bits = _rand_gen();
         } else {
