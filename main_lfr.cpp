@@ -77,7 +77,7 @@ public:
 	  overlapping_nodes(0),
 	  community_min_members(  25),
 	  community_max_members(1000),
-	  community_gamma(-2.0),
+	  community_gamma(-1.0),
 	  mixing(0.5),
 	  max_bytes(10*UIntScale::Gi),
 	  lfr_bench_rounds(100),
@@ -131,7 +131,6 @@ public:
 	  assert(number_of_communities < std::numeric_limits<community_t>::max());
 
 	  if (!cp.process(argc, argv)) {
-		  cp.print_usage();
 		  return false;
 	  }
 
