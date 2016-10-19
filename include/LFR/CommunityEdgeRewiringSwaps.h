@@ -48,6 +48,8 @@ private:
     template <typename Callback>
     void loadAndStoreEdges(Callback callback);
 
+    void deleteDuplicates();
+
     class EdgeReaderWrapper {
     private:
         stxxl::vector<edge_community_t>::bufreader_type _reader;

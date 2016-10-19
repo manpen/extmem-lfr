@@ -104,6 +104,9 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
         }
     };
 
+    swapid_t no_performed = 0;
+    swapid_t no_conflicts = 0;
+    swapid_t no_loops = 0;
     for (auto s_it = swaps.begin(); s_it != swaps.end(); ++s_it) {
         const auto& eids = s_it->edges();
 
@@ -130,6 +133,8 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
         }
 
         //std::cout << "Target edges " << t0.first << ", " << t0.second << " and " << t1.first << ", " << t1.second << std::endl;
+
+
         {
             // compute whether swap can be performed and write debug info out
             result.edges[0] = t_edges[0];
@@ -141,11 +146,24 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
 
             result.performed = !result.loop && !(result.conflictDetected[0] || result.conflictDetected[1]);
 
+            no_performed += result.performed;
+            no_conflicts += (getNumExistences(t_edges[0]) + getNumExistences(t_edges[1]) > 0);
+
+            no_loops += result.loop;
+
 #ifdef EDGE_SWAP_DEBUG_VECTOR
             result.normalize();
             _debug_vector_writer << result;
 #endif
         }
+
+        if (0)
+        std::cout << s_edges[0] << "\t" << s_edges[1] << "\t -> \t"
+                  << t_edges[0] << (getNumExistences(t_edges[0]) > 0)  << "\t"
+                  << t_edges[1] << (getNumExistences(t_edges[1]) > 0)  << "\t"
+        <<std::endl;
+
+
 
         //std::cout << result << std::endl;
 
@@ -155,6 +173,8 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
             edges[eids[0]] = t_edges[0];
             edges[eids[1]] = t_edges[1];
         }
+
+
 
         while (edge_existence_succ_it != _edge_existence_successors.end() && edge_existence_succ_it->from_sid == sid) {
             if (result.performed && (edge_existence_succ_it->e == s_edges[0] || edge_existence_succ_it->e == s_edges[1])) {
@@ -188,5 +208,8 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
         }
     }
 
+    std::cout << "Performed " << no_performed << " out of " << swaps.size() << " swaps ("
+              "loops: " << no_loops << " conflicts: " << no_conflicts << ")"
+              << std::endl;
 };
 

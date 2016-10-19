@@ -24,6 +24,8 @@ void CommunityEdgeRewiringSwaps::run() {
             ++_community_sizes[c];
         };
 
+        const auto no_edges = _community_edges.size();
+
         { // first pass: load at most max_swaps duplicate edges duplicate edge in com_swap_edges
             edge_community_t last_edge = {0, {-1, -1}};
             bool inDuplicates = false;
@@ -65,16 +67,18 @@ void CommunityEdgeRewiringSwaps::run() {
 
         community_t numCommunities = _community_sizes.size();
 
-        STXXL_MSG("Found " << com_swap_edges.size() << " duplicates which shall be rewired");
+        STXXL_MSG("Found " << com_swap_edges.size() << " duplicates in "
+                           << no_edges << " edges (" << (100. * com_swap_edges.size() / no_edges ) << "%)"
+                  " which shall be rewired");
 
         // no duplicates found - nothing to do anymore!
         if (com_swap_edges.empty()) return;
 
-        // FIXME dont die
-        if (com_swap_edges.size() == last_edges_found && last_edges_found < 100) {
-            if (++retry_count == 3) {
-                std::cout << "CommunityEdgeRewiringSwaps does not converge; give up" << std::endl;
-                abort();
+        if (com_swap_edges.size() == last_edges_found && last_edges_found < no_edges * 1e-3) {
+            if (++retry_count == 5) {
+                std::cout << "CommunityEdgeRewiringSwaps does not converge; give up and delete duplicates" << std::endl;
+                deleteDuplicates();
+                return;
             }
         } else {
             retry_count = 0;
@@ -221,6 +225,52 @@ void CommunityEdgeRewiringSwaps::run() {
 
     }
 }
+
+// fallback, if we dont converge -- then just delete duplicates
+void CommunityEdgeRewiringSwaps::deleteDuplicates() {
+    if (UNLIKELY(_community_edges.empty()))
+        return;
+
+    // read old edge vector and merge in updates, write out result
+    stxxl::vector<edge_community_t>::bufreader_type community_edge_reader(_community_edges);
+
+    edge_community_vector_t output_vector;
+    output_vector.reserve(_community_edges.size());
+    edge_community_vector_t::bufwriter_type writer(output_vector);
+
+    STDRandomEngine gen(RandomSeed::get_instance().get_next_seed());
+
+    edge_community_t last_edge = *community_edge_reader;
+    edgeid_t last_edge_occ = 0;
+    edgeid_t edges_written = 1;
+
+    for(++community_edge_reader; !community_edge_reader.empty(); ++community_edge_reader) {
+        const auto & edge = *community_edge_reader;
+
+        if (LIKELY(last_edge.edge != edge.edge)) {
+            if (LIKELY(!edge.edge.is_invalid())) {
+                writer << last_edge;
+                edges_written++;
+            }
+
+            last_edge = edge;
+            last_edge_occ = 1;
+
+        } else {
+            std::uniform_int_distribution<edgeid_t> distr(0, last_edge_occ);
+            last_edge_occ++;
+            if (!distr(gen)) last_edge.community_id = edge.community_id;
+        }
+    }
+
+    writer << last_edge;
+    writer.finish();
+
+    std::cout << "Wrote " << edges_written << " edges, i.e. deleted " << (_community_edges.size() - edges_written) << std::endl;
+
+    _community_edges.swap(output_vector);
+}
+
 
 template <typename Callback>
 void CommunityEdgeRewiringSwaps::loadAndStoreEdges(Callback callback) {
