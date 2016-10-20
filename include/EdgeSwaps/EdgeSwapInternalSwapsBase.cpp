@@ -147,7 +147,7 @@ void EdgeSwapInternalSwapsBase::performSwaps(const std::vector<swap_descriptor>&
             result.performed = !result.loop && !(result.conflictDetected[0] || result.conflictDetected[1]);
 
             no_performed += result.performed;
-            no_conflicts += (getNumExistences(t_edges[0]) + getNumExistences(t_edges[1]) > 0);
+            no_conflicts += result.conflictDetected[0] + result.conflictDetected[1];
 
             no_loops += result.loop;
 
