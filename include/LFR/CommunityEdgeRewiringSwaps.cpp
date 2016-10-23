@@ -16,6 +16,8 @@ void CommunityEdgeRewiringSwaps::run() {
 
     unsigned int iterations = 0;
 
+    const bool addition_random = _random_edge_ratio > std::numeric_limits<double>::epsilon();
+
     while (true) {
         ++iterations;
 
@@ -23,11 +25,22 @@ void CommunityEdgeRewiringSwaps::run() {
         std::vector<community_swap_edges_t> com_swap_edges;
 
         std::vector<edgeid_t> _community_sizes; // size of each community in terms of edges
+        std::vector<bool> duplicate_exists_in_community;
+        community_t no_real_communities_with_duplicates = 0;
+
         auto countCommunity = [&](community_t c) {
             if (static_cast<community_t>(_community_sizes.size()) <= c) {
                 _community_sizes.resize(c + 1);
             }
             ++_community_sizes[c];
+        };
+
+        auto markDuplicate = [&](community_t c) {
+            if (static_cast<community_t>(duplicate_exists_in_community.size()) <= c)
+                duplicate_exists_in_community.resize(c+1, false);
+
+            no_real_communities_with_duplicates += !duplicate_exists_in_community[c];
+            duplicate_exists_in_community[c] = true;
         };
 
         const auto no_edges = _community_edges.size();
@@ -40,18 +53,21 @@ void CommunityEdgeRewiringSwaps::run() {
                 assert(!e.edge.is_loop());
                 countCommunity(e.community_id);
 
-                if (last_edge.edge == e.edge && (inDuplicates || com_swap_edges.size() < _max_swaps)) {
-                    if (!inDuplicates) {
+                if (UNLIKELY(last_edge.edge == e.edge && (inDuplicates || com_swap_edges.size() < _max_swaps))) {
+                    if (!LIKELY(inDuplicates)) {
                         first_dup = com_swap_edges.size();
                         com_swap_edges.push_back(community_swap_edges_t {last_edge.community_id, last_edge.edge, edge_t::invalid()});
                         _edge_ids_in_current_swaps.push_back(eid - 1);
+                        markDuplicate(last_edge.community_id);
                         inDuplicates = true;
                     }
 
                     com_swap_edges.push_back(community_swap_edges_t {e.community_id, e.edge, edge_t::invalid()});
                     _edge_ids_in_current_swaps.push_back(eid);
+                    markDuplicate(e.community_id);
                     assert(com_swap_edges.size() == _edge_ids_in_current_swaps.size());
-                } else if (inDuplicates) {
+
+                } else if (UNLIKELY(inDuplicates)) {
                     do {
                         std::uniform_int_distribution<int_t> dis(first_dup, com_swap_edges.size() - 1);
                         int_t x = dis(gen);
@@ -71,7 +87,14 @@ void CommunityEdgeRewiringSwaps::run() {
             });
         }
 
+
+
         community_t numCommunities = _community_sizes.size();
+        if (duplicate_exists_in_community.size() < numCommunities)
+            duplicate_exists_in_community.resize(numCommunities, false);
+
+        assert(std::accumulate(duplicate_exists_in_community.begin(), duplicate_exists_in_community.end(), community_t(0)) == no_real_communities_with_duplicates);
+
 
         std::cout << "---- Rewiring Iteration: " << iterations
                   << " duplicates: " << com_swap_edges.size()
@@ -85,22 +108,20 @@ void CommunityEdgeRewiringSwaps::run() {
             break;
 
 #ifdef EXIT_AFTER_COM_REWIRING
-        if (iterations == 1000)
+        if (iterations == 200)
             break;
-#endif
-
+#else
         if (com_swap_edges.size() == last_edges_found && last_edges_found < no_edges * 1e-3) {
-#ifndef EXIT_AFTER_COM_REWIRING
             if (++retry_count == 5) {
                 std::cout << "CommunityEdgeRewiringSwaps does not converge; give up and delete duplicates" << std::endl;
                 deleteDuplicates();
                 break;
             }
-#endif
         } else {
             retry_count = 0;
             last_edges_found = com_swap_edges.size();
         }
+#endif
 
 
         // bucket sort of com_swap_edges
@@ -109,6 +130,7 @@ void CommunityEdgeRewiringSwaps::run() {
         for (const community_swap_edges_t &e : com_swap_edges) {
             ++duplicates_per_community[e.community_id];
         }
+        assert(!duplicates_per_community.back());
 
 
         // exclusive prefix sum
@@ -117,9 +139,11 @@ void CommunityEdgeRewiringSwaps::run() {
         for (uint_t i = 0; i < duplicates_per_community.size(); ++i) {
             edgeid_t tmp = duplicates_per_community[i];
             no_comm_with_duplicates += bool(tmp);
+
             duplicates_per_community[i] = sum;
             sum += tmp;
         }
+        assert(no_comm_with_duplicates <= no_real_communities_with_duplicates);
 
         // sort in buckets
         {
@@ -153,29 +177,72 @@ void CommunityEdgeRewiringSwaps::run() {
 
 
         // compute number of random swaps to perform
-        const double &random_edge_fraction = _random_edge_ratio;
         std::vector<edgeid_t> random_swaps_per_community(_community_sizes.size() + 1);
         random_swaps_per_community[0] = 0;
         community_t no_comm_with_random = 0;
 
-        for (community_t com = 0; com < numCommunities; ++com) {
-            const auto swaps = std::min<edgeid_t>(
-                    static_cast<edgeid_t>((duplicates_per_community[com + 1] - duplicates_per_community[com]) * random_edge_fraction),
-                    _community_sizes[com] / 2
-            );
+        {
+            const edgeid_t dups = duplicates_per_community.back();
+            edgeid_t rand_swaps_left = static_cast<edgeid_t>(_max_swaps) > dups ? (_max_swaps - dups) : 0;
 
-            random_swaps_per_community[com + 1] = random_swaps_per_community[com] + swaps;
-            no_comm_with_random += bool(swaps);
+            const bool end_game_random =
+                    (no_comm_with_duplicates < numCommunities * 1e-2) ||
+                    (duplicates_per_community.back() < no_edges * 2e-2);
+
+            for (community_t com = 0; com < numCommunities; ++com) {
+                std::cout << end_game_random << " "
+                          << com << " "
+                          << duplicate_exists_in_community[com] << " "
+                          << no_real_communities_with_duplicates << " "
+                          << no_comm_with_random << " "
+                          << rand_swaps_left << " "
+                          << std::endl;
+
+
+                edgeid_t swaps = 0;
+                const auto dups_in_com = duplicates_per_community[com + 1] - duplicates_per_community[com];
+
+                assert(!dups_in_com || duplicate_exists_in_community[com]);
+
+                if (addition_random && duplicate_exists_in_community[com]) {
+                    if (end_game_random) {
+                        assert(no_comm_with_random < no_real_communities_with_duplicates);
+                        swaps = static_cast<edgeid_t>(rand_swaps_left / (no_real_communities_with_duplicates - no_comm_with_random));
+
+                    } else {
+                        swaps = dups_in_com * _random_edge_ratio;
+
+                    }
+
+                    swaps = std::min<edgeid_t>(swaps, _community_sizes[com] / 2);
+                    swaps = std::min<edgeid_t>(swaps, rand_swaps_left);
+
+                    rand_swaps_left -= swaps;
+
+                    std::cout << swaps << std::endl;
+
+                    no_comm_with_random += bool(swaps);
+
+
+                }
+
+                random_swaps_per_community[com + 1] = random_swaps_per_community[com] + swaps;
+            }
         }
-        assert(random_swaps_per_community.back() <= duplicates_per_community.back() * random_edge_fraction);
-        std::cout << iterations << " "
+
+        std::cout << iterations << "   "
+
                   << duplicates_per_community.back() << " "
-                  << random_swaps_per_community.back() << " "
+                  << random_swaps_per_community.back() << "   "
+
                   << no_comm_with_duplicates << " "
-                  << no_comm_with_random << " "
+                  << no_real_communities_with_duplicates << " "
+                  << no_comm_with_random << "   "
+
                   << numCommunities << " "
                   << no_edges
-                  << "# ComRewStats iter, #dups, #rand-swps, comms-with-dup, comms-with-rand, #comms, #edges"
+
+                  << "# ComRewStats iter, #dups, #rand-swps, comms-with-dup, comms-with-real-dup, comms-with-rand, #comms, #edges"
                   << std::endl;
 
 
