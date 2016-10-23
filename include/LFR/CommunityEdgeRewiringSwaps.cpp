@@ -90,7 +90,7 @@ void CommunityEdgeRewiringSwaps::run() {
 
 
         community_t numCommunities = _community_sizes.size();
-        if (duplicate_exists_in_community.size() < numCommunities)
+        if (duplicate_exists_in_community.size() < static_cast<size_t>(numCommunities))
             duplicate_exists_in_community.resize(numCommunities, false);
 
         assert(std::accumulate(duplicate_exists_in_community.begin(), duplicate_exists_in_community.end(), community_t(0)) == no_real_communities_with_duplicates);
