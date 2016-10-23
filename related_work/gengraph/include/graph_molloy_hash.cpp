@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <algorithm>
+#include <ctime>
 
 #include "qsort.h"
 #include "hash.h"
@@ -228,21 +229,29 @@ int graph_molloy_hash::random_edge_swap(int K, int *Kbuff, bool *visited) {
 
 //_________________________________________________________________________
 edgeid_t graph_molloy_hash::shuffle(edgeid_t times, int type) {
-  if(VERBOSE()) fprintf(stderr,"Shuffle : 0%%");
+  if(VERBOSE()) fprintf(stderr,"Shuffle : 0%%\n");
   assert(verify());
   // counters
   edgeid_t nb_swaps = 0;
   edgeid_t performed_swaps = 0;
 
+  time_t start;
+  time_t current;
+
+  time(&start);
+
+
   if (type == DISCONNECTED) {
-   const edgeid_t block_size = std::max<edgeid_t>(100llu, times/100);
+   const edgeid_t block_size = std::max<edgeid_t>(100llu, times/1000);
 	while (times > nb_swaps) {
-      for(edgeid_t block = std::min<edgeid_t>(times - nb_swaps, block_size); --block; ) {
+      for(edgeid_t block = std::min<edgeid_t>(times - nb_swaps+1, block_size); --block; ) {
    		performed_swaps += random_edge_swap(1, NULL, NULL);
 	   	nb_swaps += 1;
       }
       if (VERBOSE()) {
-         fprintf(stderr," - Performed : %lu of %lu swaps\n", performed_swaps, nb_swaps);
+         time(&current);
+         double t = difftime(current, start);
+         fprintf(stderr,"%f Performed : %lu of %lu swaps\n", t, performed_swaps, nb_swaps);
       }
 	}
   } else {
