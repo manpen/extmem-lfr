@@ -189,6 +189,11 @@ int main(int argc, char* argv[]) {
 	std::cout << "[build with assertions]" << std::endl;
 #endif
 
+	// output argument string
+	for(int i=0; i < argc; i++)
+		std::cout << argv[i] << " ";
+	std::cout << std::endl;
+
 	omp_set_nested(1);
 	omp_set_num_threads(1);
 
