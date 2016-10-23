@@ -14,8 +14,6 @@ public:
     RandomBoolStream(seed_t seed)
           : _rand_gen(seed)
     {
-
-        std::cout << "Seed: " << seed << std::endl;
        operator++();
     }
 

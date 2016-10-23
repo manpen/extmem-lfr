@@ -76,9 +76,12 @@ namespace LFR {
             }
 
             std::cout << "Sampled a total degree of " << (total_inter_degree + total_intra_degree) << ". "
-                      << "Intra: " << total_intra_degree << " Inter: " << total_inter_degree
-                      << "Mixing: " << (static_cast<double>(total_inter_degree) / (total_inter_degree+total_intra_degree))
-                      << std::endl;
+                         "Avg-Degree: " << (1.0 * (total_inter_degree + total_intra_degree) / _number_of_nodes) << ". "
+                         "Intra: " << total_intra_degree << ". "
+                         "Inter: " << total_inter_degree << ". "
+                         "Mixing: " << (static_cast<double>(total_inter_degree) / (total_inter_degree+total_intra_degree))
+            << std::endl;
+
             std::cout << "Nodes ceiled: " << total_ceils << std::endl;
 
             if (_overlap_config.constDegree.overlappingNodes)
