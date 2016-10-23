@@ -143,6 +143,8 @@ protected:
     uint_t _max_memory_usage;
     uint_t _degree_sum;
 
+    double _community_rewiring_random {0.0};
+
     // model materialization
     stxxl::sorter<NodeDegreeMembership, NodeDegreeMembershipInternalDegComparator> _node_sorter;
 
@@ -219,6 +221,11 @@ public:
 
     EdgeStream & get_edges() {
         return _edges;
+    }
+
+    void setCommunityRewiringRandom(const double& v) {
+        assert(v >= 0);
+        _community_rewiring_random = v;
     }
 
     /**

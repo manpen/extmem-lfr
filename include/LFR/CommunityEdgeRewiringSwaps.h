@@ -38,12 +38,34 @@ private:
         DECL_LEX_COMPARE(edge_community_swap_t, e, community_id, sid, spos);
     };
 
+    struct random_edge_t {
+        edgeid_t id;
+        edge_t edge;
+
+#if 1 //ndef NDEBUG
+        community_t comm;
+
+        random_edge_t() : id(-1), edge(edge_t::invalid()), comm(-1) {}
+
+        random_edge_t(const edgeid_t& i_, const edge_t& e_, const community_t& c_)
+                : id(i_), edge(e_), comm(c_)
+        {}
+#else
+        random_edge_t() {}
+
+        random_edge_t(const edgeid_t& i_, const edge_t& e_, const community_t& c_)
+                    : id(i_), edge(e_)
+        {}
+#endif
+    };
 
     std::vector<SwapDescriptor> _current_swaps;
     std::vector<edge_t> _edges_in_current_swaps;
     std::vector<edgeid_t> _edge_ids_in_current_swaps;
     std::vector<community_t> _community_of_current_edge;
     std::array<std::vector<bool>, 2> _swap_has_successor;
+
+    const double _random_edge_ratio;
 
     template <typename Callback>
     void loadAndStoreEdges(Callback callback);
@@ -87,12 +109,13 @@ private:
             return _reader.size();
         };
     };
+
 public:
-    CommunityEdgeRewiringSwaps(stxxl::vector<edge_community_t> &intra_edges, size_t max_swaps)
+    CommunityEdgeRewiringSwaps(stxxl::vector<edge_community_t> &intra_edges, const size_t& max_swaps, const double& random_edge_ratio)
             : _community_edges(intra_edges)
             , _max_swaps(max_swaps)
+            , _random_edge_ratio(random_edge_ratio)
     {};
 
     void run();
-
 };
