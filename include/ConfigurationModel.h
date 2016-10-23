@@ -9,6 +9,8 @@
 #include <TupleHelper.h>
 #include <GenericComparator.h>
 #include <Utils/MonotonicPowerlawRandomStream.h>
+#include <HavelHakimi/HavelHakimiIMGenerator.h>
+#include <EdgeStream.h>
 
 // CRC
 #include "nmmintrin.h"
@@ -32,10 +34,10 @@ uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & ls
     return hash;
 }
 
-constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFF;
-constexpr uint32_t MAX_LSB = 0x9BE09BAB;
-constexpr uint32_t MIN_LSB = 0x00000000;
-constexpr uint32_t MAX_CRCFORWARD = 0x641F6454;
+constexpr uint64_t NODEMASK = 0x0000000FFFFFFFFFu;
+constexpr uint32_t MAX_LSB = 0x9BE09BABu;
+constexpr uint32_t MIN_LSB = 0x00000000u;
+constexpr uint32_t MAX_CRCFORWARD = 0x641F6454u;
 
 using multinode_t = uint64_t;
 
@@ -142,11 +144,133 @@ protected:
 
     std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
         uint64_t max_inv_msb = static_cast<uint64_t>(MAX_CRCFORWARD ^ seed_) << 32;
-        uint64_t min_inv_msb = static_cast<uint64_t>(0x00000000 ^ seed_) << 32;
+        uint64_t min_inv_msb = static_cast<uint64_t>(seed_) << 32;
 
-        return std::pair<multinode_t, multinode_t>{reverse(max_inv_msb | MAX_LSB), reverse(min_inv_msb | MIN_LSB)};
+        return std::pair<multinode_t, multinode_t>{max_inv_msb | MAX_LSB, min_inv_msb | MIN_LSB};
     }
 
+};
+
+template <class EdgeReader>
+class CMHH {
+public:
+    CMHH() = delete;
+    CMHH(const CMHH&) = delete;
+    CMHH(EdgeReader & edge_reader_in,
+        const uint32_t seed,
+        const uint64_t node_upperbound) 
+        : _edges(edge_reader_in)
+        , _seed(seed)
+        , _node_upperbound(node_upperbound)
+        , _multinodemsg_comp(seed)
+        , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
+        , _edge_sorter(Edge64Comparator(), SORTER_MEM)
+        { }
+
+    void run() {
+        assert(!_edges.empty());
+
+        const uint64_t node_size = _generateMultiNodes();
+
+        assert(!_multinodemsg_sorter.empty());
+
+        _generateSortedEdgeList(node_size);
+
+        assert(!_edge_sorter.empty());
+    }
+
+//! @name STXXL Streaming Interface
+//! @{
+    bool empty() const {
+        return _edge_sorter.empty();
+    }
+
+    const edge64_t& operator*() const {
+        assert(!_edge_sorter.empty());
+
+        return *_edge_sorter;
+    }
+
+    CMHH&operator++() {
+        assert(!_edge_sorter.empty());
+        
+        ++_edge_sorter;
+
+        return *this;
+    }
+//! @}
+
+protected:
+    EdgeReader _edges;
+
+    const uint32_t _seed;
+    const uint64_t _node_upperbound;
+
+    typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
+    MultiNodeMsgComparator _multinodemsg_comp;
+    MultiNodeSorter _multinodemsg_sorter;
+
+    using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
+    EdgeSorter _edge_sorter; 
+
+    uint64_t _generateMultiNodes() {
+        assert(!_edges.empty());
+
+        uint64_t max_node = 0;
+
+        for (; !_edges.empty(); ++_edges) {
+            _multinodemsg_sorter.push(
+                MultiNodeMsg{ (static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) << 36) | (*_edges).first});
+            _multinodemsg_sorter.push(
+                MultiNodeMsg{ (static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) << 36) | (*_edges).second});
+            if (static_cast<uint64_t>((*_edges).first) > max_node)
+                max_node = (*_edges).first;
+            if (static_cast<uint64_t>((*_edges).second) > max_node)
+                max_node = (*_edges).second;
+        }
+
+        _multinodemsg_sorter.sort();
+
+        assert(!_multinodemsg_sorter.empty());
+    
+        assert(max_node > 0);
+
+        return max_node ;
+    }
+
+    void _generateSortedEdgeList(const uint64_t node_size) {
+        assert(!_multinodemsg_sorter.empty());
+
+        for(; !_multinodemsg_sorter.empty(); ) {
+            auto & fst_node = *_multinodemsg_sorter;
+
+            ++_multinodemsg_sorter;
+
+            if (LIKELY(!_multinodemsg_sorter.empty())) {
+                MultiNodeMsg snd_node = *_multinodemsg_sorter;
+
+                if (fst_node.node() < snd_node.node())
+                    _edge_sorter.push(edge64_t{fst_node.node(), snd_node.node()});
+                else
+                    _edge_sorter.push(edge64_t{snd_node.node(), fst_node.node()});
+            } else {
+                stxxl::random_number<> rand;
+                const uint64_t snd_nodeid = rand(node_size);
+
+                if (fst_node.node() < snd_nodeid)
+                    _edge_sorter.push(edge64_t{fst_node.node(), snd_nodeid});
+                else
+                    _edge_sorter.push(edge64_t{snd_nodeid, fst_node.node()});
+            }
+
+            if (!_multinodemsg_sorter.empty())
+                ++_multinodemsg_sorter;
+            else
+                break;
+        }
+
+        _edge_sorter.sort();
+    }
 };
 
 template <typename T = MonotonicPowerlawRandomStream<false>>
@@ -238,22 +362,10 @@ protected:
             for(; !_multinodemsg_sorter.empty(); ) {
                 auto & fst_node = *_multinodemsg_sorter;
 
-                //std::cout << "NODE:\t\t" << std::dec << fst_node.node() << "\t\t, HASH:\t\t" << std::hex << crc64(_seed, fst_node.msb(), fst_node.lsb()) << std::endl;
-
                 ++_multinodemsg_sorter;
 
                 if (LIKELY(!_multinodemsg_sorter.empty())) {
                     MultiNodeMsg snd_node = *_multinodemsg_sorter;
-
-                    //std::cout << "NODE:\t\t" << std::dec << snd_node.node() << "\t\t, HASH:\t\t" << std::hex << crc64(_seed, snd_node.msb(), snd_node.lsb()) << std::endl;
-
-                    //std::cout << "NEW EDGE: <" << fst_node.node() << "," << snd_node.node() << ">" << std::endl;
-
-                    /*if (fst_node.node() == snd_node.node()) {
-                        std::cout << "NEW EDGE: <" << fst_node.node() << "," << snd_node.node() << ">" << std::endl;
-                        std::cout << "NODE:\t\t" << std::dec << fst_node.node() << "\t\t, HASH:\t\t" << std::hex << crc64(_seed, fst_node.msb(), fst_node.lsb()) << std::endl;
-                        std::cout << "NODE:\t\t" << std::dec << snd_node.node() << "\t\t, HASH:\t\t" << std::hex << crc64(_seed, snd_node.msb(), snd_node.lsb()) << std::endl;
-                    }*/
 
                     if (fst_node.node() < snd_node.node())
                         _edge_sorter.push(edge64_t{fst_node.node(), snd_node.node()});

@@ -3,20 +3,63 @@
  */
 
 #include <gtest/gtest.h>
-
 #include <iomanip>
-
 #include <ConfigurationModel.h>
-
 #include <string>
-
 #include <iostream>
+#include <Utils/StreamPusher.h>
+#include <HavelHakimi/HavelHakimiIMGenerator.h>
 
 #define NDEBUG
 #define CHANGECRC
 
 class TestConfigurationModel : public ::testing::Test {
 };
+
+TEST_F(TestConfigurationModel, crc) {
+	int x = 2;
+	// reverse functions properly?
+	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, reverse(0xFFFFFFFFFFFFFFFFu));
+	ASSERT_EQ(0x0000000000000000u, reverse(0x0000000000000000u));
+
+	const uint32_t seed = 223224;
+	// 32bit matching max_value?
+	ASSERT_EQ(0xFFFFFFFFu, _mm_crc32_u32(seed, seed ^ MAX_CRCFORWARD));
+	ASSERT_EQ(0xFFFFFFFFu, _mm_crc32_u32(0xFFFFFFFFu, MAX_LSB));
+	// 32bit matching max_value?
+	ASSERT_EQ(0x00000000u, _mm_crc32_u32(seed, seed));
+	ASSERT_EQ(0x00000000u, _mm_crc32_u32(0x00000000u, MIN_LSB));
+
+	MultiNodeMsgComparator mnmc(seed);
+	const uint64_t max = mnmc.max_value();
+	const uint32_t maxm = static_cast<uint32_t>(max >> 32);
+	const uint32_t maxl = static_cast<uint32_t>(max);
+	const uint64_t min = mnmc.min_value();
+	const uint32_t minm = static_cast<uint32_t>(min >> 32);
+	const uint32_t minl = static_cast<uint32_t>(min);
+	// 64bit matching max_value?
+	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, crc64(seed, maxm, maxl));
+	// 64bit matching min_value?
+	ASSERT_EQ(0x0000000000000000u, crc64(seed, minm, minl));
+}
+
+TEST_F(TestConfigurationModel, tHavelHakimi) {
+	int x = 11;
+
+    const degree_t min_deg = 2;
+    const degree_t max_deg = 100;
+    const node_t num_nodes = 1000;
+    
+    HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
+    MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
+
+    StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
+    hh_gen.generate();
+
+    CMHH<HavelHakimiIMGenerator> cmhh(hh_gen, 223224, 1000);
+    cmhh.run();
+}
+
 /*
 TEST_F(TestConfigurationModel, nothing) {
     nothing();
@@ -346,7 +389,7 @@ TEST_F(TestConfigurationModel, outputAnalysis) {
 
 	// we do 10 runs here.., with i as seed
 	for (uint32_t i = 0; i < 1; ++i) {
-		auto degrees = MonotonicPowerlawRandomStream<false>(1, 50000, -2, 500000);
+		auto degrees = MonotonicPowerlawRandomStream<false>(1, 500, -2, 5000);
 
 		ASSERT_FALSE(degrees.empty());
         ConfigurationModel<> cm(degrees, 179273927, 500000);
