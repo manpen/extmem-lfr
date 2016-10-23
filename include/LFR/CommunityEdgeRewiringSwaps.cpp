@@ -4,7 +4,7 @@
 
 #include <Utils/RandomSeed.h>
 
-#define EXIT_AFTER_COM_REWIRING
+//#define EXIT_AFTER_COM_REWIRING
 
 void CommunityEdgeRewiringSwaps::run() {
     std::mt19937_64 gen(RandomSeed::get_instance().get_next_seed());
