@@ -42,7 +42,7 @@ private:
         edgeid_t id;
         edge_t edge;
 
-#if 1 //ndef NDEBUG
+#ifndef NDEBUG
         community_t comm;
 
         random_edge_t() : id(-1), edge(edge_t::invalid()), comm(-1) {}
@@ -50,11 +50,12 @@ private:
         random_edge_t(const edgeid_t& i_, const edge_t& e_, const community_t& c_)
                 : id(i_), edge(e_), comm(c_)
         {}
-#else
-        random_edge_t() {}
 
-        random_edge_t(const edgeid_t& i_, const edge_t& e_, const community_t& c_)
-                    : id(i_), edge(e_)
+#else
+        random_edge_t()  {}
+
+        random_edge_t(const edgeid_t& i_, const edge_t& e_, const community_t&)
+                : id(i_), edge(e_)
         {}
 #endif
     };
