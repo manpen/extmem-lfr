@@ -26,7 +26,7 @@ protected:
             auto idx = i+_inner_nodes_offset;
             _total_weight += leaves[i];
 
-            for(unsigned int l=_layers+1; l; --l) {
+            for(unsigned int l=_layers+1; l>1; --l) {
                 auto parent = idx >> 1;
                 bool is_right_child = idx & 1;
 
@@ -34,8 +34,6 @@ protected:
 
                 idx = parent;
             }
-
-            assert(!idx);
         }
     }
 
