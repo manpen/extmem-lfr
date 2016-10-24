@@ -110,6 +110,7 @@ namespace EdgeSwapTFP {
 
     class EdgeSwapTFP : public EdgeSwapBase {
     protected:
+    //public:
         constexpr static size_t _pq_mem = PQ_INT_MEM;
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
         constexpr static size_t _sorter_mem = SORTER_MEM;
