@@ -13,12 +13,12 @@ void LFR::_correct_community_sizes() {
 
     if (_overlap_method == OverlapMethod::constDegree) {
         // FIX: This is a quite weak bound if not all nodes overlap
-        if (_degree_distribution_params.maxDegree * (1.0 - _mixing) / _overlap_config.constDegree.multiCommunityDegree >=
+        if (_degree_distribution_params.maxDegree * (1.0 - _mixing) / std::max<community_t>(1, _overlap_config.constDegree.multiCommunityDegree) >=
             _community_distribution_params.maxDegree) {
             throw std::runtime_error("Error, the maximum community is too small to fit the node of the highest degree.");
         }
 
-        if (_degree_distribution_params.minDegree * (1.0 - _mixing) / _overlap_config.constDegree.multiCommunityDegree >=
+        if (_degree_distribution_params.minDegree * (1.0 - _mixing) / std::max<community_t>(1, _overlap_config.constDegree.multiCommunityDegree) >=
             _community_distribution_params.minDegree) {
             throw std::runtime_error("Error, the minimum community size is too small to fit the node of the lowest degree.");
         }
