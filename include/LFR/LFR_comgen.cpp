@@ -24,6 +24,8 @@ namespace LFR {
             // set-up thread-private variables
             stxxl::vector<node_t> external_node_ids;
 
+            std::cout << "Num threads: " << omp_get_num_threads() << std::endl;
+
             #pragma omp for schedule(dynamic, 1)
             for (community_t com = 0; com < static_cast<community_t>(_community_cumulative_sizes.size()) - 1; ++com) {
                 node_t com_size = _community_cumulative_sizes[com+1] - _community_cumulative_sizes[com];
@@ -74,7 +76,15 @@ namespace LFR {
 
                 gen.generate();
 
-                if (internalNodes && IMGraph::memoryUsage(com_size, degree_sum/2) < available_memory && degree_sum/2 < IMGraph::maxEdges()) {
+                std::cout << "internalNodes: " << internalNodes << " "
+                          "memoryEstimate: " << IMGraph::memoryUsage(com_size, degree_sum/2) << " "
+                          "memoryAvail: " << available_memory << " "
+                          "degreeSum: " << degree_sum/2 << " "
+                          "maxEdges: " << IMGraph::maxEdges()
+                          << std::endl;
+                       
+
+                if (internalNodes && IMGraph::memoryUsage(com_size, degree_sum/2) < std::min<size_t>(1llu<<31, available_memory) && degree_sum/2 < IMGraph::maxEdges()) {
                     IMGraph graph(node_degrees);
                     while (!gen.empty()) {
                         graph.addEdge(*gen);
@@ -117,6 +127,8 @@ namespace LFR {
                         assert(gen->first < gen->second);
                         intra_edges.push(*gen);
                     }
+
+                    intra_edges.consume();
 
                     // Generate swaps
                     uint_t numSwaps = 10*intra_edges.size();
