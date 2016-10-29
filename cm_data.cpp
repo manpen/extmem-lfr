@@ -1,7 +1,7 @@
 #include <ConfigurationModel.h>
 
 int main() {
-
+    /*
     constexpr int runs = 20;
     const std::vector<uint32_t> dmin = { 1, 2, 5, 10};//{ 20 };//{ 1, 2, 5, 10}; //, 20 };
     const std::vector<uint32_t> dmax = { 20000 };//{ 1000, 2000, 5000, 10000 };//{ 20000 };//{ 1000, 2000, 5000, 10000}; //, 20000 };
@@ -174,6 +174,6 @@ int main() {
             }
         }
     }
-
+    */
     return 0;
 }

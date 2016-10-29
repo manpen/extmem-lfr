@@ -45,6 +45,46 @@ constexpr node_t INVALID_NODE = std::numeric_limits<node_t>::max();
 using degree_t = int32_t; ///< Type for node degrees
 using edgeid_t = int_t; ///< Type used to address edges
 using community_t = int32_t; ///< Type used to address communities
+//Hung
+using multinode_t = uint64_t;
+constexpr multinode_t INVALID_MULTINODE = std::numeric_limits<multinode_t>::max();
+using edge64id_t = int_t;
+
+//! Type for every (un)directed 64bit
+struct edge64_t : public std::pair<multinode_t, multinode_t> {
+    edge64_t() : std::pair<multinode_t, multinode_t>() {}
+    edge64_t(const std::pair<multinode_t, multinode_t> & edge) : std::pair<multinode_t, multinode_t>(edge) {}
+    edge64_t(const multinode_t & v1, const multinode_t & v2) : std::pair<multinode_t, multinode_t>(v1, v2) {}
+
+    static edge64_t invalid() {
+        return edge64_t(INVALID_NODE, INVALID_NODE);
+    }
+
+    //! Enforces first<=second
+    void normalize() {
+        if (first > second)
+            std::swap(first, second);
+    }
+
+    //! Returns true if edge represents a self-loop
+    bool is_loop() const {
+        return first == second;
+    }
+};
+
+namespace std {
+    template <>
+    class numeric_limits<edge64_t> {
+    public:
+        static edge64_t min() { return {numeric_limits<multinode_t>::min(), numeric_limits<multinode_t>::min()}; }
+        static edge64_t max() { return {numeric_limits<multinode_t>::max(), numeric_limits<multinode_t>::max()}; }
+    };
+}
+
+inline std::ostream &operator<<(std::ostream &os, const edge64_t & t) {
+   os << "edge64(" << t.first << "," << t.second << ")";
+   return os;
+}
 
 //!Type for every (un)directed edge
 struct edge_t : public std::pair<node_t, node_t> {

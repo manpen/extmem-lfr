@@ -39,43 +39,7 @@ constexpr uint32_t MAX_LSB = 0x9BE09BABu;
 constexpr uint32_t MIN_LSB = 0x00000000u;
 constexpr uint32_t MAX_CRCFORWARD = 0x641F6454u;
 
-using multinode_t = uint64_t;
-
-//! Type for every (un)directed 64bit
-// ommited invalid() member function
-struct edge64_t : public std::pair<multinode_t, multinode_t> {
-    edge64_t() : std::pair<multinode_t, multinode_t>() {}
-    edge64_t(const std::pair<multinode_t, multinode_t> & edge) : std::pair<multinode_t, multinode_t>(edge) {}
-    edge64_t(const multinode_t & v1, const multinode_t & v2) : std::pair<multinode_t, multinode_t>(v1, v2) {}
-
-    //! Enforces first<=second
-    void normalize() {
-        if (first > second)
-            std::swap(first, second);
-    }
-
-    //! Returns true if edge represents a self-loop
-    bool is_loop() const {
-        return first == second;
-    }
-};
-
-struct Edge64Comparator {
-    bool operator()(const edge64_t &a, const edge64_t &b) const {
-        if (a.first == b.first) 
-            return a.second < b.second;
-        else
-            return a.first < b.first;
-    }
-
-    edge64_t min_value() const {
-        return edge64_t(std::numeric_limits<uint64_t>::min(), std::numeric_limits<uint64_t>::min());
-    }
-
-    edge64_t max_value() const {
-        return edge64_t(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max());
-    }
-};
+using Edge64Comparator = typename GenericComparator<edge64_t>::Ascending;
 
 /**
  * @typedef multinode_t
@@ -152,29 +116,32 @@ protected:
 };
 
 template <class EdgeReader>
-class CMHH {
+class HavelHakimi_ConfigurationModel {
 public:
-    CMHH() = delete;
-    CMHH(const CMHH&) = delete;
-    CMHH(EdgeReader & edge_reader_in,
-        const uint32_t seed,
-        const uint64_t node_upperbound) 
+    HavelHakimi_ConfigurationModel() = delete;
+    HavelHakimi_ConfigurationModel(const HavelHakimi_ConfigurationModel&) = delete;
+    HavelHakimi_ConfigurationModel(EdgeReader & edge_reader_in,
+            const uint32_t seed,
+            const uint64_t node_upperbound) 
         : _edges(edge_reader_in)
         , _seed(seed)
         , _node_upperbound(node_upperbound)
+        , _shift_upperbound(std::min(node_upperbound, _maxShiftBound(node_upperbound)))
         , _multinodemsg_comp(seed)
         , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
         , _edge_sorter(Edge64Comparator(), SORTER_MEM)
         { }
 
+    using value_type = edge64_t;
+
     void run() {
         assert(!_edges.empty());
 
-        const uint64_t node_size = _generateMultiNodes();
+        _generateMultiNodes();
 
         assert(!_multinodemsg_sorter.empty());
 
-        _generateSortedEdgeList(node_size);
+        _generateSortedEdgeList();
 
         assert(!_edge_sorter.empty());
     }
@@ -186,12 +153,12 @@ public:
     }
 
     const edge64_t& operator*() const {
-        assert(!_edge_sorter.empty());
+        //assert(!_edge_sorter.empty());
 
         return *_edge_sorter;
     }
 
-    CMHH&operator++() {
+    HavelHakimi_ConfigurationModel&operator++() {
         assert(!_edge_sorter.empty());
         
         ++_edge_sorter;
@@ -200,11 +167,17 @@ public:
     }
 //! @}
 
+    void clear() {
+        _multinodemsg_sorter.clear();
+        _edge_sorter.clear();
+    }
+
 protected:
     EdgeReader _edges;
 
     const uint32_t _seed;
     const uint64_t _node_upperbound;
+    const uint64_t _shift_upperbound;
 
     typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
     MultiNodeMsgComparator _multinodemsg_comp;
@@ -213,63 +186,48 @@ protected:
     using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
     EdgeSorter _edge_sorter; 
 
-    uint64_t _generateMultiNodes() {
+    void _generateMultiNodes() {
         assert(!_edges.empty());
 
-        uint64_t max_node = 0;
+        stxxl::random_number<> rand;
 
         for (; !_edges.empty(); ++_edges) {
+            const uint64_t shift = rand(_shift_upperbound);
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ (static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) << 36) | (*_edges).first});
+                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) + shift) << 36) | (*_edges).first});
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ (static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) << 36) | (*_edges).second});
-            if (static_cast<uint64_t>((*_edges).first) > max_node)
-                max_node = (*_edges).first;
-            if (static_cast<uint64_t>((*_edges).second) > max_node)
-                max_node = (*_edges).second;
+                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) + shift)  << 36) | (*_edges).second});
         }
 
         _multinodemsg_sorter.sort();
 
         assert(!_multinodemsg_sorter.empty());
-    
-        assert(max_node > 0);
-
-        return max_node ;
     }
 
-    void _generateSortedEdgeList(const uint64_t node_size) {
+    /**
+     * HavelHakimi gives us a graphical sequence, therefore no need to randomize an "half-edge" for the last node.
+    **/
+    void _generateSortedEdgeList() {
         assert(!_multinodemsg_sorter.empty());
 
-        for(; !_multinodemsg_sorter.empty(); ) {
+        for(; !_multinodemsg_sorter.empty(); ++_multinodemsg_sorter) {
             auto & fst_node = *_multinodemsg_sorter;
 
             ++_multinodemsg_sorter;
 
-            if (LIKELY(!_multinodemsg_sorter.empty())) {
-                MultiNodeMsg snd_node = *_multinodemsg_sorter;
+            auto & snd_node = *_multinodemsg_sorter;
 
-                if (fst_node.node() < snd_node.node())
-                    _edge_sorter.push(edge64_t{fst_node.node(), snd_node.node()});
-                else
-                    _edge_sorter.push(edge64_t{snd_node.node(), fst_node.node()});
-            } else {
-                stxxl::random_number<> rand;
-                const uint64_t snd_nodeid = rand(node_size);
-
-                if (fst_node.node() < snd_nodeid)
-                    _edge_sorter.push(edge64_t{fst_node.node(), snd_nodeid});
-                else
-                    _edge_sorter.push(edge64_t{snd_nodeid, fst_node.node()});
-            }
-
-            if (!_multinodemsg_sorter.empty())
-                ++_multinodemsg_sorter;
+            if (fst_node.node() < snd_node.node())
+                _edge_sorter.push(edge64_t{fst_node.node(), snd_node.node()});
             else
-                break;
+                _edge_sorter.push(edge64_t{snd_node.node(), fst_node.node()});
         }
 
         _edge_sorter.sort();
+    }
+
+    uint64_t _maxShiftBound(uint64_t n) {
+        return 27 - static_cast<uint64_t>(log2(n));
     }
 };
 
@@ -397,11 +355,6 @@ protected:
         }
 };
 
-inline std::ostream &operator<<(std::ostream &os, const edge64_t & t) {
-    os << "edge64(" << t.first << "," << t.second << ")";
-    return os;
-}
-
 // Pseudo-random approach
 
 struct TestNodeMsg {
@@ -419,15 +372,14 @@ struct TestNodeMsg {
 using TestNodeComparator = typename GenericComparatorStruct<TestNodeMsg>::Ascending;
 using TestNodeSorter = stxxl::sorter<TestNodeMsg, TestNodeComparator>;
 
-template <typename T = MonotonicPowerlawRandomStream<false>>
-class ConfigurationModelRandom {
+template <typename EdgeReader>
+class HavelHakimi_ConfigurationModel_Random {
 public:
-    ConfigurationModelRandom() = delete; 
+    HavelHakimi_ConfigurationModel_Random() = delete; 
 
-    ConfigurationModelRandom(const ConfigurationModelRandom&) = delete;
-    ConfigurationModelRandom(T &degrees, const uint32_t seed, const uint64_t node_upperbound)
-                                : _degrees(degrees) 
-                                , _seed(seed)
+    HavelHakimi_ConfigurationModel_Random(const HavelHakimi_ConfigurationModel_Random&) = delete;
+    HavelHakimi_ConfigurationModel_Random(EdgeReader &edges, const uint64_t node_upperbound)
+                                : _edges(edges)
                                 , _node_upperbound(node_upperbound)
                                 , _testnode_sorter(TestNodeComparator{}, SORTER_MEM)
                                 , _test_edge_sorter(Edge64Comparator(), SORTER_MEM)
@@ -435,11 +387,13 @@ public:
 
     // implements execution of algorithm
     void run() {
-        const uint64_t node_size = _generateMultiNodes();
+        assert(!_edges.empty());
+
+        _generateMultiNodes();
 
         assert(!_testnode_sorter.empty());
 
-        _generateSortedEdgeList(node_size);
+        _generateSortedEdgeList();
 
         assert(!_test_edge_sorter.empty());
     }
@@ -456,7 +410,7 @@ public:
         return *_test_edge_sorter;
     }
 
-    ConfigurationModelRandom&operator++() {
+    HavelHakimi_ConfigurationModel_Random&operator++() {
         assert(!_test_edge_sorter.empty());
 
         ++_test_edge_sorter;
@@ -467,12 +421,12 @@ public:
     
     // for testing
     void clear() {
-        _reset();
+        _testnode_sorter.clear();
+        _test_edge_sorter.clear();
     }
 
 protected:
-    T _degrees;
-    const uint32_t _seed;
+    EdgeReader _edges;
     const uint64_t _node_upperbound;
 
     TestNodeSorter _testnode_sorter;
@@ -480,60 +434,40 @@ protected:
     using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
     EdgeSorter _test_edge_sorter;
     // internal algos
-    uint64_t _generateMultiNodes() {
-        assert(!_degrees.empty());
+    void _generateMultiNodes() {
+        assert(!_edges.empty());
+
         stxxl::random_number64 rand64;
-        stxxl::random_number<> rand;
-        uint64_t count = 1;
+       
+        for (; !_edges.empty(); ++_edges) {
 
-        for (; !_degrees.empty(); ++_degrees, ++count) {
-            for (degree_t j = 1; j <= *_degrees; ++j) {
-                _testnode_sorter.push(TestNodeMsg{rand64(), count});
-            }
+            _testnode_sorter.push(TestNodeMsg{rand64(), static_cast<multinode_t>((*_edges).first)});
+            _testnode_sorter.push(TestNodeMsg{rand64(), static_cast<multinode_t>((*_edges).second)});
+
         }
-            _testnode_sorter.sort();
+       
+        _testnode_sorter.sort();
 
-            assert(!_testnode_sorter.empty());
-        
-            return count;
+        assert(!_testnode_sorter.empty());
+    }
+    
+    // HavelHakimi gives us a graphical degree sequence, no need for randomization for last node
+    void _generateSortedEdgeList() {
+        assert(!_testnode_sorter.empty());
+
+        for(; !_testnode_sorter.empty(); ++_testnode_sorter) {
+            auto & fst_node = *_testnode_sorter;
+
+            ++_testnode_sorter;
+
+            auto & snd_node = *_testnode_sorter;
+
+            if (fst_node.node < snd_node.node)
+                _test_edge_sorter.push(edge64_t{fst_node.node, snd_node.node});
+            else
+                _test_edge_sorter.push(edge64_t{snd_node.node, fst_node.node});
         }
-        
-        void _generateSortedEdgeList(const uint64_t node_size) {
-            assert(!_testnode_sorter.empty());
 
-            for(; !_testnode_sorter.empty(); ) {
-                auto & fst_node = *_testnode_sorter;
-
-                ++_testnode_sorter;
-
-                if (LIKELY(!_testnode_sorter.empty())) {
-                    TestNodeMsg snd_node = *_testnode_sorter;
-
-                    if (fst_node.node < snd_node.node)
-                        _test_edge_sorter.push(edge64_t{fst_node.node, snd_node.node});
-                    else
-                        _test_edge_sorter.push(edge64_t{snd_node.node, fst_node.node});
-                } else {
-                    stxxl::random_number<> rand;
-                    const uint64_t snd_nodeid = rand(node_size);
-
-                    if (fst_node.node < snd_nodeid)
-                        _test_edge_sorter.push(edge64_t{fst_node.node, snd_nodeid});
-                    else
-                        _test_edge_sorter.push(edge64_t{snd_nodeid, fst_node.node});
-                }
-
-                if (!_testnode_sorter.empty())
-                    ++_testnode_sorter;
-                else
-                    break;
-            }
-
-            _test_edge_sorter.sort();
-        }
-        
-        void _reset() {
-            _testnode_sorter.clear();
-            _test_edge_sorter.clear();
-        }
+        _test_edge_sorter.sort();
+    }
 };
