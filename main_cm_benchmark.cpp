@@ -4,6 +4,7 @@
 #include <Utils/MonotonicPowerlawRandomStream.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <Utils/StreamPusher.h>
+#include <time.h>
 
 //benchmarks
 #include <stxxl/stats>
@@ -19,7 +20,7 @@ int main(int argc, char* argv[]) {
 
  	std::ofstream cmhh_file("cmhh_benchmark.dat");
 
-	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
+	for (degree_t max_deg = 10000000; max_deg <= pow(10, runs); max_deg*= 10) {
 
 		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
 
@@ -33,18 +34,20 @@ int main(int argc, char* argv[]) {
 
 		// Start benchmark here
 		// I/O-measurements
-		stxxl::stats* Stats = stxxl::stats::get_instance();
-		stxxl::stats_data stats_begin(*Stats);
+		//stxxl::stats* Stats = stxxl::stats::get_instance();
+		//stxxl::stats_data stats_begin(*Stats);
+		clock_t startTime = clock();
 
 		// Run Code here
 		cmhh.run();
 
 		// End benchmark
 		std::stringstream outLine;
-        outLine << max_deg << "\t" << stats_begin.get_elapsed_time() << " #CMCRCHH\n";
-        std::string outLineStr = outLine.str();
-        cmhh_file << outLineStr;
-        outLine.str(std::string());
+        	//outLine << max_deg << "\t" << stats_begin.get_elapsed_time() << " #CMCRCHH\n";
+        	outLine << max_deg << "\t" << double ( clock() - startTime ) / (double) CLOCKS_PER_SEC << " #CRCHH\n";
+		std::string outLineStr = outLine.str();
+		cmhh_file << outLineStr;
+		outLine.str(std::string());
 
 		cmhh.clear();
 
@@ -59,7 +62,7 @@ int main(int argc, char* argv[]) {
 
 	// ConfigurationModel Random
 
-	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
+	for (degree_t max_deg = 10000000; max_deg <= pow(10, runs); max_deg*= 10) {
 
 		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
 
@@ -73,21 +76,23 @@ int main(int argc, char* argv[]) {
 
 		// Start benchmark here
 		// I/O-measurements
-		stxxl::stats* Stats = stxxl::stats::get_instance();
-		stxxl::stats_data stats_begin(*Stats);
+		//stxxl::stats* Stats = stxxl::stats::get_instance();
+		//stxxl::stats_data stats_begin(*Stats);
+		clock_t startTime = clock();
 
 		// Run Code here
 		cmhh.run();
 
 		// End benchmark
 		std::stringstream outLine;
-        outLine << max_deg << "\t" << stats_begin.get_elapsed_time() << " #CMCRCR\n";
-        std::string outLineStr = outLine.str();
-        cmr_file << outLineStr;
-        outLine.str(std::string());
+        	//outLine << max_deg << "\t" << stats_begin.get_elapsed_time() << " #CMCRCR\n";
+        	outLine << max_deg << "\t" << double( clock() - startTime ) / (double) CLOCKS_PER_SEC << " R\n";
+		std::string outLineStr = outLine.str();
+        	cmr_file << outLineStr;
+        	outLine.str(std::string());
 
 		cmhh.clear();
-	}	
+		}	
 
 	cmr_file.close();
 
