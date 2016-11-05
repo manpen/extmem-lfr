@@ -18,9 +18,13 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Benchmark for ConfigurationModel(HavelHakimi)..." << std::endl;
 
- 	std::ofstream cmhh_file("cmhh_benchmark.dat");
+ 	//std::ofstream cmhh_file("cmhh_benchmark.dat");
 
-	for (degree_t max_deg = 10000000; max_deg <= pow(10, runs); max_deg*= 10) {
+	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
+        std::stringstream fmt;
+        fmt << "log_" << max_deg;
+        std::string fileName = fmt.str();
+        std::ofstream cmhh_file(fileName);
 
 		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
 
@@ -34,26 +38,26 @@ int main(int argc, char* argv[]) {
 
 		// Start benchmark here
 		// I/O-measurements
-		//stxxl::stats* Stats = stxxl::stats::get_instance();
-		//stxxl::stats_data stats_begin(*Stats);
-		clock_t startTime = clock();
+		stxxl::stats* Stats = stxxl::stats::get_instance();
+		stxxl::stats_data stats_begin(*Stats);
 
 		// Run Code here
 		cmhh.run();
 
 		// End benchmark
-		std::stringstream outLine;
-        	//outLine << max_deg << "\t" << stats_begin.get_elapsed_time() << " #CMCRCHH\n";
-        	outLine << max_deg << "\t" << double ( clock() - startTime ) / (double) CLOCKS_PER_SEC << " #CRCHH\n";
-		std::string outLineStr = outLine.str();
-		cmhh_file << outLineStr;
-		outLine.str(std::string());
+		//std::stringstream outLine;
+       	//outLine << max_deg << "\t" << stats_begin << " #CMCRCHH\n";
+		//std::string outLineStr = outLine.str();
+        // TODO number of edges
+		cmhh_file << (stxxl::stats_data(*Stats) - stats_begin);
+		//outLine.str(std::string());
 
 		cmhh.clear();
 
+        cmhh_file.close();
 	}
 
-	cmhh_file.close();
+	//cmhh_file.close();
 
 
 	std::cout << "Benchmark for ConfigurationModel(Random)..." << std::endl;

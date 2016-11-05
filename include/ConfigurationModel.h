@@ -172,6 +172,10 @@ public:
         _edge_sorter.clear();
     }
 
+    edge64_t size(){
+        return _edge_sorter.size();
+    }
+
 protected:
     EdgeReader _edges;
 

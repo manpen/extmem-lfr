@@ -85,10 +85,10 @@ add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/IMEdgeSwap.cpp
     include/HavelHakimi/HavelHakimiGenerator.cpp
     include/HavelHakimi/HavelHakimiGeneratorRLE.cpp
-    include/LFR/LFR.cpp
-    include/LFR/GlobalRewiringSwapGenerator.cpp
-    include/LFR/CommunityEdgeRewiringSwaps.cpp
-    include/LFR/LFRCommunityAssignBenchmark.cpp
+    #include/LFR/LFR.cpp
+    #include/LFR/GlobalRewiringSwapGenerator.cpp
+    #include/LFR/CommunityEdgeRewiringSwaps.cpp
+    #include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
     include/CluewebReader.cpp
     include/ConfigurationModel/ConfigurationModel.cpp
@@ -114,8 +114,8 @@ target_link_libraries(pa_edge_swaps libextmemgraphgen ${STXXL_LIBRARIES} ${Boost
 #target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen ${BOOST_LIBS})
 
 
-add_executable(pa_lfr main_lfr.cpp)
-target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
+#add_executable(pa_lfr main_lfr.cpp)
+#target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
 
 #Hung
 add_executable(data_configurationmodel cm_data.cpp)
