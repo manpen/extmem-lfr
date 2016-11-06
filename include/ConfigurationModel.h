@@ -152,7 +152,7 @@ public:
         return _edge_sorter.empty();
     }
 
-    const edge64_t& operator*() const {
+    const value_type& operator*() const {
         //assert(!_edge_sorter.empty());
 
         return *_edge_sorter;
@@ -172,7 +172,7 @@ public:
         _edge_sorter.clear();
     }
 
-    edge64_t size(){
+    uint64_t size(){
         return _edge_sorter.size();
     }
 
@@ -187,7 +187,7 @@ protected:
     MultiNodeMsgComparator _multinodemsg_comp;
     MultiNodeSorter _multinodemsg_sorter;
 
-    using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
+    using EdgeSorter = stxxl::sorter<value_type, Edge64Comparator>;
     EdgeSorter _edge_sorter; 
 
     void _generateMultiNodes() {
@@ -389,6 +389,8 @@ public:
                                 , _test_edge_sorter(Edge64Comparator(), SORTER_MEM)
     { }
 
+    using value_type = edge64_t;
+
     // implements execution of algorithm
     void run() {
         assert(!_edges.empty());
@@ -429,13 +431,17 @@ public:
         _test_edge_sorter.clear();
     }
 
+    uint64_t size() {
+        return _test_edge_sorter.size();
+    }
+
 protected:
     EdgeReader _edges;
     const uint64_t _node_upperbound;
 
     TestNodeSorter _testnode_sorter;
 
-    using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
+    using EdgeSorter = stxxl::sorter<value_type, Edge64Comparator>;
     EdgeSorter _test_edge_sorter;
     // internal algos
     void _generateMultiNodes() {
