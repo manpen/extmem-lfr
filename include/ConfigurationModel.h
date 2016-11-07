@@ -15,7 +15,7 @@
 // CRC
 #include "nmmintrin.h"
 
-uint64_t reverse (const uint64_t & a) {
+inline uint64_t reverse (const uint64_t & a) {
     uint64_t x = a;
     x = ((x >> 1) & 0x5555555555555555u) | ((x & 0x5555555555555555u) << 1);
     x = ((x >> 2) & 0x3333333333333333u) | ((x & 0x3333333333333333u) << 2);
@@ -26,7 +26,7 @@ uint64_t reverse (const uint64_t & a) {
     return x;
 }
 
-uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
+inline uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
     const uint32_t hash_msb_p = _mm_crc32_u32(seed, msb);
     const uint32_t hash_lsb_p = _mm_crc32_u32(hash_msb_p, lsb);
     const uint64_t hash = reverse(static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p);
@@ -92,11 +92,11 @@ public:
         return a_hash < b_hash;
     }
 
-    uint64_t max_value() const {
+    multinode_t max_value() const {
         return _limits.first;
     }
 
-    uint64_t min_value() const {
+    multinode_t min_value() const {
         return _limits.second;
     }
 
@@ -104,11 +104,11 @@ public:
 protected:
     // unnecessary initialization, compiler asks for it
     const uint32_t _seed = 1;
-    const std::pair<uint64_t,uint64_t> _limits;
+    const std::pair<multinode_t, multinode_t> _limits;
 
     std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
-        uint64_t max_inv_msb = static_cast<uint64_t>(MAX_CRCFORWARD ^ seed_) << 32;
-        uint64_t min_inv_msb = static_cast<uint64_t>(seed_) << 32;
+        multinode_t max_inv_msb = static_cast<multinode_t>(MAX_CRCFORWARD ^ seed_) << 32;
+        multinode_t min_inv_msb = static_cast<multinode_t>(seed_) << 32;
 
         return std::pair<multinode_t, multinode_t>{max_inv_msb | MAX_LSB, min_inv_msb | MIN_LSB};
     }
