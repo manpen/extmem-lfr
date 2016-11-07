@@ -197,12 +197,18 @@ protected:
 
         stxxl::random_number<> rand;
 
+        multinode_t prev_node = INVALID_MULTINODE; // = (*_edges).first;
+        uint64_t shift = rand(_shift_upperbound);
+
         for (; !_edges.empty(); ++_edges) {
-            const uint64_t shift = rand(_shift_upperbound);
             _multinodemsg_sorter.push(
                 MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) + shift) << 36) | (*_edges).first});
             _multinodemsg_sorter.push(
                 MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) + shift)  << 36) | (*_edges).second});
+
+            if ((*_edges).first == prev_node) {
+                shift = rand(_shift_upperbound);
+            }
         }
 
         _multinodemsg_sorter.sort();
@@ -232,7 +238,7 @@ protected:
         _edge_sorter.sort();
     }
 
-    uint64_t _maxShiftBound(uint64_t n) {
+    uint64_t _maxShiftBound(uint64_t n) const {
         return 27 - static_cast<uint64_t>(log2(n));
     }
 };
