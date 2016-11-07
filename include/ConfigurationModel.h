@@ -55,6 +55,8 @@ public:
     MultiNodeMsg() { }
     MultiNodeMsg(const uint64_t eid_node_) : _eid_node(eid_node_) {}
 
+    using value_type = multinode_t;
+
     // getters
     uint32_t lsb() const {
         return static_cast<uint32_t>(_eid_node);
@@ -65,7 +67,7 @@ public:
     }
 
     // just return the node
-    uint64_t node() const {
+    multinode_t node() const {
         return _eid_node & NODEMASK;
     }
 

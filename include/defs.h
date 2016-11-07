@@ -46,7 +46,7 @@ using degree_t = int32_t; ///< Type for node degrees
 using edgeid_t = int_t; ///< Type used to address edges
 using community_t = int32_t; ///< Type used to address communities
 //Hung
-using multinode_t = uint64_t;
+using multinode_t = int64_t;
 constexpr multinode_t INVALID_MULTINODE = std::numeric_limits<multinode_t>::max();
 using edge64id_t = int_t;
 
@@ -72,19 +72,19 @@ struct edge64_t : public std::pair<multinode_t, multinode_t> {
     }
 };
 
+/*
 namespace std {
     template <>
-    class numeric_limits<edge64_t> {
+    class numeric_limits<edge_t> {
     public:
-        static edge64_t min() { return {numeric_limits<multinode_t>::min(), numeric_limits<multinode_t>::min()}; }
-        static edge64_t max() { return {numeric_limits<multinode_t>::max(), numeric_limits<multinode_t>::max()}; }
+        static edge_t min() { return {numeric_limits<node_t>::min(), numeric_limits<node_t>::min()}; }
+        static edge_t max() { return {numeric_limits<node_t>::max(), numeric_limits<node_t>::max()}; }
     };
 }
-
 inline std::ostream &operator<<(std::ostream &os, const edge64_t & t) {
    os << "edge64(" << t.first << "," << t.second << ")";
    return os;
-}
+}*/
 
 //!Type for every (un)directed edge
 struct edge_t : public std::pair<node_t, node_t> {
@@ -115,13 +115,19 @@ struct edge_t : public std::pair<node_t, node_t> {
 
 namespace std {
     template <>
+    class numeric_limits<edge64_t> {
+    public:
+        static edge64_t min() { return {numeric_limits<multinode_t>::min(), numeric_limits<multinode_t>::min()}; }
+        static edge64_t max() { return {numeric_limits<multinode_t>::max(), numeric_limits<multinode_t>::max()}; }
+    };
+
+    template <>
     class numeric_limits<edge_t> {
     public:
         static edge_t min() { return {numeric_limits<node_t>::min(), numeric_limits<node_t>::min()}; }
         static edge_t max() { return {numeric_limits<node_t>::max(), numeric_limits<node_t>::max()}; }
     };
 }
-
 inline std::ostream &operator<<(std::ostream &os, const edge_t & t) {
    os << "edge(" << t.first << "," << t.second << ")";
    return os;
