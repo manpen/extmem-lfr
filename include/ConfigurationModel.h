@@ -209,6 +209,8 @@ protected:
             if ((*_edges).first == prev_node) {
                 shift = rand(_shift_upperbound);
             }
+
+            prev_node = (*_edges).first;
         }
 
         _multinodemsg_sorter.sort();
