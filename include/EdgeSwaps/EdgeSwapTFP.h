@@ -114,36 +114,36 @@ namespace EdgeSwapTFP {
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
-        constexpr static bool compute_stats = true;
-        constexpr static bool produce_debug_vector=true;
+        constexpr static bool compute_stats = false;
+        constexpr static bool produce_debug_vector=false;
         constexpr static bool _async_processing = false;
 
 // memory estimation
         class MemoryEstimation {
         public:
-            size_t depchain_edge_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[0]/share);}
-            stxxl::unsigned_type depchain_pq_pool() const {return _sizes[1];}
-            size_t depchain_successor_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[2]/share);}
-            stxxl::unsigned_type edge_state_pq_pool() const {return _sizes[3];}
-            size_t edge_swap_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[4]/share);}
-            size_t edge_update_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[5]/share);}
-            stxxl::unsigned_type existence_info_pq_pool() const {return _sizes[6];}
-            size_t existence_info_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[7]/share);}
-            size_t existence_request_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[8]/share);}
-            size_t existence_successor_sorter(unsigned int share=1) const {return std::max<size_t>(_min_size, _sizes[9]/share);}
+            size_t depchain_edge_sorter() const {return std::get<0>(_sizes[0]);}
+            stxxl::unsigned_type depchain_pq_pool() const {return std::get<0>(_sizes[1]);}
+            size_t depchain_successor_sorter() const {return std::get<0>(_sizes[2]);}
+
+            stxxl::unsigned_type edge_state_pq_pool() const {return std::get<0>(_sizes[3]);}
+            size_t edge_swap_sorter() const {return std::get<0>(_sizes[4]);}
+            size_t edge_update_sorter() const {return std::get<0>(_sizes[5]);}
+
+            stxxl::unsigned_type existence_info_pq_pool() const {return std::get<0>(_sizes[6]);}
+            size_t existence_info_sorter() const {return std::get<0>(_sizes[7]);}
+            size_t existence_request_sorter() const {return std::get<0>(_sizes[8]);}
+            size_t existence_successor_sorter() const {return std::get<0>(_sizes[9]);}
 
 
-            MemoryEstimation(const size_t& mem, const swapid_t& no_swaps, const degree_t avg_deg, const size_t& block_size)
-                  : _min_size((stxxl::sort_memory_usage_factor() * 2 + 1) * block_size),
-                    _sizes( _compute(mem, no_swaps, avg_deg, block_size) )
+            MemoryEstimation(const size_t& mem, const swapid_t& no_swaps, const degree_t avg_deg)
+                    : _sizes( _compute(mem, no_swaps, avg_deg) )
             {}
 
         protected:
-            const size_t _min_size;
-
-            using size_array_t = std::array<size_t, 10>;
+            using size_block_t = std::tuple<size_t, size_t, size_t>;
+            using size_array_t = std::array<size_block_t, 10>;
             const size_array_t _sizes;
-            size_array_t _compute(const size_t& mem, const swapid_t& no_swaps, const degree_t& avg_deg, const size_t& block_size) const;
+            size_array_t _compute(const size_t& mem, const swapid_t& no_swaps, const degree_t& avg_deg) const;
         };
         const MemoryEstimation _mem_est;
 
@@ -254,14 +254,14 @@ namespace EdgeSwapTFP {
         //! @param swaps  Read-only swap vector
         EdgeSwapTFP(edge_buffer_t &edges, const swapid_t& run_length, const node_t& num_nodes, const size_t& im_memory) :
               EdgeSwapBase(),
-              _mem_est(im_memory, run_length, edges.size() / num_nodes, STXXL_DEFAULT_BLOCK_SIZE(ExistenceSuccessorMsg)),
+              _mem_est(im_memory, run_length, edges.size() / num_nodes),
 
               _run_length(run_length),
               _edges(edges),
 
-              _edge_swap_sorter(new EdgeSwapSorter(EdgeSwapComparator(), _mem_est.edge_swap_sorter(2))),
+              _edge_swap_sorter(new EdgeSwapSorter(EdgeSwapComparator(), _mem_est.edge_swap_sorter())),
               _next_swap_id_pushing(0),
-              _edge_swap_sorter_pushing(new EdgeSwapSorter(EdgeSwapComparator(), _mem_est.edge_swap_sorter(2))),
+              _edge_swap_sorter_pushing(new EdgeSwapSorter(EdgeSwapComparator(), _mem_est.edge_swap_sorter())),
 
               _depchain_edge_sorter(DependencyChainEdgeComparatorSorter{}, _mem_est.depchain_edge_sorter()),
               _depchain_successor_sorter(DependencyChainSuccessorComparator{}, _mem_est.depchain_successor_sorter()),
@@ -270,12 +270,12 @@ namespace EdgeSwapTFP {
               _existence_successor_sorter(ExistenceSuccessorComparator{}, _mem_est.existence_successor_sorter()),
               _edge_update_sorter(EdgeUpdateComparator{}, _mem_est.edge_update_sorter()),
 
-              _dependency_chain_pq_pool(_mem_est.depchain_pq_pool() / 2 / DependencyChainEdgePQBlock::raw_size,
-                                        _mem_est.depchain_pq_pool() / 2 / DependencyChainEdgePQBlock::raw_size),
+              _dependency_chain_pq_pool(_mem_est.depchain_pq_pool() / DependencyChainEdgePQBlock::raw_size,
+                                        _mem_est.depchain_pq_pool() / DependencyChainEdgePQBlock::raw_size),
               _dependency_chain_pq(_dependency_chain_pq_pool),
 
-              _existence_info_pq_pool(_mem_est.existence_info_pq_pool() / 2 / ExistenceInfoPQBlock::raw_size,
-                                      _mem_est.existence_info_pq_pool() / 2 / ExistenceInfoPQBlock::raw_size),
+              _existence_info_pq_pool(_mem_est.existence_info_pq_pool() / ExistenceInfoPQBlock::raw_size,
+                                      _mem_est.existence_info_pq_pool() / ExistenceInfoPQBlock::raw_size),
               _existence_info_pq(_existence_info_pq_pool),
 
               _first_run(true)

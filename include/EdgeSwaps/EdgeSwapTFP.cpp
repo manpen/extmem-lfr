@@ -33,7 +33,7 @@ namespace EdgeSwapTFP {
 
         edgeid_t eid = 0; // points to the next edge that can be read
 
-        swapid_t last_swap = 0; // initialize to make gcc shut up
+        swapid_t prev_swap = 0; // initialize to make gcc shut up
 
         stx::btree_map<uint_t, uint_t> swaps_per_edges;
         uint_t swaps_per_edge = 1;
@@ -57,11 +57,11 @@ namespace EdgeSwapTFP {
         #endif
 
         bool first_swap_of_edge = true;
-        // For every edge we send the incident vertices to the first swap,
-        // i.e. the request with the lowest swap-id. We get this info by scanning
-        // through the original edge list and the sorted request list in parallel
-        // (i.e. by "merging" them). If there are multiple requests to an edge, we
-        // send each predecessor the id of the next swap possibly affecting this edge.
+        // For every edge we send the incident vertices to all swaps, requesting it.
+        // We get this info by scanning through the original edge list and the sorted
+        // request list in parallel (i.e. by "merging" them). If there are multiple
+        // requests to an edge, we send each predecessor the id of the next swap
+        // possibly affecting this edge.
         for (; !edge_swap_sorter.empty(); ++edge_swap_sorter) {
             edgeid_t requested_edge;
             swapid_t requesting_swap;
@@ -93,15 +93,15 @@ namespace EdgeSwapTFP {
 
             } else {
                 depchain_edge_sorter.push({requesting_swap, edge});
-                depchain_successor_sorter.push(DependencyChainSuccessorMsg{last_swap, requesting_swap});
-                assert(last_swap < requesting_swap);
-                DEBUG_MSG(_display_debug, "Report to swap " << last_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
+                depchain_successor_sorter.push(DependencyChainSuccessorMsg{prev_swap, requesting_swap});
+                assert(prev_swap < requesting_swap);
+                DEBUG_MSG(_display_debug, "Report to swap " << prev_swap << " that swap " << requesting_swap << " needs edge " << requested_edge);
 
                 if (compute_stats)
                     swaps_per_edge++;
             }
 
-            last_swap = requesting_swap;
+            prev_swap = requesting_swap;
         }
 
         #ifdef ASYNC_PUSHERS
@@ -854,60 +854,100 @@ namespace EdgeSwapTFP {
     }
 
     EdgeSwapTFP::MemoryEstimation::size_array_t
-    EdgeSwapTFP::MemoryEstimation::_compute(const size_t& mem, const swapid_t& no_swaps, const degree_t& avg_deg, const size_t & block_size) const {
+    EdgeSwapTFP::MemoryEstimation::_compute(const size_t& mem, const swapid_t& no_swaps, const degree_t& avg_deg) const {
+        auto format = [] (const size_t& x) {
+            std::string xs = std::to_string(x);
+            return xs;
+            std::string ret;
+
+            for(int i = xs.size() - 3; i > -3; i -= 3)
+                ret = xs.substr(std::max(0, i), 3) + (ret.empty() ? "" : ",") + ret;
+
+            return ret;
+        };
+
+        auto bceil = [] (const size_t& x, const size_t& bs) -> size_t {
+            return ((x + bs - 1) / bs) * bs;
+        };
+
+
+        const size_t min_blocks = 16 * (stxxl::sort_memory_usage_factor() * 2 + 1);
+
         // generated using experiments/memory_consumption.py
-        auto estimate = [&] (double a, double b) -> size_t {
-            return std::max<size_t>(_min_size, std::ceil( (a*avg_deg + b) * no_swaps / block_size ) * block_size);
+        auto estimate = [&] (double a, double b, size_t elem_size, size_t block_size, size_t multi = 1) -> size_block_t  {
+            return std::make_tuple(
+                    bceil(std::min<size_t>(3 * 1llu << 30, std::max<size_t>(min_blocks * multi * block_size,
+                                                                            std::max(0.0, a * avg_deg + b) * no_swaps * elem_size)), multi * block_size),
+                    block_size,
+                    multi
+            );
         };
 
         size_array_t est = {
-            estimate(0.000000, 2.000000),
-            estimate(-0.00214, 3.053523),
-            estimate(-0.00143, 0.230478),
-            estimate(-0.07732, 2.650552),
-            estimate(-0.00000, 2.000000),
-            estimate(0.001428, 1.769522),
-            estimate(0.074898, 0.003535),
-            estimate(0.028223, 2.328263),
-            estimate(0.030467, 4.605875),
-            estimate(0.004931, 0.000230)
+            estimate(0.000000, 2.000000, sizeof(DependencyChainEdgeMsg), STXXL_DEFAULT_BLOCK_SIZE(DependencyChainEdgeMsg)),
+            estimate(-0.00214, 3.053523, sizeof(DependencyChainEdgeMsg), DependencyChainEdgePQBlock::raw_size, 2),
+            estimate(-0.00143, 0.230478, sizeof(DependencyChainSuccessorMsg), STXXL_DEFAULT_BLOCK_SIZE(DependencyChainSuccessorMsg)),
+
+            estimate(-0.07732, 2.650552, sizeof(DependencyChainEdgeMsg), DependencyChainEdgePQBlock::raw_size, 2),
+            estimate(0.000000, 2.000000, sizeof(EdgeSwapMsg), STXXL_DEFAULT_BLOCK_SIZE(EdgeSwapMsg), 2),
+            estimate(0.000000, 2.000000, sizeof(edge_t), STXXL_DEFAULT_BLOCK_SIZE(edge_t)),
+
+            estimate(0.074898, 0.003535, sizeof(ExistenceInfoMsg), ExistenceInfoPQBlock::raw_size, 2),
+            estimate(0.028223, 2.328263, sizeof(ExistenceInfoMsg), STXXL_DEFAULT_BLOCK_SIZE(ExistenceInfoMsg)),
+            estimate(0.030467, 4.605875, sizeof(ExistenceRequestMsg), STXXL_DEFAULT_BLOCK_SIZE(ExistenceRequestMsg)),
+            estimate(0.004931, 0.000230, sizeof(ExistenceSuccessorMsg), STXXL_DEFAULT_BLOCK_SIZE(ExistenceSuccessorMsg))
         };
 
         // if the estimation is too large, reduce evenly but do not fall below minimum size
         {
-            size_t total_mem = std::accumulate(est.cbegin(), est.cend(), 0);
-            if (total_mem >= mem) {
-                const auto at_min = std::count_if(est.cbegin(), est.cend(), [&] (const size_t& x) {return x == _min_size;});
-                const auto above_min = est.size() - at_min;
+            const size_t total_mem = std::accumulate(est.cbegin(), est.cend(), size_t(0), [] (const size_t& b, const size_block_t& a) -> size_t {return std::get<0>(a) + b;});
+            if (total_mem > mem) {
+                const auto at_min =
+                        std::accumulate(est.cbegin(), est.cend(), 0, [&] (const size_t& pref, const size_block_t& a) -> size_t {
+                            return (std::get<0>(a) == std::get<1>(a) * std::get<2>(a) * min_blocks) * std::get<0>(a) + pref;
+                });
+
+                const auto above_min = total_mem - at_min;
 
                 if (!above_min) {
-                    throw std::runtime_error(std::string("Need at least ") + std::to_string(at_min * _min_size) + " bytes");
+                    throw std::runtime_error(std::string("[EdgeSwapTFP::MemroyEstimation] Need at least ") + format(at_min) + " bytes");
                 }
 
-                const double factor = (total_mem - at_min * _min_size) / (mem - at_min * _min_size);
+                const double factor = 1.0 * (total_mem - at_min) / (mem - at_min);
+                std::cout << "Correct Estimation Factor: " << factor << std::endl;
 
                 for (auto &f : est) {
-                    f = std::llround(f / factor / block_size) * block_size;
-                    f = std::max(f, _min_size);
+                    std::get<0>(f) = std::llround(std::get<0>(f) / factor / (std::get<1>(f) * std::get<2>(f))) * std::get<1>(f) * std::get<2>(f);
+                    std::get<0>(f) = std::max(std::get<0>(f), std::get<1>(f) * std::get<2>(f) * min_blocks);
                 }
+            } else {
+                std::cout << "Size estimation fits requested size limit" << std::endl;
             }
         }
 
+        std::vector<std::string> labels = {
+                "depchain_edge_sorter:       ", "depchain_pq:                ", "depchain_successor_sorter:  ",
+                "edge_state_pq:              ", "edge_swap_sorter:           ", "edge_update_sorter:         ",
+                "existence_info_pq:          ", "existence_info_sorter:      ", "existence_request_sorter:   ", "existence_successor_sorter: "
+        };
+
+        assert(labels.size() == est.size());
+
+        size_t total_mem = std::accumulate(est.cbegin(), est.cend(), size_t(0), [] (const size_t& b, const size_block_t& a) -> size_t {return std::get<0>(a) + b;});
+
+        // Divide by multiplicity
+        for(auto & x : est)
+            std::get<0>(x) /= std::get<2>(x);
+
         // Report Assignment
         {
-            size_t total_mem = std::accumulate(est.cbegin(), est.cend(), 0);
-            std::cout << "Assigned " << total_mem << "b of " << mem << "b (" << (100.0 * total_mem / mem)  << "%) as follows:\n"
-                << "depchain_edge_sorter:       " << est[0] << " bytes\n"
-                << "depchain_pq:                " << est[1] << " bytes\n"
-                << "depchain_successor_sorter:  " << est[2] << " bytes\n"
-                << "edge_state_pq:              " << est[3] << " bytes\n"
-                << "edge_swap_sorter:           " << est[4] << " bytes\n"
-                << "edge_update_sorter:         " << est[5] << " bytes\n"
-                << "existence_info_pq:          " << est[6] << " bytes\n"
-                << "existence_info_sorter:      " << est[7] << " bytes\n"
-                << "existence_request_sorter:   " << est[8] << " bytes\n"
-                << "existence_successor_sorter: " << est[9] << " bytes\n"
-            << std::endl;
+
+            std::cout << "Assigned " << format(total_mem) << "b of " << format(mem) << "b (" << (100.0 * total_mem / mem)  << "%) as follows:\n";
+
+            for(unsigned int i=0; i<est.size(); i++)
+                std::cout << labels[i] << std::get<2>(est[i]) << "*"  << format(std::get<0>(est[i])) << " bytes (" << (std::get<0>(est[i]) / std::get<1>(est[i])) << " blocks)\n";
+
+            std::cout << "Min Block count: " << min_blocks << std::endl;
         }
 
         return est;

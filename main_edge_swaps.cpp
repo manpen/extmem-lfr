@@ -45,6 +45,8 @@ struct RunConfig {
     stxxl::uint64 runSize;
     stxxl::uint64 batchSize;
 
+    stxxl::uint64 internalMem;
+
     unsigned int randomSeed;
 
     EdgeSwapAlgo edgeSwapAlgo;
@@ -65,6 +67,7 @@ struct RunConfig {
         , numSwaps(numNodes)
         , runSize(numNodes/10)
         , batchSize(IntScale::Mi)
+        , internalMem(8 * IntScale::Gi)
 
         , verbose(false)
         , factorNoSwaps(-1)
@@ -99,6 +102,8 @@ struct RunConfig {
             cp.add_bytes  (CMDLINE_COMP('m', "num-swaps", numSwaps,   "Number of swaps to perform"));
             cp.add_bytes  (CMDLINE_COMP('r', "run-size", runSize, "Number of swaps per graph scan"));
             cp.add_bytes  (CMDLINE_COMP('k', "batch-size", batchSize, "Batch size of PTFP"));
+
+            cp.add_bytes  (CMDLINE_COMP('i', "ram", internalMem, "Internal memory"));
 
             cp.add_string(CMDLINE_COMP('e', "swap-algo", swap_algo_name, "SwapAlgo to use: IM, SEMI, TFP, PTFP (default)"));
 
@@ -163,13 +168,21 @@ void benchmark(RunConfig & config) {
         hh_gen.generate();
 
         StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
-        edge_stream.consume();
 
     } else {
-        auto stream = read_clueweb_file(config.clueweb);
-        std::swap(stream, edge_stream);
+        IOStatistics read_report("Read");
+        stxxl::linuxaio_file file(config.clueweb, stxxl::file::DIRECT | stxxl::file::RDONLY);
+        stxxl::vector<edge_t> vector(&file);
+        typename decltype(vector)::bufreader_type reader(vector);
+
+        for(; !reader.empty(); ++reader)
+            edge_stream.push(*reader);
+
+        edge_stream.consume();
     }
 
+
+    edge_stream.consume();
     std::cout << "Generated " << edge_stream.size() << " edges\n";
 
 
@@ -206,7 +219,7 @@ void benchmark(RunConfig & config) {
             }
 
             case TFP: {
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, 1llu << 34);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
                 break;
@@ -255,6 +268,8 @@ int main(int argc, char* argv[]) {
     stxxl::set_seed(config.randomSeed);
 
     benchmark(config);
+    std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;    
+
 
     return 0;
 }
