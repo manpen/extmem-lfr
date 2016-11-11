@@ -1,9 +1,9 @@
 #include <limits>
+#include <random>
 
 #include <stxxl/vector>
 #include <stxxl/sorter>
 #include <stxxl/bits/common/uint_types.h>
-#include <stxxl/random>
 
 #include <defs.h>
 #include <TupleHelper.h>
@@ -195,10 +195,13 @@ protected:
     void _generateMultiNodes() {
         assert(!_edges.empty());
 
-        stxxl::random_number<> rand;
+        //stxxl::random_number<> rand;
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
 
         multinode_t prev_node = INVALID_MULTINODE; // = (*_edges).first;
-        uint64_t shift = rand(_shift_upperbound);
+        uint64_t shift = dis(gen);
 
         for (; !_edges.empty(); ++_edges) {
             _multinodemsg_sorter.push(
@@ -207,7 +210,7 @@ protected:
                 MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) + shift)  << 36) | (*_edges).second});
 
             if ((*_edges).first == prev_node) {
-                shift = rand(_shift_upperbound);
+                shift = dis(gen);
             }
 
             prev_node = (*_edges).first;
@@ -243,130 +246,6 @@ protected:
     uint64_t _maxShiftBound(uint64_t n) const {
         return 27 - static_cast<uint64_t>(log2(n));
     }
-};
-
-template <typename T = MonotonicPowerlawRandomStream<false>>
-class ConfigurationModel {
-public:
-    ConfigurationModel() = delete; 
-
-    ConfigurationModel(const ConfigurationModel&) = delete;
-    ConfigurationModel(T &degrees, const uint32_t seed, const uint64_t node_upperbound)
-                                : _degrees(degrees) 
-                                , _seed(seed)
-                                , _node_upperbound(node_upperbound)
-                                , _multinodemsg_comp(seed)
-                                , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
-                                , _edge_sorter(Edge64Comparator(), SORTER_MEM)
-    { }
-
-    // implements execution of algorithm
-    void run() {
-        const uint64_t node_size = _generateMultiNodes();
-
-        assert(!_multinodemsg_sorter.empty());
-
-        _generateSortedEdgeList(node_size);
-
-        assert(!_edge_sorter.empty());
-    }
-
-//! @name STXXL Streaming Interface
-//! @{
-    bool empty() const {
-        return _edge_sorter.empty();
-    }
-
-    const edge64_t& operator*() const {
-        assert(!_edge_sorter.empty());
-
-        return *_edge_sorter;
-    }
-
-    ConfigurationModel&operator++() {
-        assert(!_edge_sorter.empty());
-        
-        ++_edge_sorter;
-
-        return *this;
-    }
-//! @}
-
-    // for testing
-    void clear() {
-        _reset();
-    }
-
-protected:
-    T _degrees;
-    const uint32_t _seed;
-    const uint64_t _node_upperbound;
-
-    typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
-    MultiNodeMsgComparator _multinodemsg_comp;
-    MultiNodeSorter _multinodemsg_sorter;
-
-    using EdgeSorter = stxxl::sorter<edge64_t, Edge64Comparator>;
-    EdgeSorter _edge_sorter; 
-
-    // internal algos
-    uint64_t _generateMultiNodes() {
-        assert(!_degrees.empty());
-        stxxl::random_number<> rand;
-        uint64_t count = 1;
-
-        for (; !_degrees.empty(); ++_degrees, ++count) {
-            uint64_t multiplicity = (static_cast<uint64_t>(*_degrees) | 1);
-            for (degree_t j = 1; j <= *_degrees; ++j) {
-               _multinodemsg_sorter.push(MultiNodeMsg{((static_cast<multinode_t>(j) * (_node_upperbound | 1) * multiplicity) << 36) | count});
-            }
-        }
-            _multinodemsg_sorter.sort();
-
-            assert(!_multinodemsg_sorter.empty());
-        
-            return count;
-        }
-        
-        void _generateSortedEdgeList(const uint64_t node_size) {
-            assert(!_multinodemsg_sorter.empty());
-
-            for(; !_multinodemsg_sorter.empty(); ) {
-                auto & fst_node = *_multinodemsg_sorter;
-
-                ++_multinodemsg_sorter;
-
-                if (LIKELY(!_multinodemsg_sorter.empty())) {
-                    MultiNodeMsg snd_node = *_multinodemsg_sorter;
-
-                    if (fst_node.node() < snd_node.node())
-                        _edge_sorter.push(edge64_t{fst_node.node(), snd_node.node()});
-                    else
-                        _edge_sorter.push(edge64_t{snd_node.node(), fst_node.node()});
-                } else {
-                    stxxl::random_number<> rand;
-                    const uint64_t snd_nodeid = rand(node_size);
-
-                    if (fst_node.node() < snd_nodeid)
-                        _edge_sorter.push(edge64_t{fst_node.node(), snd_nodeid});
-                    else
-                        _edge_sorter.push(edge64_t{snd_nodeid, fst_node.node()});
-                }
-
-                if (!_multinodemsg_sorter.empty())
-                    ++_multinodemsg_sorter;
-                else
-                    break;
-            }
-
-            _edge_sorter.sort();
-
-        }
-        
-        void _reset() {
-            _multinodemsg_sorter.clear();
-            _edge_sorter.clear();
-        }
 };
 
 // Pseudo-random approach
@@ -457,12 +336,14 @@ protected:
     void _generateMultiNodes() {
         assert(!_edges.empty());
 
-        stxxl::random_number64 rand64;
-       
-        for (; !_edges.empty(); ++_edges) {
+        //stxxl::random_number64 rand64;
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
 
-            _testnode_sorter.push(TestNodeMsg{rand64(), static_cast<multinode_t>((*_edges).first)});
-            _testnode_sorter.push(TestNodeMsg{rand64(), static_cast<multinode_t>((*_edges).second)});
+        for (; !_edges.empty(); ++_edges) {
+            _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<multinode_t>((*_edges).first)});
+            _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<multinode_t>((*_edges).second)});
 
         }
        
