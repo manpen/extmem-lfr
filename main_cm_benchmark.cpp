@@ -18,8 +18,6 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Benchmark for ConfigurationModel(HavelHakimi)..." << std::endl;
 
- 	//std::ofstream cmhh_file("cmhh_benchmark.dat");
-
 	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
 
 		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
@@ -53,14 +51,60 @@ int main(int argc, char* argv[]) {
 		cmhh_file << (stxxl::stats_data(*Stats) - stats_begin);
 		//outLine.str(std::string());
 
+		// count self-loops and multi-edges
+        long loops = 0;
+        long multi = 0;
+        long times = 0;
+        
+        bool prev_multi = false;
+
+        auto prev_edge = *cmhh;
+        if (prev_edge.is_loop())
+            ++loops;
+        
+        ++cmhh;
+
+        for (; !cmhh.empty(); ++cmhh) {
+            auto & edge = *cmhh;
+            
+            // self-loop found
+            if (edge.is_loop()) {
+                ++loops;
+                if (prev_multi)
+                    ++times;
+                prev_edge = edge;
+                prev_multi = false;
+                continue;
+            }
+
+            // multi-edge found
+            if (prev_edge == edge) {
+                ++times;
+                if (!prev_multi) {
+                    ++multi;
+                    prev_multi = true;
+                }
+                prev_edge = edge;
+                continue;
+            }
+
+            if (prev_multi)
+                ++times;
+            prev_edge = edge;
+
+            prev_multi = false;
+        }
+
+        if (prev_multi)
+            ++times;
+
+
 		cmhh.clear();
 
         cmhh_file.close();
 	}
 
 	std::cout << "Benchmark for ConfigurationModel(Random)..." << std::endl;
-
-	std::ofstream cmr_file("cmr_benchmark.dat");
 
 	// ConfigurationModel Random
 
@@ -96,12 +140,58 @@ int main(int argc, char* argv[]) {
         cmr_file << "nodes set to: " << num_nodes << std::endl;
 		cmr_file << (stxxl::stats_data(*Stats) - stats_begin);
 
+		// count self-loops and multi-edges
+        long loops = 0;
+        long multi = 0;
+        long times = 0;
+        
+        bool prev_multi = false;
+
+        auto prev_edge = *cmhh;
+        if (prev_edge.is_loop())
+            ++loops;
+        
+        ++cmhh;
+
+        for (; !cmhh.empty(); ++cmhh) {
+            auto & edge = *cmhh;
+            
+            // self-loop found
+            if (edge.is_loop()) {
+                ++loops;
+                if (prev_multi)
+                    ++times;
+                prev_edge = edge;
+                prev_multi = false;
+                continue;
+            }
+
+            // multi-edge found
+            if (prev_edge == edge) {
+                ++times;
+                if (!prev_multi) {
+                    ++multi;
+                    prev_multi = true;
+                }
+                prev_edge = edge;
+                continue;
+            }
+
+            if (prev_multi)
+                ++times;
+            prev_edge = edge;
+
+            prev_multi = false;
+        }
+
+        if (prev_multi)
+            ++times;
+
 		cmhh.clear();
 
 		cmr_file.close();
-		}	
 
-	cmr_file.close();
+		}	
 
 	return 0;
 }

@@ -15,18 +15,18 @@
 // CRC
 #include "nmmintrin.h"
 
-inline uint64_t reverse (const uint64_t & a) {
+static inline uint64_t reverse (const uint64_t & a) {
     uint64_t x = a;
-    x = ((x >> 1) & 0x5555555555555555u) | ((x & 0x5555555555555555u) << 1);
-    x = ((x >> 2) & 0x3333333333333333u) | ((x & 0x3333333333333333u) << 2);
-    x = ((x >> 4) & 0x0F0F0F0F0F0F0F0Fu) | ((x & 0x0F0F0F0F0F0F0F0Fu) << 4);
-    x = ((x >> 8) & 0x00FF00FF00FF00FFu) | ((x & 0x00FF00FF00FF00FFu) << 8);
-    x = ((x >> 16) & 0x0000FFFF0000FFFFu) | ((x & 0x0000FFFF0000FFFFu) << 16);
-    x = ((x >> 32) & 0xFFFFFFFFFu) | ((x & 0xFFFFFFFFFu) << 32);
+    x = (x & 0x5555555555555555u) <<  1 | (x & 0xAAAAAAAAAAAAAAAAu) >>  1;
+    x = (x & 0x3333333333333333u) <<  2 | (x & 0xCCCCCCCCCCCCCCCCu) >>  2;
+    x = (x & 0x0F0F0F0F0F0F0F0Fu) <<  4 | (x & 0xF0F0F0F0F0F0F0F0u) >>  4;
+    x = (x & 0x00FF00FF00FF00FFu) <<  8 | (x & 0xFF00FF00FF00FF00u) >>  8;
+    x = (x & 0x0000FFFF0000FFFFu) << 16 | (x & 0xFFFF0000FFFF0000u) >> 16;
+    x = (x & 0x00000000FFFFFFFFu) << 32 | (x & 0xFFFFFFFF00000000u) >> 32;
     return x;
 }
 
-inline uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
+static inline uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
     const uint32_t hash_msb_p = _mm_crc32_u32(seed, msb);
     const uint32_t hash_lsb_p = _mm_crc32_u32(hash_msb_p, lsb);
     const uint64_t hash = reverse(static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p);

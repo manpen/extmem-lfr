@@ -27,9 +27,6 @@ TEST_F(TestConfigurationModel, ints) {
 
 TEST_F(TestConfigurationModel, crc) {
 	int x = 2;
-	// reverse functions properly?
-	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, reverse(0xFFFFFFFFFFFFFFFFu));
-	ASSERT_EQ(0x0000000000000000u, reverse(0x0000000000000000u));
 
 	const uint32_t seed = 223224;
 	// 32bit matching max_value?
@@ -53,7 +50,7 @@ TEST_F(TestConfigurationModel, crc) {
 }
 
 TEST_F(TestConfigurationModel, tHavelHakimi) {
-	int x = 11;
+	int x = 13;
 
     const degree_t min_deg = 2;
     const degree_t max_deg = 100;
@@ -72,10 +69,15 @@ TEST_F(TestConfigurationModel, tHavelHakimi) {
 }
 
 TEST_F(TestConfigurationModel, reverse) {
-    ASSERT_EQ(reverse(static_cast<uint64_t>(0)), static_cast<uint64_t>(0));
-    ASSERT_EQ(reverse(static_cast<uint64_t>(1)), static_cast<uint64_t>(1) << 63);
-    ASSERT_EQ(reverse(static_cast<uint64_t>(2)), static_cast<uint64_t>(1) << 62);
-    ASSERT_EQ(reverse(static_cast<uint64_t>(3)), static_cast<uint64_t>(3) << 62);
+	int x = 5;
+
+	std::cout << "Value of 1u: " << 1u << std::endl;
+	std::cout << "Value of reverse(1u): " << reverse(1u) << std::endl;
+
+    ASSERT_EQ(reverse(0u), 0u);
+    ASSERT_EQ(reverse(1u), pow(2, 63));
+    ASSERT_EQ(reverse(2u), pow(2, 62));
+    ASSERT_EQ(reverse(3u), pow(2, 63) + pow(2, 62));
 }
 
 TEST_F(TestConfigurationModel, tOutput) {
