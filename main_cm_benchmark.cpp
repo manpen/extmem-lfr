@@ -10,7 +10,10 @@
 #include <stxxl/stats>
 
 int main(int argc, char* argv[]) {
-	const degree_t min_deg = 5;
+	if (argc <= 0)
+        return 0;
+
+    const degree_t min_deg = 5;
 
 	int runs = std::stoi(argv[1]);
 
@@ -98,8 +101,11 @@ int main(int argc, char* argv[]) {
         if (prev_multi)
             ++times;
 
-
-		cmhh.clear();
+        cmhh_file << "self_loops: " << loops << std::endl;
+		cmhh_file << "multi_edges: " << multi << std::endl;
+        cmhh_file << "multi_edges quantities: " << times << std::endl;
+		
+        cmhh.clear();
 
         cmhh_file.close();
 	}
@@ -186,6 +192,10 @@ int main(int argc, char* argv[]) {
 
         if (prev_multi)
             ++times;
+
+        cmr_file << "self_loops: " << loops << std::endl;
+		cmr_file << "multi_edges: " << multi << std::endl;
+        cmr_file << "multi_edges quantities: " << times << std::endl;
 
 		cmhh.clear();
 
