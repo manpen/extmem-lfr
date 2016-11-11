@@ -14,15 +14,15 @@
 
 // CRC
 #include "nmmintrin.h"
+// BSWAP
+#include "immintrin.h"
 
 static inline uint64_t reverse (const uint64_t & a) {
     uint64_t x = a;
     x = (x & 0x5555555555555555u) <<  1 | (x & 0xAAAAAAAAAAAAAAAAu) >>  1;
     x = (x & 0x3333333333333333u) <<  2 | (x & 0xCCCCCCCCCCCCCCCCu) >>  2;
     x = (x & 0x0F0F0F0F0F0F0F0Fu) <<  4 | (x & 0xF0F0F0F0F0F0F0F0u) >>  4;
-    x = (x & 0x00FF00FF00FF00FFu) <<  8 | (x & 0xFF00FF00FF00FF00u) >>  8;
-    x = (x & 0x0000FFFF0000FFFFu) << 16 | (x & 0xFFFF0000FFFF0000u) >> 16;
-    x = (x & 0x00000000FFFFFFFFu) << 32 | (x & 0xFFFFFFFF00000000u) >> 32;
+    x = _bswap64(x);
     return x;
 }
 

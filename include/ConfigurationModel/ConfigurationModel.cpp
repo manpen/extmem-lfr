@@ -1,7 +1,11 @@
 /**
  * Hung
  */
+#include <defs.h>
 #include "ConfigurationModel.h"
+
+template class HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator>;
+template class HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator>;
 
 /**
 void ConfigurationModel::_generateMultiNodes() {

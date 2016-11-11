@@ -26,7 +26,7 @@ TEST_F(TestConfigurationModel, ints) {
 }
 
 TEST_F(TestConfigurationModel, crc) {
-	int x = 2;
+	int x = 3;
 
 	const uint32_t seed = 223224;
 	// 32bit matching max_value?
