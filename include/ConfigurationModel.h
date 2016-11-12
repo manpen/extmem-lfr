@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include <limits>
 #include <random>
 
@@ -19,18 +21,35 @@
 
 static inline uint64_t reverse (const uint64_t & a) {
     uint64_t x = a;
+    /*
+     * regular reverse
     x = (x & 0x5555555555555555u) <<  1 | (x & 0xAAAAAAAAAAAAAAAAu) >>  1;
     x = (x & 0x3333333333333333u) <<  2 | (x & 0xCCCCCCCCCCCCCCCCu) >>  2;
     x = (x & 0x0F0F0F0F0F0F0F0Fu) <<  4 | (x & 0xF0F0F0F0F0F0F0F0u) >>  4;
-    x = _bswap64(x);
+    x = __builtin_bswap64(x);//_bswap64(x);
+    return x;
+     */
+
+    x = (x & 0xF000000000000000u) >> 60 | (x & 0x0FFFFFFFFFFFFFFFu) << 4;
     return x;
 }
 
+/**
+ * chained CRC64 with reverse
+ */
 static inline uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
     const uint32_t hash_msb_p = _mm_crc32_u32(seed, msb);
     const uint32_t hash_lsb_p = _mm_crc32_u32(hash_msb_p, lsb);
     const uint64_t hash = reverse(static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p);
    
+    return hash;
+}
+/**
+ * single CRC32 without reverse
+ */
+static inline uint32_t crc32(const uint32_t & seed, const uint32_t & val) {
+    const uint32_t hash = _mm_crc32_u32(seed, val);
+
     return hash;
 }
 
@@ -90,7 +109,7 @@ public:
     bool operator() (const MultiNodeMsg& a, const MultiNodeMsg& b) const {
         const uint64_t a_hash = crc64(_seed, a.msb(), a.lsb());
         const uint64_t b_hash = crc64(_seed, b.msb(), b.lsb());
-       
+        
         return a_hash < b_hash;
     }
 
