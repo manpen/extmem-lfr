@@ -217,7 +217,7 @@ protected:
         //stxxl::random_number<> rand;
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<uint64_t> dis;
+        std::uniform_int_distribution<multinode_t> dis;
 
         multinode_t prev_node = INVALID_MULTINODE; // = (*_edges).first;
         uint64_t shift = dis(gen);
@@ -358,7 +358,7 @@ protected:
         //stxxl::random_number64 rand64;
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<uint64_t> dis;
+        std::uniform_int_distribution<multinode_t> dis;
 
         for (; !_edges.empty(); ++_edges) {
             _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<multinode_t>((*_edges).first)});
