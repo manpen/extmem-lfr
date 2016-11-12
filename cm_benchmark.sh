@@ -91,6 +91,32 @@ done
 
 sort -n $dir/r.tmp > $dir/runtime_cm_r.dat
 
+for f in $dir/cm_tupr*.log; 
+
+do
+	echo "[BENCHMARK] Processing ${f}"
+	nodes=$(grep -m 1 -e "nodes set to" $f | perl -pe 's/\D+//g')
+	edges=$(grep -m 1 -e "edges set to" $f | perl -pe 's/\D+//g')
+	mindeg=$(grep -m 1 -e "min_deg set to" $f | perl -pe 's/\D+//g')
+	maxdeg=$(grep -m 1 -e "max_deg set to" $f | perl -pe 's/\D+//g')
+	etime=$(grep -m 1 -e " Time since the last reset" $f | perl -pe 's/.* (\d+\.\d+) .*/$1/g')
+	selfloops=$(grep -m 1 -e "self_loops" $f | perl -pe 's/\D+//g')
+    multiedges=$(grep -m 1 -e "multi_edges" $f | perl -pe 's/\D+//g')
+    multiedgesquant=$(grep -m 1 -e "multi_edges quantities" $f | perl -pe 's/\D+//g')
+    echo "[BENCHMARK----] NODES = ${nodes}"
+	echo "[BENCHMARK----] EDGES = ${edges}"
+	echo "[BENCHMARK----] MIN_DEG = ${mindeg}"
+	echo "[BENCHMARK----] MAX_DEG = ${maxdeg}"
+	echo "[BENCHMARK----] ELAPSED TIME = ${etime}"
+	echo "[BENCHMARK----] SELF_LOOPS = ${selfloops}"
+    echo "[BENCHMARK----] MULTI_EDGES = ${multiedges}"
+    echo "[BENCHMARK----] EDGES IN MULTI_EDGES = ${multiedgesquant}"
+    # write out	
+    echo "$nodes $edges $etime $selfloops $multiedges $multiedgesquant" >> $dir/tupr.tmp
+done
+
+sort -n $dir/tupr.tmp > $dir/runtime_cm_tupr.dat
+
 cd $dir
 
 gnuplot ../../cm_benchmark_multiplot.gp

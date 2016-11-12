@@ -289,28 +289,35 @@ public:
         if (a.key != b.key)
             return a.key < b.key;
         else {
+            if (b.node == std::numeric_limits<multinode_t>::min())
+                return false;
+            if (a.node == std::numeric_limits<multinode_t>::max())
+                return false;
+            if (b.node == std::numeric_limits<multinode_t>::max())
+                return true;
+            if (a.node == std::numeric_limits<multinode_t>::min())
+                return true;
             std::default_random_engine gen;
             std::bernoulli_distribution ber(0.5);
             if (ber(gen)) 
-                return a.key;
+                return true;
             else 
-                return b.key;
+                return false;
         }
     }
 
     TestNodeMsg max_value() const {
-        return TestNodeMsg(std::numeric_limits<multinode_t>::max(), INVALID_MULTINODE);
+        return TestNodeMsg(std::numeric_limits<multinode_t>::max(), std::numeric_limits<multinode_t>::max());
     }
 
     TestNodeMsg min_value() const {
-        return TestNodeMsg(std::numeric_limits<multinode_t>::min(), INVALID_MULTINODE);
+        return TestNodeMsg(std::numeric_limits<multinode_t>::min(), std::numeric_limits<multinode_t>::min());
     }
 };
 
 using TestNodeComparator = typename GenericComparatorStruct<TestNodeMsg>::Ascending;
-using TestNodeSorter = stxxl::sorter<TestNodeMsg, TestNodeComparator>;
 
-template <typename EdgeReader> //, typename NodeComparator>
+template <typename EdgeReader, typename MNComparator>
 class HavelHakimi_ConfigurationModel_Random {
 public:
     HavelHakimi_ConfigurationModel_Random() = delete; 
@@ -319,7 +326,7 @@ public:
     HavelHakimi_ConfigurationModel_Random(EdgeReader &edges, const uint64_t node_upperbound)
                                 : _edges(edges)
                                 , _node_upperbound(node_upperbound)
-                                , _testnode_sorter(TestNodeComparator{}, SORTER_MEM)
+                                , _testnode_sorter(MNComparator(), SORTER_MEM)
                                 , _test_edge_sorter(Edge64Comparator(), SORTER_MEM)
     { }
 
@@ -373,6 +380,7 @@ protected:
     EdgeReader _edges;
     const uint64_t _node_upperbound;
 
+    using TestNodeSorter = stxxl::sorter<TestNodeMsg, MNComparator>;
     TestNodeSorter _testnode_sorter;
 
     using EdgeSorter = stxxl::sorter<value_type, Edge64Comparator>;

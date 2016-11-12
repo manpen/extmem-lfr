@@ -5,5 +5,5 @@
 #include "ConfigurationModel.h"
 
 template class HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator>;
-template class HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator>; //, TestNodeComparator>;
-//template class HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator>; //, TestNodeRandomComparator>;
+template class HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeComparator>;
+template class HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeRandomComparator>;

@@ -25,9 +25,12 @@ TEST_F(TestConfigurationModel, ints) {
     ASSERT_EQ(two32 & NODEMASK, two32);
 }
 
-TEST_F(TestConfigurationModel, crc) {
+TEST_F(TestConfigurationModel, crccomps) {
 	int x = 3;
 
+	/*
+	 * CRC
+	 */
 	const uint32_t seed = 223224;
 	// 32bit matching max_value?
 	ASSERT_EQ(0xFFFFFFFFu, _mm_crc32_u32(seed, seed ^ MAX_CRCFORWARD));
@@ -36,6 +39,9 @@ TEST_F(TestConfigurationModel, crc) {
 	ASSERT_EQ(0x00000000u, _mm_crc32_u32(seed, seed));
 	ASSERT_EQ(0x00000000u, _mm_crc32_u32(0x00000000u, MIN_LSB));
 
+	/*
+	 * MultiNodeComparator
+	 */
 	MultiNodeMsgComparator mnmc(seed);
 	const MultiNodeMsg max = mnmc.max_value();
 	const uint32_t maxm = max.msb();
@@ -47,6 +53,19 @@ TEST_F(TestConfigurationModel, crc) {
 	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, crc64(seed, maxm, maxl));
 	// 64bit matching min_value?
 	ASSERT_EQ(0x0000000000000000u, crc64(seed, minm, minl));
+
+	/*
+	 * TestNodeRandomComparator
+	 */
+	TestNodeRandomComparator tnrc;
+	const TestNodeMsg tmax = tnrc.max_value();
+	const TestNodeMsg tmin = tnrc.min_value();
+	ASSERT_EQ(std::numeric_limits<multinode_t>::max(), tmax.key);
+	ASSERT_EQ(std::numeric_limits<multinode_t>::max(), tmax.node);
+	ASSERT_EQ(std::numeric_limits<multinode_t>::min(), tmin.key);
+	ASSERT_EQ(std::numeric_limits<multinode_t>::min(), tmin.node);
+	ASSERT_TRUE(tnrc(tmin, tmax));
+	ASSERT_FALSE(tnrc(tmin, tmin));
 }
 
 TEST_F(TestConfigurationModel, tHavelHakimi) {
@@ -169,7 +188,7 @@ TEST_F(TestConfigurationModel, tOutputRandom) {
 		StreamPusher<decltype(degrees), decltype(hh_gen)>(degrees, hh_gen);
 	    hh_gen.generate();
 
-	    HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator> cm(hh_gen, 1000);
+	    HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeComparator> cm(hh_gen, 1000);
 		cm.run();
 
 		ASSERT_FALSE(cm.empty());
