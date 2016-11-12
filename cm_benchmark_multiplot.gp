@@ -21,7 +21,7 @@ set ylabel "Time [s]"
 set logscale xy
 
 plot 'runtime_cm_crc.dat' using 2:3 with linespoints ls 1 title "CRC", \
-     'runtime_cm_r.dat' using 2:3 with linespoints ls 2 title "Random" \
+     'runtime_cm_r.dat' using 2:3 with linespoints ls 2 title "Random", \
      'runtime_cm_tupr.dat' using 2:3 with linespoints ls 4 title "Random2"
 
 set title "Self-loops proportions comparison"
@@ -35,7 +35,7 @@ set autoscale
 set logscale x
 
 plot 'runtime_cm_crc.dat' using 1:($4/$2) with linespoints ls 1 title "CRC", \
-     'runtime_cm_r.dat' using 1:($4/$2) with linespoints ls 2 title "Random" \
+     'runtime_cm_r.dat' using 1:($4/$2) with linespoints ls 2 title "Random", \
      'runtime_cm_tupr.dat' using 1:($4/$2) with linespoints ls 4 title "Random2"
 
 set title "Self-loops absolute comparison vs. Theory"
@@ -55,7 +55,7 @@ Upper(x) = 0.5*((x/10 - MIN_DEG + 1)/(log(x/10 + 1) - log(MIN_DEG)))
 
 plot 'runtime_cm_crc.dat' using 1:4 with linespoints ls 1 title "CRC", \
      'runtime_cm_r.dat' using 1:4 with linespoints ls 2 title "Random", \
-     'runtime_cm_tupr.dat' using 1:($4/$2) with linespoints ls 4 title "Random2"
+     'runtime_cm_tupr.dat' using 1:4 with linespoints ls 4 title "Random2", \
      Upper(x) title "Upperbound w.h.p." with lines ls 3
 
 ################################################
@@ -69,8 +69,8 @@ set autoscale
 set logscale x
 
 plot 'runtime_cm_crc.dat' using 2:5 with linespoints ls 1 title "CRC", \
-     'runtime_cm_r.dat' using 2:5 with linespoints ls 2 title "Random" \
-     'runtime_cm_tupr.dat' using 1:($4/$2) with linespoints ls 4 title "Random2"
+     'runtime_cm_r.dat' using 2:5 with linespoints ls 2 title "Random", \
+     'runtime_cm_tupr.dat' using 2:5 with linespoints ls 4 title "Random2"
 
 ################################################
 # Edges - Multiedges percentage
@@ -83,5 +83,5 @@ set autoscale
 set logscale x
 
 plot 'runtime_cm_crc.dat' using 2:($6/$2) with linespoints ls 1 title "CRC", \
-     'runtime_cm_r.dat' using 2:($6/$2) with linespoints ls 2 title "Random" \
-     'runtime_cm_tupr.dat' using 1:($4/$2) with linespoints ls 4 title "Random2"
+     'runtime_cm_r.dat' using 2:($6/$2) with linespoints ls 2 title "Random", \
+     'runtime_cm_tupr.dat' using 1:($6/$2) with linespoints ls 4 title "Random2"
