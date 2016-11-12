@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdlib.h>
 
 #include <limits>
@@ -72,9 +74,7 @@ using Edge64Comparator = typename GenericComparator<edge64_t>::Ascending;
 class MultiNodeMsg {
 public:
     MultiNodeMsg() { }
-    MultiNodeMsg(const uint64_t eid_node_) : _eid_node(eid_node_) {}
-
-    using value_type = multinode_t;
+    MultiNodeMsg(const multinode_t eid_node_) : _eid_node(eid_node_) {}
 
     // getters
     uint32_t lsb() const {
@@ -113,12 +113,12 @@ public:
         return a_hash < b_hash;
     }
 
-    multinode_t max_value() const {
-        return _limits.first;
+    MultiNodeMsg max_value() const {
+        return MultiNodeMsg(_limits.first);
     }
 
-    multinode_t min_value() const {
-        return _limits.second;
+    MultiNodeMsg min_value() const {
+        return MultiNodeMsg(_limits.second);
     }
 
 
@@ -224,9 +224,9 @@ protected:
 
         for (; !_edges.empty(); ++_edges) {
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) + shift) << 36) | (*_edges).first});
+                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) + shift) << 36) | static_cast<multinode_t>((*_edges).first)});
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) + shift)  << 36) | (*_edges).second});
+                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) + shift)  << 36) | static_cast<multinode_t>((*_edges).second)});
 
             if ((*_edges).first == prev_node) {
                 shift = dis(gen);
@@ -279,12 +279,38 @@ struct TestNodeMsg {
     DECL_LEX_COMPARE_OS(TestNodeMsg, key, node);
 };
 
+// TestNode Comparator
+class TestNodeRandomComparator {  
+public:
+    TestNodeRandomComparator() { }
 
+    // invert msb's since lsb = seed then for max_value
+    bool operator() (const TestNodeMsg& a, const TestNodeMsg& b) const {
+        if (a.key != b.key)
+            return a.key < b.key;
+        else {
+            std::default_random_engine gen;
+            std::bernoulli_distribution ber(0.5);
+            if (ber(gen)) 
+                return a.key;
+            else 
+                return b.key;
+        }
+    }
+
+    TestNodeMsg max_value() const {
+        return TestNodeMsg(std::numeric_limits<multinode_t>::max(), INVALID_MULTINODE);
+    }
+
+    TestNodeMsg min_value() const {
+        return TestNodeMsg(std::numeric_limits<multinode_t>::min(), INVALID_MULTINODE);
+    }
+};
 
 using TestNodeComparator = typename GenericComparatorStruct<TestNodeMsg>::Ascending;
 using TestNodeSorter = stxxl::sorter<TestNodeMsg, TestNodeComparator>;
 
-template <typename EdgeReader>
+template <typename EdgeReader> //, typename NodeComparator>
 class HavelHakimi_ConfigurationModel_Random {
 public:
     HavelHakimi_ConfigurationModel_Random() = delete; 

@@ -37,12 +37,12 @@ TEST_F(TestConfigurationModel, crc) {
 	ASSERT_EQ(0x00000000u, _mm_crc32_u32(0x00000000u, MIN_LSB));
 
 	MultiNodeMsgComparator mnmc(seed);
-	const uint64_t max = mnmc.max_value();
-	const uint32_t maxm = static_cast<uint32_t>(max >> 32);
-	const uint32_t maxl = static_cast<uint32_t>(max);
-	const uint64_t min = mnmc.min_value();
-	const uint32_t minm = static_cast<uint32_t>(min >> 32);
-	const uint32_t minl = static_cast<uint32_t>(min);
+	const MultiNodeMsg max = mnmc.max_value();
+	const uint32_t maxm = max.msb();
+	const uint32_t maxl = max.lsb();
+	const MultiNodeMsg min = mnmc.min_value();
+	const uint32_t minm = min.msb();
+	const uint32_t minl = min.lsb();
 	// 64bit matching max_value?
 	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, crc64(seed, maxm, maxl));
 	// 64bit matching min_value?
