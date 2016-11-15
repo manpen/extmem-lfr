@@ -24,12 +24,17 @@ int main(int argc, char* argv[]) {
 	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
 
 		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
+        const degree_t threshold = max_deg / 5;
 
-		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
+		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
 		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();
+
+        std::cout << "Max degree fed to HH: " << hh_gen.maxDegree() << "; "
+                     "Nodes with degree above  " << threshold << ": " << hh_gen.nodesAboveThreshold()
+                  << std::endl;
 
 		HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator> cmhh(hh_gen, 223224, num_nodes);
 

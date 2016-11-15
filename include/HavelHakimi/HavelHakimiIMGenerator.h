@@ -63,6 +63,10 @@ protected:
     edgeid_t _unsatisfied_degree;
     node_t _unsatisfied_nodes;
 
+    const degree_t _threshold_degree; //!< Counting threshold (see _threshold_nodes)
+    node_t _threshold_nodes; //!< Number of nodes above threshold
+    degree_t _max_degree; //!< Maximal degree requested
+
     /**
      * Moves the block with highest degree from queue into stack and
      * updates degree information. If remaining_neighbors indicates
@@ -207,20 +211,24 @@ protected:
     }
 
 public:
-    HavelHakimiIMGenerator(PushDirection push_direction = IncreasingDegree, node_t initial_node = 0) :
+    HavelHakimiIMGenerator(PushDirection push_direction = IncreasingDegree, node_t initial_node = 0, degree_t counting_threshold = 0) :
         _mode(Push),
         _push_direction(push_direction),
         _initial_node(initial_node),
         _push_current_node(initial_node),
         _max_number_of_edges(0),
         _unsatisfied_degree(0),
-        _unsatisfied_nodes(0)
+        _unsatisfied_nodes(0),
+        _threshold_degree(counting_threshold),
+        _threshold_nodes(0)
     {}
 
     //! Push a new vertex -represented by its degree- into degree sequence
     void push(degree_t deg) {
         assert(_mode == Push);
         assert(deg > 0);
+
+        _threshold_nodes += (deg > _threshold_degree);
 
         if (UNLIKELY(_blocks.empty())) {
             _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
@@ -273,6 +281,8 @@ public:
         }
         #endif
 
+        _max_degree = _blocks.back().degree;
+
         // Switch
         _mode = Generate;
 
@@ -316,5 +326,15 @@ public:
 
     node_t unsatisfiedNodes() const {
         return _unsatisfied_nodes;
+    }
+
+    const degree_t& maxDegree() const {
+        assert(_mode == Generate);
+        return _max_degree;
+    }
+
+    const node_t& nodesAboveThreshold() const {
+        assert(_mode == Generate);
+        return _threshold_nodes;
     }
 };
