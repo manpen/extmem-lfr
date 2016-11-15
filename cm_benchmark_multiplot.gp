@@ -24,25 +24,9 @@ plot 'runtime_cm_crc.dat' using 2:3 with linespoints ls 1 title "CRC", \
      'runtime_cm_r.dat' using 2:3 with linespoints ls 2 title "Random", \
      'runtime_cm_tupr.dat' using 2:3 with linespoints ls 4 title "Random2"
 
-set title "Self-loops proportions comparison"
-set key right top
-
-#############################################################
-# Edges - Self-loops percent
-set xlabel "Edges"
-set ylabel "Self-loops"
-set autoscale
-set logscale x
-
-plot 'runtime_cm_crc.dat' using 1:($4/$2) with linespoints ls 1 title "CRC", \
-     'runtime_cm_r.dat' using 1:($4/$2) with linespoints ls 2 title "Random", \
-     'runtime_cm_tupr.dat' using 1:($4/$2) with linespoints ls 4 title "Random2"
-
-set title "Self-loops absolute comparison vs. Theory"
-set key left top
-
 ################################################################
-# Nodes - Self-loops percent vs Theory
+# Nodes - Self-loops absolute vs Theory
+set title "Self-loops absolute vs Theory"
 set xlabel "Nodes"
 set ylabel "Self-loops"
 set autoscale
@@ -61,7 +45,7 @@ plot 'runtime_cm_crc.dat' using 1:4 with linespoints ls 1 title "CRC", \
 ################################################
 # Edges - Multiedges
 set title "Multi-edges absolute comparison"
-set key right top
+set key left top
 
 set xlabel "Edges"
 set ylabel "Multi-edges"
@@ -75,13 +59,30 @@ plot 'runtime_cm_crc.dat' using 2:5 with linespoints ls 1 title "CRC", \
 ################################################
 # Edges - Multiedges percentage
 set title "Multi-edges quantity proportions comparison"
-set key right top
+set key left top
 
 set xlabel "Edges"
 set ylabel "Multi-edges quantity"
-set autoscale
+unset logscale y
 set logscale x
 
 plot 'runtime_cm_crc.dat' using 2:($6/$2) with linespoints ls 1 title "CRC", \
      'runtime_cm_r.dat' using 2:($6/$2) with linespoints ls 2 title "Random", \
-     'runtime_cm_tupr.dat' using 1:($6/$2) with linespoints ls 4 title "Random2"
+     'runtime_cm_tupr.dat' using 2:($6/$2) with linespoints ls 4 title "Random2"
+
+#############################################################
+# Edges - Self-loops percent
+set title "Self-loops proportions comparison"
+set key right top
+
+set xlabel "Edges"
+set ylabel "Self-loops"
+unset logscale y
+set logscale x
+
+plot 'runtime_cm_crc.dat' using 1:($4/$2) with linespoints ls 1 title "CRC", \
+     'runtime_cm_r.dat' using 1:($4/$2) with linespoints ls 2 title "Random", \
+     'runtime_cm_tupr.dat' using 1:($4/$2) with linespoints ls 4 title "Random2"
+
+set title "Self-loops absolute comparison vs. Theory"
+set key left top

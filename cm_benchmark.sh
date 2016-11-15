@@ -112,7 +112,7 @@ do
     echo "[BENCHMARK----] MULTI_EDGES = ${multiedges}"
     echo "[BENCHMARK----] EDGES IN MULTI_EDGES = ${multiedgesquant}"
     # write out	
-    echo "$nodes $edges $etime $selfloops $multiedges $multiedgesquant" >> $dir/tupcdr.tmp
+    echo "$nodes $edges $etime $selfloops $multiedges $multiedgesquant" >> $dir/tupr.tmp
 done
 
 sort -n $dir/tupr.tmp > $dir/runtime_cm_tupr.dat
