@@ -13,17 +13,21 @@ int main(int argc, char* argv[]) {
 	if (argc <= 0)
         return 0;
 
-    const degree_t min_deg = 5;
-
-	int runs = std::stoi(argv[1]);
+	const int runs = std::stoi(argv[1]);
+    const degree_t min_deg = std::stoi(argv[2]);
+    const double ratio = std::stoi(argv[3]);
 
 	// ConfigurationModel HavelHakimi
 
 	std::cout << "Benchmark for ConfigurationModel(HavelHakimi)..." << std::endl;
 
-	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
+	for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes *= 10) {
 
-		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
+		const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
+        if (max_deg > num_nodes)
+            continue;
+        if (max_deg < min_deg)
+            continue;
 
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
 		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
@@ -114,9 +118,9 @@ int main(int argc, char* argv[]) {
 
 	// ConfigurationModel Random
 
-	for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
+	for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
 
-		const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
+		const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
 
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
 		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);

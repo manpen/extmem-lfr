@@ -6,8 +6,17 @@ tabs 4
 for i in "$@"
 do
 case $i in
-	-r=*|--runs=*)
+	-r*|--runs=*)
 	RUNS="${i#*=}"
+	shift
+	;;
+	-m=*|--mindeg=*)
+	MINDEG="${i#*=}"
+	shift
+	;;
+	-M=*|--maxdegfactor=*)
+	MAXDEG="${i#*=}"
+	shift
 	;;
 	*)
 
@@ -16,10 +25,12 @@ esac
 done
 
 # print RUNS
-echo "[BENCHMARK] RUNS = ${RUNS}"
+echo "[BENCHMARK] RUNS (10^RUNS NODES) = ${RUNS}"
+echo "[BENCHMARK] MINDEG = ${MINDEG}"
+echo "[BENCHMARK] MAXDEG-DIV-RATIO = ${MAXDEG}"
 
 # run benchmark
-./build/cm_benchmark ${RUNS}
+./build/cm_benchmark ${RUNS} ${MINDEG} ${MAXDEG}
 
 # create parentfolder
 mkdir -p measurements
@@ -119,4 +130,4 @@ sort -n $dir/tupr.tmp > $dir/runtime_cm_tupr.dat
 
 cd $dir
 
-gnuplot ../../cm_benchmark_multiplot.gp
+gnuplot -e "MIN_DEG = ${MINDEG}; MAX_DEG_RATIO = ${MAXDEG} " ../../cm_benchmark_multiplot.gp

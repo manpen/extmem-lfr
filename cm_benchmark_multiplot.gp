@@ -32,10 +32,7 @@ set ylabel "Self-loops"
 set autoscale
 set logscale x
 
-# CAREFUL HARDCODED HERE
-# MIN_DEG = 5
-MIN_DEG = 5
-Upper(x) = 0.5*((x/10 - MIN_DEG + 1)/(log(x/10 + 1) - log(MIN_DEG)))
+Upper(x) = 0.5*((x/MAX_DEG_RATIO - MIN_DEG + 1)/(log(x/MAX_DEG_RATIO + 1) - log(MIN_DEG)))
 
 plot 'runtime_cm_crc.dat' using 1:4 with linespoints ls 1 title "CRC", \
      'runtime_cm_r.dat' using 1:4 with linespoints ls 2 title "Random", \
