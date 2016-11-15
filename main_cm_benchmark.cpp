@@ -126,7 +126,11 @@ int main(int argc, char* argv[]) {
 
 	for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
 
-		const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
+        const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
+        if (max_deg > num_nodes)
+            continue;
+        if (max_deg < min_deg)
+            continue;
 
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
 		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
@@ -215,9 +219,13 @@ int main(int argc, char* argv[]) {
 
 // ConfigurationModel RandomRandom
 
-    for (degree_t max_deg = 10; max_deg <= pow(10, runs); max_deg*= 10) {
+    for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
 
-        const multinode_t num_nodes = static_cast<multinode_t>(max_deg)*10;
+        const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
+        if (max_deg > num_nodes)
+            continue;
+        if (max_deg < min_deg)
+            continue;
 
         HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
         MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
