@@ -219,20 +219,15 @@ protected:
         std::mt19937_64 gen(rd());
         std::uniform_int_distribution<multinode_t> dis;
 
-        multinode_t prev_node = INVALID_MULTINODE; // = (*_edges).first;
-        uint64_t shift = dis(gen);
-
         for (; !_edges.empty(); ++_edges) {
-            _multinodemsg_sorter.push(
-                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().first) * (_node_upperbound | 1) + shift) << 36) | static_cast<multinode_t>((*_edges).first)});
-            _multinodemsg_sorter.push(
-                MultiNodeMsg{ ((static_cast<multinode_t>(_edges.edge_ids().second) * (_node_upperbound | 1) + shift)  << 36) | static_cast<multinode_t>((*_edges).second)});
 
-            if ((*_edges).first == prev_node) {
-                shift = dis(gen);
-            }
+            const multinode_t random_noise = dis(gen);
 
-            prev_node = (*_edges).first;
+            _multinodemsg_sorter.push(
+                MultiNodeMsg{ random_noise & 0xFFFFFFF000000000 | static_cast<multinode_t>((*_edges).first)});
+            _multinodemsg_sorter.push(
+                MultiNodeMsg{ random_noise << 36 | static_cast<multinode_t>((*_edges).second)});
+
         }
 
         _multinodemsg_sorter.sort();
