@@ -236,12 +236,14 @@ protected:
         std::uniform_int_distribution<multinode_t> disShift(1, _high_degree_shift);
 
         // do first problematic nodes
-        for (node_t count_threshold; count_threshold < _nodes_above_threshold; ++_edges, ++count_threshold) {
+        for (node_t count_threshold = 0; (count_threshold < _nodes_above_threshold) && (!_edges.empty()); ++_edges) {
 
             const multinode_t random_noise = dis64(gen64);
 
             // first component of edge is SAFELY less than nodes_above_threshhold
             const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+
+            count_threshold = static_cast<multinode_t>((*_edges).first);
 
             _multinodemsg_sorter.push(
                 MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node});
