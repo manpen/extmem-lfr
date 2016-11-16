@@ -41,7 +41,12 @@ int main(int argc, char* argv[]) {
                      "Nodes with degree above  " << threshold << ": " << hh_gen.nodesAboveThreshold()
                   << std::endl;
 
-		HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator> cmhh(hh_gen, 223224, num_nodes);
+		HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator> cmhh(hh_gen, 
+                                                                    223224, 
+                                                                    num_nodes, 
+                                                                    threshold, 
+                                                                    hh_gen.maxDegree(), 
+                                                                    hh_gen.nodesAboveThreshold());
 
 		// Start benchmark here
 		// Stats-measurements

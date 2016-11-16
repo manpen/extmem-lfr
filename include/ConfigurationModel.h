@@ -32,7 +32,7 @@ static inline uint64_t reverse (const uint64_t & a) {
     return x;
      */
 
-    x = (x & 0xF000000000000000u) >> 60 | (x & 0x0FFFFFFFFFFFFFFFu) << 4;
+    // x = (x & 0xF000000000000000u) >> 60 | (x & 0x0FFFFFFFFFFFFFFFu) << 4;
     return x;
 }
 
@@ -136,18 +136,26 @@ protected:
 
 };
 
-template <class EdgeReader>
+template <typename EdgeReader>
 class HavelHakimi_ConfigurationModel {
 public:
     HavelHakimi_ConfigurationModel() = delete;
     HavelHakimi_ConfigurationModel(const HavelHakimi_ConfigurationModel&) = delete;
-    HavelHakimi_ConfigurationModel(EdgeReader & edge_reader_in,
+    HavelHakimi_ConfigurationModel(
+            EdgeReader & edge_reader_in,
             const uint32_t seed,
-            const uint64_t node_upperbound) 
+            const uint64_t node_upperbound,
+            const degree_t threshold,
+            const degree_t max_degree,
+            const node_t   nodes_above_threshold) 
         : _edges(edge_reader_in)
         , _seed(seed)
         , _node_upperbound(node_upperbound)
         , _shift_upperbound(std::min(node_upperbound, _maxShiftBound(node_upperbound)))
+        , _threshold(threshold)
+        , _max_degree(max_degree)
+        , _nodes_above_threshold(nodes_above_threshold)
+        , _high_degree_shift(_highDegreeShiftBound(node_upperbound, nodes_above_threshold))
         , _multinodemsg_comp(seed)
         , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
         , _edge_sorter(Edge64Comparator(), SORTER_MEM)
@@ -203,6 +211,10 @@ protected:
     const uint32_t _seed;
     const uint64_t _node_upperbound;
     const uint64_t _shift_upperbound;
+    const degree_t _threshold;
+    const degree_t _max_degree;
+    const node_t   _nodes_above_threshold;
+    const multinode_t _high_degree_shift;
 
     typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
     MultiNodeMsgComparator _multinodemsg_comp;
@@ -216,17 +228,48 @@ protected:
 
         //stxxl::random_number<> rand;
         std::random_device rd;
-        std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<multinode_t> dis;
+        // random noise
+        std::mt19937_64 gen64(rd());
+        std::uniform_int_distribution<multinode_t> dis64;
 
+        // shift multiplier for high degree nodes
+        std::uniform_int_distribution<multinode_t> disShift(1, _high_degree_shift);
+
+        // do first problematic nodes
+        for (node_t count_threshold; count_threshold < _nodes_above_threshold; ++_edges, ++count_threshold) {
+
+            const multinode_t random_noise = dis64(gen64);
+
+            // first component of edge is SAFELY less than nodes_above_threshhold
+            const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+
+            _multinodemsg_sorter.push(
+                MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node});
+
+            if ((*_edges).second < _nodes_above_threshold) {
+
+                const multinode_t snd_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).second);
+
+                _multinodemsg_sorter.push(
+                    MultiNodeMsg{ (random_noise << 36) | snd_node});
+
+            } else {
+
+                _multinodemsg_sorter.push(
+                    MultiNodeMsg{ random_noise << 36 | static_cast<multinode_t>((*_edges).second)});
+
+            }
+        }
+
+        // not so problematic
         for (; !_edges.empty(); ++_edges) {
 
-            const multinode_t random_noise = dis(gen);
+            const multinode_t random_noise = dis64(gen64);
 
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ random_noise & 0xFFFFFFF000000000 | static_cast<multinode_t>((*_edges).first)});
+                MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | static_cast<multinode_t>((*_edges).first)});
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ random_noise << 36 | static_cast<multinode_t>((*_edges).second)});
+                MultiNodeMsg{ (random_noise << 36) | static_cast<multinode_t>((*_edges).second)});
 
         }
 
@@ -259,6 +302,10 @@ protected:
 
     uint64_t _maxShiftBound(uint64_t n) const {
         return 27 - static_cast<uint64_t>(log2(n));
+    }
+
+    multinode_t _highDegreeShiftBound(uint64_t node_upperbound, node_t nodes_above_threshold) const {
+        return (pow(2, 36) - node_upperbound) / nodes_above_threshold - 1;
     }
 };
 

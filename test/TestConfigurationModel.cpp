@@ -16,6 +16,24 @@
 class TestConfigurationModel : public ::testing::Test {
 };
 
+TEST_F(TestConfigurationModel, hhEdge) {
+	const degree_t min_deg = 5;
+	const degree_t max_deg = 20;
+	const node_t num_nodes = 1000;
+    const degree_t threshold = max_deg / 5;
+    
+	HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
+	MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
+
+	StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
+	hh_gen.generate();
+
+	for (; !hh_gen.empty(); ++hh_gen) {
+		std::cout << "First Node:" << (*hh_gen).first << " with ID " << hh_gen.edge_ids().first << std::endl;
+		std::cout << "Secnd Node:" << (*hh_gen).second << " with ID " << hh_gen.edge_ids().second << std::endl;
+	}
+}
+
 TEST_F(TestConfigurationModel, ints) {
     int64_t two32 = pow(2, 32) + 1;
 
@@ -68,6 +86,7 @@ TEST_F(TestConfigurationModel, crccomps) {
 	ASSERT_FALSE(tnrc(tmin, tmin));
 }
 
+/*
 TEST_F(TestConfigurationModel, tHavelHakimi) {
 	int x = 13;
 
@@ -85,7 +104,7 @@ TEST_F(TestConfigurationModel, tHavelHakimi) {
     cmhh.run();   
 
     std::cout << (*cmhh).first << std::endl;
-}
+}*/
 
 TEST_F(TestConfigurationModel, reverse) {
 	int x = 5;
@@ -99,6 +118,7 @@ TEST_F(TestConfigurationModel, reverse) {
     ASSERT_EQ(reverse(3u), pow(2, 63) + pow(2, 62));
 }
 
+/*
 TEST_F(TestConfigurationModel, tOutput) {
 	int x = 4;
 
@@ -249,5 +269,4 @@ TEST_F(TestConfigurationModel, tOutputRandom) {
 		multiEdges_multiCount = 0;
 		multiEdges_singleCount = 0;
 	}
-}
-
+}*/
