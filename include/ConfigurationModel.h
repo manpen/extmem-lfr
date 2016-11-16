@@ -285,16 +285,20 @@ protected:
         assert(!_multinodemsg_sorter.empty());
 
         for(; !_multinodemsg_sorter.empty(); ++_multinodemsg_sorter) {
-            auto & fst_node = *_multinodemsg_sorter;
+            auto const & fst_node = *_multinodemsg_sorter;
+
+            const multinode_t fst_entry = ( fst_node.node() <= (multinode_t) _node_upperbound ? fst_node.node() : (fst_node.node() - _node_upperbound) % _nodes_above_threshold);
 
             ++_multinodemsg_sorter;
 
-            auto & snd_node = *_multinodemsg_sorter;
+            auto const & snd_node = *_multinodemsg_sorter;
+
+            const multinode_t snd_entry = ( snd_node.node() <= (multinode_t) _node_upperbound ? snd_node.node() : (snd_node.node() - _node_upperbound) % _nodes_above_threshold);
 
             if (fst_node.node() < snd_node.node())
-                _edge_sorter.push(edge64_t{fst_node.node(), snd_node.node()});
+                _edge_sorter.push(edge64_t{fst_entry, snd_entry});
             else
-                _edge_sorter.push(edge64_t{snd_node.node(), fst_node.node()});
+                _edge_sorter.push(edge64_t{snd_entry, fst_entry});
         }
 
         _edge_sorter.sort();
