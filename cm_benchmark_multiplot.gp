@@ -1,4 +1,4 @@
-set title sprintf("Benchmark ConfigurationModel, min-deg = %d, max-deg-ratio = %d", MIN_DEG, MAX_DEG_RATIO)
+set title sprintf("Benchmark(CM), min-deg = %d, max-deg-ratio = %d, threshold-div = %d", MIN_DEG, MAX_DEG_RATIO, THRESHOLD_DIV)
 
 # Output
 set output 'cm_benchmark_mout.pdf'

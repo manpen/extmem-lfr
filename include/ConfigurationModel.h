@@ -42,7 +42,7 @@ static inline uint64_t reverse (const uint64_t & a) {
 static inline uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
     const uint32_t hash_msb_p = _mm_crc32_u32(seed, msb);
     const uint32_t hash_lsb_p = _mm_crc32_u32(hash_msb_p, lsb);
-    const uint64_t hash = reverse(static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p);
+    const uint64_t hash = static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p;
    
     return hash;
 }
@@ -128,8 +128,8 @@ protected:
     const std::pair<multinode_t, multinode_t> _limits;
 
     std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
-        multinode_t max_inv_msb = static_cast<multinode_t>(MAX_CRCFORWARD ^ seed_) << 32;
-        multinode_t min_inv_msb = static_cast<multinode_t>(seed_) << 32;
+        const multinode_t max_inv_msb = static_cast<multinode_t>(MAX_CRCFORWARD ^ seed_) << 32;
+        const multinode_t min_inv_msb = static_cast<multinode_t>(seed_) << 32;
 
         return std::pair<multinode_t, multinode_t>{max_inv_msb | MAX_LSB, min_inv_msb | MIN_LSB};
     }
@@ -155,7 +155,7 @@ public:
         , _threshold(threshold)
         , _max_degree(max_degree)
         , _nodes_above_threshold(nodes_above_threshold)
-        , _high_degree_shift(_highDegreeShiftBound(node_upperbound, nodes_above_threshold))
+        , _high_degree_shift_bounds(_highDegreeShiftBounds(node_upperbound, nodes_above_threshold))
         , _multinodemsg_comp(seed)
         , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
         , _edge_sorter(Edge64Comparator(), SORTER_MEM)
@@ -214,7 +214,7 @@ protected:
     const degree_t _threshold;
     const degree_t _max_degree;
     const node_t   _nodes_above_threshold;
-    const multinode_t _high_degree_shift;
+    const std::pair<multinode_t, multinode_t> _high_degree_shift_bounds;
 
     typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
     MultiNodeMsgComparator _multinodemsg_comp;
@@ -233,17 +233,18 @@ protected:
         std::uniform_int_distribution<multinode_t> dis64;
 
         // shift multiplier for high degree nodes
-        std::uniform_int_distribution<multinode_t> disShift(1, _high_degree_shift);
+        std::uniform_int_distribution<multinode_t> disShift(_high_degree_shift_bounds.first, _high_degree_shift_bounds.second);
 
         // do first problematic nodes
         for (node_t count_threshold = 0; (count_threshold < _nodes_above_threshold) && (!_edges.empty()); ++_edges) {
-
             const multinode_t random_noise = dis64(gen64);
 
             // first component of edge is SAFELY less than nodes_above_threshhold
             const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
 
-            count_threshold = static_cast<multinode_t>((*_edges).first);
+            count_threshold = static_cast<node_t>((*_edges).first);
+
+	    //std::cout << "randomized multiplier: " << disShift(gen64) << std::endl;
 
             _multinodemsg_sorter.push(
                 MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node});
@@ -297,7 +298,7 @@ protected:
 
             const multinode_t snd_entry = ( snd_node.node() <= (multinode_t) _node_upperbound ? snd_node.node() : (snd_node.node() - _node_upperbound) % _nodes_above_threshold);
 
-            if (fst_node.node() < snd_node.node())
+            if (fst_entry < snd_entry)
                 _edge_sorter.push(edge64_t{fst_entry, snd_entry});
             else
                 _edge_sorter.push(edge64_t{snd_entry, fst_entry});
@@ -310,9 +311,11 @@ protected:
         return 27 - static_cast<uint64_t>(log2(n));
     }
 
-    multinode_t _highDegreeShiftBound(uint64_t node_upperbound, node_t nodes_above_threshold) const {
-        return (pow(2, 36) - node_upperbound) / nodes_above_threshold - 1;
+    std::pair<multinode_t, multinode_t> _highDegreeShiftBounds(uint64_t node_upperbound, node_t nodes_above_threshold) const {
+        return std::pair<multinode_t, multinode_t>{(pow(2, 32) - node_upperbound) / nodes_above_threshold,
+	                                           (pow(2, 36) - node_upperbound) / nodes_above_threshold - 1};
     }
+
 };
 
 // Pseudo-random approach

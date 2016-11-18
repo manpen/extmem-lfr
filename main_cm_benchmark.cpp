@@ -16,6 +16,7 @@ int main(int argc, char* argv[]) {
 	const int runs = std::stoi(argv[1]);
     const degree_t min_deg = std::stoi(argv[2]);
     const double ratio = std::stoi(argv[3]);
+    const int threshold_divisor = std::stoi(argv[4]);
 
 	// ConfigurationModel HavelHakimi
 
@@ -29,7 +30,7 @@ int main(int argc, char* argv[]) {
         if (max_deg < min_deg)
             continue;
 
-        const degree_t threshold = max_deg / 5;
+        const degree_t threshold = max_deg / threshold_divisor;
 
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
 		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
@@ -128,7 +129,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "Benchmark for ConfigurationModel(Random)..." << std::endl;
 
 	// ConfigurationModel Random
-
+/*
 	for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
 
         const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
@@ -221,7 +222,7 @@ int main(int argc, char* argv[]) {
 		cmr_file.close();
 
 		}	
-
+*/
 // ConfigurationModel RandomRandom
 
     for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
