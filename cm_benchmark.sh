@@ -6,6 +6,10 @@ tabs 4
 for i in "$@"
 do
 case $i in
+	-s*|--start=*)
+	START="${i#*=}"
+	shift
+	;;
 	-r*|--runs=*)
 	RUNS="${i#*=}"
 	shift
@@ -29,13 +33,14 @@ esac
 done
 
 # print RUNS
+echo "[BENCHMARK] START = ${START}"
 echo "[BENCHMARK] RUNS (10^RUNS NODES) = ${RUNS}"
 echo "[BENCHMARK] MINDEG = ${MINDEG}"
 echo "[BENCHMARK] MAXDEG-DIV-RATIO = ${MAXDEG}"
 echo "[BENCHMARK] THRESHOLD-DIV = ${THRESHOLDDIV}"
 
 # run benchmark
-./build/cm_benchmark ${RUNS} ${MINDEG} ${MAXDEG} ${THRESHOLDDIV}
+./build/cm_benchmark ${START} ${RUNS} ${MINDEG} ${MAXDEG} ${THRESHOLDDIV}
 
 # create parentfolder
 mkdir -p measurements

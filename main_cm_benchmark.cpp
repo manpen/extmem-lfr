@@ -13,16 +13,17 @@ int main(int argc, char* argv[]) {
 	if (argc <= 0)
         return 0;
 
-	const int runs = std::stoi(argv[1]);
-    const degree_t min_deg = std::stoi(argv[2]);
-    const double ratio = std::stoi(argv[3]);
-    const int threshold_divisor = std::stoi(argv[4]);
+    const int start = std::stoi(argv[1]);
+	const int runs = std::stoi(argv[2]);
+    const degree_t min_deg = std::stoi(argv[3]);
+    const double ratio = std::stoi(argv[4]);
+    const int threshold_divisor = std::stoi(argv[5]);
 
 	// ConfigurationModel HavelHakimi
 
 	std::cout << "Benchmark for ConfigurationModel(HavelHakimi)..." << std::endl;
 
-	for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes *= 10) {
+	for (multinode_t num_nodes = pow(10, start); num_nodes <= pow(10, runs + 1); num_nodes *= 10) {
 
 		const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
         if (max_deg > num_nodes)
@@ -225,7 +226,7 @@ int main(int argc, char* argv[]) {
 */
 // ConfigurationModel RandomRandom
 
-    for (multinode_t num_nodes = 100; num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
+    for (multinode_t num_nodes = pow(10, start); num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
 
         const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
         if (max_deg > num_nodes)
