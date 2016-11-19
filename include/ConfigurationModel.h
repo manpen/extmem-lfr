@@ -265,7 +265,7 @@ protected:
 
             // new code
 
-            while(static_cast<multinode_t>((*_edges).second) < count_threshold) {
+            while(static_cast<multinode_t>((*_edges).second) < _nodes_above_threshold) {
                 const multinode_t random_noise = dis64(gen64);
 
                 const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
@@ -277,6 +277,8 @@ protected:
             
                 _multinodemsg_sorter.push(
                     MultiNodeMsg{ (random_noise << 36) | snd_node });
+
+                ++_edges;
             }
 
             while (static_cast<multinode_t>((*_edges).first) == count_threshold) {
