@@ -264,34 +264,36 @@ protected:
             }*/
 
             // new code
+            // prevent sorter out of bounds
+            if (_threshold > 0) {
+                while(static_cast<multinode_t>((*_edges).second) < _nodes_above_threshold) {
+                    const multinode_t random_noise = dis64(gen64);
 
-            while(static_cast<multinode_t>((*_edges).second) < _nodes_above_threshold) {
-                const multinode_t random_noise = dis64(gen64);
+                    const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
 
-                const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+                    const multinode_t snd_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).second);
 
-                const multinode_t snd_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).second);
-
-                _multinodemsg_sorter.push(
-                    MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node });
-            
-                _multinodemsg_sorter.push(
-                    MultiNodeMsg{ (random_noise << 36) | snd_node });
-
-                ++_edges;
-            }
-
-            while (static_cast<multinode_t>((*_edges).first) == count_threshold) {
-                const multinode_t random_noise = dis64(gen64);
+                    _multinodemsg_sorter.push(
+                        MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node });
                 
-                const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+                    _multinodemsg_sorter.push(
+                        MultiNodeMsg{ (random_noise << 36) | snd_node });
 
-                _multinodemsg_sorter.push(
-                    MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node });
-                _multinodemsg_sorter.push(
-                    MultiNodeMsg{ (random_noise << 36) | static_cast<multinode_t>((*_edges).second) });
+                    ++_edges;
+                }
 
-                ++_edges;
+                while (static_cast<multinode_t>((*_edges).first) == count_threshold) {
+                    const multinode_t random_noise = dis64(gen64);
+                    
+                    const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+
+                    _multinodemsg_sorter.push(
+                        MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node });
+                    _multinodemsg_sorter.push(
+                        MultiNodeMsg{ (random_noise << 36) | static_cast<multinode_t>((*_edges).second) });
+
+                    ++_edges;
+                }
             }
         }
 
