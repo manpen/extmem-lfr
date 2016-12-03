@@ -110,4 +110,8 @@ public:
    debug_vector & debugVector() {
       return _result;
    }
+
+   EdgeVector new_edges(){
+      return _edges;
+   }
 };
