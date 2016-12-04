@@ -822,8 +822,8 @@ namespace EdgeSwapTFP {
             assert(!last_edge.is_loop());
             for(;!_edges.empty();++_edges) {
                 auto & edge = *_edges;
-                assert(!edge.is_loop());
-                assert(last_edge < edge);
+                // assert(!edge.is_loop());
+                // assert(last_edge < edge);
                 last_edge = edge;
             }
             _edges.rewind();
