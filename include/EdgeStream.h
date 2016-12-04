@@ -3,7 +3,7 @@
 #include <defs.h>
 #include <stxxl/sequence>
 #include <memory>
-
+/*
 class Edge64Stream {
 public:
     using value_type = edge64_t;
@@ -140,7 +140,7 @@ public:
 
         return *this;
     }
-};
+};*/
 
 class EdgeStream {
 public:
@@ -169,7 +169,7 @@ protected:
     bool _empty;
 
 public:
-    EdgeStream(bool multi_edges = false, bool loops = false)
+    EdgeStream(bool multi_edges = true, bool loops = true)
         : _allow_multi_edges(multi_edges)
         , _allow_loops(loops)
         , _current(edge_t::invalid())

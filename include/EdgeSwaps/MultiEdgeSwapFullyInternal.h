@@ -17,7 +17,7 @@
  * @brief Straight-forward (and slow) implementation of Edge Swaps used for cross-validation
  */
 template <class EdgeVector = stxxl::vector<edge_t>, class SwapVector = stxxl::vector<SwapDescriptor>>
-class EdgeSwapFullyInternal : public EdgeSwapBase {
+class MultiEdgeSwapFullyInternal : public EdgeSwapBase {
 public:
    using debug_vector = stxxl::vector<SwapResult>;
    using edge_vector = EdgeVector;
@@ -48,12 +48,12 @@ protected:
          // read an swap edges
          const edge_t e0 = _edges[swap.edges()[0]];
          const edge_t e1 = _edges[swap.edges()[1]];
-         std::cout << "e0 = " << _edges[swap.edges()[0]] << std::endl;
-         std::cout << "e1 = " << _edges[swap.edges()[1]] << std::endl;
+         //std::cout << "e0 = " << _edges[swap.edges()[0]] << std::endl;
+         //std::cout << "e1 = " << _edges[swap.edges()[1]] << std::endl;
          edge_t se0, se1;
          std::tie(se0, se1) = _swap_edges(e0, e1, swap.direction());
-         std::cout << "se0 = " << se0 << std::endl;
-         std::cout << "se1 = " << se1 << std::endl;
+         //std::cout << "se0 = " << se0 << std::endl;
+         //std::cout << "se1 = " << se1 << std::endl;
          const auto s0_it = edge_idx_map.find(se0);
          const auto s1_it = edge_idx_map.find(se1);
 
@@ -64,6 +64,10 @@ protected:
          res.edges[1] = se1;
          res.conflictDetected[0] = (s0_it != edge_idx_map.end());
          res.conflictDetected[1] = (s1_it != edge_idx_map.end());
+
+         //std::cout << "conflict[0] = " << res.conflictDetected[0] << std::endl;
+         //std::cout << "conflict[1] = " << res.conflictDetected[1] << std::endl;
+
          res.performed = !res.loop && !res.conflictDetected[0] && !res.conflictDetected[1];
          res.normalize();
          debug_vector_writer << res;
@@ -92,13 +96,13 @@ protected:
 
 
 public:
-   EdgeSwapFullyInternal() = delete;
-   EdgeSwapFullyInternal(const EdgeSwapFullyInternal &) = delete;
+   MultiEdgeSwapFullyInternal() = delete;
+   MultiEdgeSwapFullyInternal(const MultiEdgeSwapFullyInternal &) = delete;
 
    //! Swaps are performed during constructor.
    //! @param edges  Edge vector changed in-place
    //! @param swaps  Read-only swap vector
-   EdgeSwapFullyInternal(edge_vector & edges, swap_vector & swaps) :
+   MultiEdgeSwapFullyInternal(edge_vector & edges, swap_vector & swaps) :
       EdgeSwapBase(),
       _edges(edges),
       _swaps(swaps)
@@ -122,10 +126,10 @@ public:
 
 using EdgeVector = stxxl::vector<edge_t>;
 using SwapVector = stxxl::vector<SwapDescriptor>;
-using EdgeSwapFullyInternalType = EdgeSwapFullyInternal<EdgeVector, SwapVector>;
+using MultiEdgeSwapFullyInternalType = MultiEdgeSwapFullyInternal<EdgeVector, SwapVector>;
 
 template <>
-struct EdgeSwapTrait<EdgeSwapFullyInternalType> {
+struct EdgeSwapTrait<MultiEdgeSwapFullyInternalType> {
     static bool swapVector() {return true;}
     static bool pushableSwaps() {return false;}
     static bool pushableSwapBuffers() {return false;}

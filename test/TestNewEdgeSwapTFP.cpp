@@ -3,7 +3,6 @@
 #include <stxxl/vector>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
-#include <EdgeSwaps/EdgeSwapFullyInternal.h>
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 
@@ -37,16 +36,16 @@ namespace {
 	};
 
 	using TestNewEdgeSwapTFPImplementations = ::testing::Types <
+	  // EdgeSwapFullyInternal<EdgeVector, SwapVector>,
       EdgeSwapInternalSwaps,
       EdgeSwapTFP::EdgeSwapTFP,
       EdgeSwapParallelTFP::EdgeSwapParallelTFP,
-//	  EdgeSwapFullyInternal<EdgeVector, SwapVector>,
       IMEdgeSwap
    	>;
 
     TYPED_TEST_CASE(TestNewEdgeSwapTFP, TestNewEdgeSwapTFPImplementations);
 
-   	TYPED_TEST(TestNewEdgeSwapTFP, conflicts) {
+   	TYPED_TEST(TestNewEdgeSwapTFP, noConflicts) {
    		bool debug_this_test = true;
    		using EdgeSwapAlgo = TypeParam;
 
@@ -69,6 +68,23 @@ namespace {
 	    EdgeSwapAlgo algo(edge_stream, swap_list);
 	    algo.setDisplayDebug(debug_this_test);
 
+		if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
+	        for (auto &s : swap_list)
+	            algo.push(s);
+      	}
+
+	    algo.run();
+	    this->_stream_to_list(edge_stream, edge_list);
+
+
+	    this->_print_list(edge_list, debug_this_test);
+
+	    ASSERT_EQ(edge_list[0], edge_t(1, 4));
+	    ASSERT_EQ(edge_list[1], edge_t(2, 3));
+	    ASSERT_EQ(edge_list[2], edge_t(2, 4));
+	    ASSERT_EQ(edge_list[3], edge_t(3, 3));
+	    ASSERT_EQ(edge_list[4], edge_t(3, 6));
+	    ASSERT_EQ(edge_list[5], edge_t(5, 6));
 
    	}
 }
