@@ -12,6 +12,7 @@
 #include <Utils/AsyncStream.h>
 #include <Utils/AsyncPusher.h>
 
+#define MODIF
 #define ASYNC_STREAMS
 #define REPORT_SORTER_STATS(X) \
 {if (compute_stats) { \
@@ -388,6 +389,20 @@ namespace EdgeSwapTFP {
             auto &request = *existence_request_sorter;
             edge_t current_edge = request.edge;
 
+            
+          #ifdef MODIF
+            // count edge occurences
+            bool exists = false;
+            degree_t exist_quant = 0;
+            for (; !_edges.empty(); ++_edges) {
+                const auto &edge = *_edges;
+                if (edge > current_edge) break;
+                if (edge == current_edge){
+                    exists = true;
+                    ++exist_quant;
+                }
+            }
+          #else
             // find edge in graph
             bool exists = false;
             for (; !_edges.empty(); ++_edges) {
@@ -395,6 +410,7 @@ namespace EdgeSwapTFP {
                 if (edge > current_edge) break;
                 exists = (edge == current_edge);
             }
+          #endif
 
             // build dependency chain (i.e. inform earlier swaps about later ones) and find the earliest swap
             swapid_t last_swap = request.swap_id();
@@ -433,11 +449,20 @@ namespace EdgeSwapTFP {
             if (foundTargetEdge) {
             #ifdef NDEBUG
                 if (exists) {
+                  #ifdef MODIF
                     _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge});
+                  #else
+                    _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant});
+                  #endif
                 }
             #else
+              #ifdef MODIF
+                _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists, exist_quant});
+                DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists << " with quantity " << exist_quant);
+              #else
                 _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists});
                 DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists);
+              #endif
             #endif
             }
         }

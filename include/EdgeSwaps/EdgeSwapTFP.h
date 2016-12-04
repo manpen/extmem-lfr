@@ -17,6 +17,8 @@
 
 #include <EdgeStream.h>
 
+#define MODIF
+
 namespace EdgeSwapTFP {
     struct EdgeSwapMsg {
         edgeid_t edge_id;
@@ -57,6 +59,7 @@ namespace EdgeSwapTFP {
         edge_t edge;
         swapid_t flagged_swap_id;
 
+
         swapid_t swap_id() const {return flagged_swap_id >> 1;}
         bool forward_only() const {return !(flagged_swap_id & 1);}
 
@@ -75,14 +78,20 @@ namespace EdgeSwapTFP {
     struct ExistenceInfoMsg {
         swapid_t swap_id;
         edge_t edge;
+      #ifdef MODIF
+        degree_t quant;
+      #endif
       #ifndef NDEBUG
         bool exists;
       #endif
 
         ExistenceInfoMsg() { }
 
-        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_, const bool &exists_ = true) :
+        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_, const bool &exists_ = true, const degree_t &quant_ = 1) :
             swap_id(swap_id_), edge(edge_)
+            #ifdef MODIF
+            , quant(quant_)
+            #endif
             #ifndef NDEBUG
             , exists(exists_)
             #endif

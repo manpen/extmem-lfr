@@ -10,9 +10,6 @@
 #include <Utils/StreamPusher.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 
-#define NDEBUG
-#define CHANGECRC
-
 class TestConfigurationModel : public ::testing::Test {
 };
 
@@ -34,18 +31,7 @@ TEST_F(TestConfigurationModel, hhEdge) {
 	}
 }
 
-TEST_F(TestConfigurationModel, ints) {
-    int64_t two32 = pow(2, 32) + 1;
-
-    // test bit shift
-    ASSERT_EQ(two32 >> 32, 1);
-    // test mask
-    ASSERT_EQ(two32 & NODEMASK, two32);
-}
-
 TEST_F(TestConfigurationModel, crccomps) {
-	int x = 3;
-
 	/*
 	 * CRC
 	 */
@@ -107,8 +93,7 @@ TEST_F(TestConfigurationModel, tHavelHakimi) {
 }*/
 
 TEST_F(TestConfigurationModel, reverse) {
-	int x = 5;
-
+	
 	std::cout << "Value of 1u: " << 1u << std::endl;
 	std::cout << "Value of reverse(1u): " << reverse(1u) << std::endl;
 

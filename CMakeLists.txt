@@ -90,7 +90,7 @@ add_library(libextmemgraphgen STATIC
     #include/LFR/CommunityEdgeRewiringSwaps.cpp
     #include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
-    include/CluewebReader.cpp
+    #include/CluewebReader.cpp
     include/ConfigurationModel/ConfigurationModel.cpp
     ${LFR_SRCS}
 )
