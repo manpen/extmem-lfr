@@ -60,7 +60,7 @@ constexpr uint32_t MAX_LSB = 0x9BE09BABu;
 constexpr uint32_t MIN_LSB = 0x00000000u;
 constexpr uint32_t MAX_CRCFORWARD = 0x641F6454u;
 
-using Edge64Comparator = typename GenericComparator<edge64_t>::Ascending;
+using Edge64Comparator = typename GenericComparator<edge_t>::Ascending;
 
 /**
  * @typedef multinode_t
@@ -161,7 +161,7 @@ public:
         , _edge_sorter(Edge64Comparator(), SORTER_MEM)
         { }
 
-    using value_type = edge64_t;
+    using value_type = edge_t;
 
     void run() {
         assert(!_edges.empty());
@@ -332,9 +332,9 @@ protected:
             const multinode_t snd_entry = ( snd_node.node() <= (multinode_t) _node_upperbound ? snd_node.node() : (snd_node.node() - _node_upperbound) % _nodes_above_threshold);
 
             if (fst_entry < snd_entry)
-                _edge_sorter.push(edge64_t{fst_entry, snd_entry});
+                _edge_sorter.push(edge_t{fst_entry, snd_entry});
             else
-                _edge_sorter.push(edge64_t{snd_entry, fst_entry});
+                _edge_sorter.push(edge_t{snd_entry, fst_entry});
         }
 
         _edge_sorter.sort();
@@ -414,7 +414,7 @@ public:
                                 , _test_edge_sorter(Edge64Comparator(), SORTER_MEM)
     { }
 
-    using value_type = edge64_t;
+    using value_type = edge_t;
 
     // implements execution of algorithm
     void run() {
@@ -435,7 +435,7 @@ public:
         return _test_edge_sorter.empty();
     }
 
-    const edge64_t& operator*() const {
+    const value_type& operator*() const {
         assert(!_test_edge_sorter.empty());
 
         return *_test_edge_sorter;
@@ -501,9 +501,9 @@ protected:
             auto & snd_node = *_testnode_sorter;
 
             if (fst_node.node < snd_node.node)
-                _test_edge_sorter.push(edge64_t{fst_node.node, snd_node.node});
+                _test_edge_sorter.push(edge_t{fst_node.node, snd_node.node});
             else
-                _test_edge_sorter.push(edge64_t{snd_node.node, fst_node.node});
+                _test_edge_sorter.push(edge_t{snd_node.node, fst_node.node});
         }
 
         _test_edge_sorter.sort();

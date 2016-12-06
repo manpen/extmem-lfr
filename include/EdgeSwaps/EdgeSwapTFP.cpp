@@ -874,7 +874,7 @@ namespace EdgeSwapTFP {
         {
             edge_t last_edge = *_edges;
             ++_edges;
-            assert(!last_edge.is_loop());
+            // assert(!last_edge.is_loop());
             for(;!_edges.empty();++_edges) {
                 auto & edge = *_edges;
                 // assert(!edge.is_loop());
