@@ -246,7 +246,7 @@ public:
 #ifndef NDEBUG
             if (*_updated_edges == *_edges) {
                 std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edges << " / " << *_updated_edges << std::endl;
-                assert(*_updated_edges != *_edges);
+                // assert(*_updated_edges != *_edges);
             }
 #endif
 
