@@ -28,16 +28,30 @@ protected:
    SwapVector & _swaps;
 
    debug_vector _result;
-
+ 
    void _perform_swaps() {
-      // copy edge list into btree
-      stx::btree_map<edge_t, int_t> edge_idx_map;
+      // copy edge list into map
+      std::map<edge_t, int_t> m_edge_idx_map;
       {
          typename EdgeVector::bufreader_type edge_reader(_edges);
-         for(int_t eid=0; !edge_reader.empty(); ++edge_reader, ++eid) {
-            edge_idx_map.insert(*edge_reader, eid);
+         for (int_t eid=0; !edge_reader.empty(); ++edge_reader, ++eid) {
+            std::map<edge_t, int_t>::iterator iter;
+            iter = m_edge_idx_map.find(*edge_reader);
+            if (iter != m_edge_idx_map.end())
+               iter -> second++;
+            else 
+               m_edge_idx_map.insert({*edge_reader, 1});
          }
       }
+
+      // * // copy edge list into btree
+      // * stx::btree_map<edge_t, int_t> edge_idx_map;
+      // * {
+      // *    typename EdgeVector::bufreader_type edge_reader(_edges);
+      // *    for(int_t eid=0; !edge_reader.empty(); ++edge_reader, ++eid) {
+      // *       edge_idx_map.insert(*edge_reader, eid);
+      // *    }
+      // * }
 
       // perform swaps
       typename SwapVector::bufreader_type swap_reader(_swaps);
@@ -48,25 +62,24 @@ protected:
          // read an swap edges
          const edge_t e0 = _edges[swap.edges()[0]];
          const edge_t e1 = _edges[swap.edges()[1]];
-         //std::cout << "e0 = " << _edges[swap.edges()[0]] << std::endl;
-         //std::cout << "e1 = " << _edges[swap.edges()[1]] << std::endl;
+
          edge_t se0, se1;
          std::tie(se0, se1) = _swap_edges(e0, e1, swap.direction());
-         //std::cout << "se0 = " << se0 << std::endl;
-         //std::cout << "se1 = " << se1 << std::endl;
-         const auto s0_it = edge_idx_map.find(se0);
-         const auto s1_it = edge_idx_map.find(se1);
+
+         const auto q0_it = m_edge_idx_map.find(se0);
+         const auto q1_it = m_edge_idx_map.find(se1);
+         // * const auto s0_it = edge_idx_map.find(se0);
+         // * const auto s1_it = edge_idx_map.find(se1);
 
          // check if there's are problem with this swap
          SwapResult res;
          res.loop = (se0.first == se0.second) || (se1.first == se1.second);
          res.edges[0] = se0;
          res.edges[1] = se1;
-         res.conflictDetected[0] = (s0_it != edge_idx_map.end());
-         res.conflictDetected[1] = (s1_it != edge_idx_map.end());
-
-         //std::cout << "conflict[0] = " << res.conflictDetected[0] << std::endl;
-         //std::cout << "conflict[1] = " << res.conflictDetected[1] << std::endl;
+         res.conflictDetected[0] = (q0_it != m_edge_idx_map.end());
+         res.conflictDetected[1] = (q1_it != m_edge_idx_map.end());
+         // * res.conflictDetected[0] = (s0_it != edge_idx_map.end());
+         // * res.conflictDetected[1] = (s1_it != edge_idx_map.end());
 
          res.performed = !res.loop && !res.conflictDetected[0] && !res.conflictDetected[1];
          res.normalize();
@@ -76,14 +89,39 @@ protected:
          if (res.performed) {
             _edges[swap.edges()[0]] = se0;
             _edges[swap.edges()[1]] = se1;
-            auto ec0 = edge_idx_map.erase_one(e0);
-            auto ec1 = edge_idx_map.erase_one(e1);
-            (void)ec0;
-            (void)ec1;
-            assert(ec0);
-            assert(ec1);
-            edge_idx_map.insert(se0, swap.edges()[0]);
-            edge_idx_map.insert(se1, swap.edges()[1]);
+
+            // check if e0 or e1 have been multi-edges, if yes reduce their count by 1
+            auto ec0 = m_edge_idx_map.find(e0);
+            if (ec0->second > 1) 
+               ec0->second--;
+            else
+               m_edge_idx_map.erase(e0);
+            auto ec1 = m_edge_idx_map.find(e1);
+            if (ec1->second > 1)
+               ec1->second--;
+            else
+               m_edge_idx_map.erase(e1);
+
+            // * auto ec0 = edge_idx_map.erase_one(e0);
+            // * auto ec1 = edge_idx_map.erase_one(e1);
+            // * (void)ec0;
+            // * (void)ec1;
+            // * assert(ec0);
+            // * assert(ec1);
+
+            // increase the count of the newly generated edges, they for sure are not in m_edge_idx_map
+            // still check for assertion
+            
+            auto mse0 = m_edge_idx_map.find(se0);
+            auto mse1 = m_edge_idx_map.find(se1);
+            assert(mse0 == m_edge_idx_map.end());
+            assert(mse1 == m_edge_idx_map.end());
+
+            m_edge_idx_map.insert({se0, 1});
+            m_edge_idx_map.insert({se1, 1});
+
+            // * edge_idx_map.insert(se0, swap.edges()[0]);
+            // * edge_idx_map.insert(se1, swap.edges()[1]);
          }
       }
 
