@@ -101,6 +101,9 @@ namespace EdgeSwapTFP {
             #ifndef NDEBUG
             , exists
             #endif
+            #ifdef MODIF
+            , quant
+            #endif
         );
     };
 

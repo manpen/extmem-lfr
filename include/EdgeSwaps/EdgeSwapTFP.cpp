@@ -390,27 +390,31 @@ namespace EdgeSwapTFP {
             edge_t current_edge = request.edge;
 
             
-          #ifdef MODIF
-            // count edge occurences
-            bool exists = false;
-            degree_t exist_quant = 0;
-            for (; !_edges.empty(); ++_edges) {
-                const auto &edge = *_edges;
-                if (edge > current_edge) break;
-                if (edge == current_edge){
-                    exists = true;
-                    ++exist_quant;
+            /*
+             * Hung: We only checked for existence, in _perform_swaps not sufficient information!
+             * Rather count occurences in same complexity. (SCAN)
+             */
+            #ifdef MODIF
+                // count edge occurences
+                bool exists = false;
+                degree_t exist_quant = 0;
+                for (; !_edges.empty(); ++_edges) {
+                    const auto &edge = *_edges;
+                    if (edge > current_edge) break;
+                    if (edge == current_edge){
+                        exists = true;
+                        ++exist_quant;
+                    }
                 }
-            }
-          #else
-            // find edge in graph
-            bool exists = false;
-            for (; !_edges.empty(); ++_edges) {
-                const auto &edge = *_edges;
-                if (edge > current_edge) break;
-                exists = (edge == current_edge);
-            }
-          #endif
+            #else
+                // find edge in graph
+                bool exists = false;
+                for (; !_edges.empty(); ++_edges) {
+                    const auto &edge = *_edges;
+                    if (edge > current_edge) break;
+                    exists = (edge == current_edge);
+                }
+            #endif
 
             // build dependency chain (i.e. inform earlier swaps about later ones) and find the earliest swap
             swapid_t last_swap = request.swap_id();
@@ -449,20 +453,20 @@ namespace EdgeSwapTFP {
             if (foundTargetEdge) {
             #ifdef NDEBUG
                 if (exists) {
-                  #ifdef MODIF
-                    _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge});
-                  #else
-                    _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant});
-                  #endif
+                    #ifdef MODIF
+                        _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge});
+                    #else
+                        _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant});
+                    #endif
                 }
             #else
-              #ifdef MODIF
-                _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists, exist_quant});
-                DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists << " with quantity " << exist_quant);
-              #else
-                _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists});
-                DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists);
-              #endif
+                #ifdef MODIF
+                    _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists, exist_quant});
+                    DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists << " with quantity " << exist_quant);
+                #else
+                    _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exists});
+                    DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists);
+                #endif
             #endif
             }
         }
@@ -529,6 +533,14 @@ namespace EdgeSwapTFP {
         swapid_t sid = 0;
 
         std::vector<edge_t> existence_infos;
+
+        /*
+         * Hung: We save the quantity in this map
+         */
+        #ifdef MODIF
+            stx::btree_map<edge_t, degree_t> edge_quant_map;
+        #endif
+
         #ifndef NDEBUG
             std::vector<edge_t> missing_infos;
         #endif
@@ -598,9 +610,15 @@ namespace EdgeSwapTFP {
 
                     #ifdef NDEBUG
                         existence_infos.push_back(msg.edge);
+                        #ifdef MODIF
+                            edge_quant_map.insert(msg.edge, msg.quant);
+                        #endif
                     #else
                         if (msg.exists) {
                             existence_infos.push_back(msg.edge);
+                            #ifdef MODIF
+                                edge_quant_map.insert(msg.edge, msg.quant);
+                            #endif
                         } else {
                             missing_infos.push_back(msg.edge);
                         }
@@ -684,8 +702,10 @@ namespace EdgeSwapTFP {
             for(unsigned int i=0; i<2; i++) {
                 // only forward valid edges!
                 if (!successor_found[i] && LIKELY(!edges[i + 2 * perform_swap].is_invalid())) {
-                    _edge_update_sorter.push(edges[i + 2*perform_swap]);
+                    _edge_update_sorter.push(edges[i + 2 * perform_swap]);
                 }
+                // Hung: maybe self-loops invalid?
+                //TODO
             }
 
             // forward existence information
@@ -701,7 +721,14 @@ namespace EdgeSwapTFP {
                     #ifdef NDEBUG
                         _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
                     #else
-                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, true});
+                        /* Hung: We did not forward the swapped edge (e0, e1) if e0 or e1 was multi-edge
+                         * we have to add e0 and e1 with their quantity decremented here, problem here is to 
+                         * get the previous quantity of e0 and e1. We couldn't access quantity directly, since 
+                         * we only wrap the edge in existence_infos PQ-Sorter. Should additionally save the quantity!
+                         * Possible fixes: 1 extend existence_infos
+                         * Possible fixes: 2 separate data structure, eg. stx::btree_map
+                         */
+                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, true, 1}); // 1 for clearness sake
                         DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << true << " to " << succ.successor);
                     #endif
                 } else if (succ.edge == edges[0] || succ.edge == edges[1]) {
@@ -724,6 +751,34 @@ namespace EdgeSwapTFP {
                     DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << exists << " to " << succ.successor);
                     #endif
                 }
+
+                // Put it here to generally apply 
+                #ifdef MODIF
+                    auto e0_quant_it = edge_quant_map.find(edges[0]);
+                    if (e0_quant_it != edge_quant_map.end() && e0_quant_it->second > 1) {
+                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[0]
+                        #ifndef NDEBUG
+                            , true
+                            , e0_quant_it->second - 1
+                        #else 
+                            , true
+                        #endif
+                        });
+                        DEBUG_MSG(_display_debug, "Send multi-edge" << edges[0] << " exists: " << true << " to " << succ.successor);
+                    }
+                    auto e1_quant_it = edge_quant_map.find(edges[1]);
+                    if (e1_quant_it != edge_quant_map.end() && e1_quant_it->second > 1) {
+                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[1]
+                        #ifndef NDEBUG
+                            , true
+                            , e0_quant_it->second - 1
+                        #else 
+                            , true
+                        #endif
+                        });
+                        DEBUG_MSG(_display_debug, "Send multi-edge" << edges[1] << " exists: " << true << " to " << succ.successor);
+                    }
+                #endif
             }
 
             existence_infos.clear();

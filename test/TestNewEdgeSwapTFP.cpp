@@ -37,10 +37,11 @@ namespace {
 
 	using TestNewEdgeSwapTFPImplementations = ::testing::Types <
 	  // EdgeSwapFullyInternal<EdgeVector, SwapVector>,
+
       EdgeSwapInternalSwaps,
       EdgeSwapTFP::EdgeSwapTFP,
-      EdgeSwapParallelTFP::EdgeSwapParallelTFP,
       IMEdgeSwap
+      //EdgeSwapParallelTFP::EdgeSwapParallelTFP,
    	>;
 
     TYPED_TEST_CASE(TestNewEdgeSwapTFP, TestNewEdgeSwapTFPImplementations);
