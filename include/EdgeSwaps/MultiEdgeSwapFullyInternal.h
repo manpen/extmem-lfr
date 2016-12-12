@@ -34,24 +34,16 @@ protected:
       std::map<edge_t, int_t> m_edge_idx_map;
       {
          typename EdgeVector::bufreader_type edge_reader(_edges);
-         for (int_t eid=0; !edge_reader.empty(); ++edge_reader, ++eid) {
+         for (; !edge_reader.empty(); ++edge_reader) {
             std::map<edge_t, int_t>::iterator iter;
             iter = m_edge_idx_map.find(*edge_reader);
-            if (iter != m_edge_idx_map.end())
-               iter -> second++;
+            if (iter != m_edge_idx_map.end()) {
+                iter->second++;
+            }
             else 
                m_edge_idx_map.insert({*edge_reader, 1});
          }
       }
-
-      // * // copy edge list into btree
-      // * stx::btree_map<edge_t, int_t> edge_idx_map;
-      // * {
-      // *    typename EdgeVector::bufreader_type edge_reader(_edges);
-      // *    for(int_t eid=0; !edge_reader.empty(); ++edge_reader, ++eid) {
-      // *       edge_idx_map.insert(*edge_reader, eid);
-      // *    }
-      // * }
 
       // perform swaps
       typename SwapVector::bufreader_type swap_reader(_swaps);
@@ -68,7 +60,7 @@ protected:
 
          const auto q0_it = m_edge_idx_map.find(se0);
          const auto q1_it = m_edge_idx_map.find(se1);
-         // * const auto s0_it = edge_idx_map.find(se0);
+           // * const auto s0_it = edge_idx_map.find(se0);
          // * const auto s1_it = edge_idx_map.find(se1);
 
          // check if there's are problem with this swap
@@ -76,8 +68,10 @@ protected:
          res.loop = (se0.first == se0.second) || (se1.first == se1.second);
          res.edges[0] = se0;
          res.edges[1] = se1;
+
          res.conflictDetected[0] = (q0_it != m_edge_idx_map.end());
          res.conflictDetected[1] = (q1_it != m_edge_idx_map.end());
+
          // * res.conflictDetected[0] = (s0_it != edge_idx_map.end());
          // * res.conflictDetected[1] = (s1_it != edge_idx_map.end());
 
@@ -91,14 +85,18 @@ protected:
             _edges[swap.edges()[1]] = se1;
 
             // check if e0 or e1 have been multi-edges, if yes reduce their count by 1
-            auto ec0 = m_edge_idx_map.find(e0);
-            if (ec0->second > 1) 
-               ec0->second--;
+             auto ec0 = m_edge_idx_map.find(e0);
+             int_t e0_quant = ec0->second;
+            if (e0_quant > 1) {
+                ec0->second--;
+            }
             else
                m_edge_idx_map.erase(e0);
-            auto ec1 = m_edge_idx_map.find(e1);
-            if (ec1->second > 1)
-               ec1->second--;
+             auto ec1 = m_edge_idx_map.find(e1);
+             int_t e1_quant = ec1->second;
+            if (e1_quant > 1) {
+                ec1->second--;
+            }
             else
                m_edge_idx_map.erase(e1);
 

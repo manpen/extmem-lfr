@@ -120,10 +120,11 @@ public:
             assert(!_edge_valid_stream.empty() && *_edge_valid_stream);
             // check for parallel edges
             #ifndef NDEBUG
-            if (*_updated_edges == *_edge_reader) {
-                std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edge_reader << " / " << *_updated_edges << std::endl;
-                assert(*_updated_edges != *_edge_reader);
-            }
+            // Hung: removed this if since multi-edges allowed
+            //if (*_updated_edges == *_edge_reader) {
+            //    std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edge_reader << " / " << *_updated_edges << std::endl;
+            //    assert(*_updated_edges != *_edge_reader);
+            //}
             #endif
 
             _current = *_updated_edges;
@@ -244,10 +245,11 @@ public:
             assert(!_edge_valid_stream.empty() && *_edge_valid_stream);
             // check for parallel edges
 #ifndef NDEBUG
+            /* Hung: no need for this, since multi-edges are allowed
             if (*_updated_edges == *_edges) {
                 std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edges << " / " << *_updated_edges << std::endl;
                 // assert(*_updated_edges != *_edges);
-            }
+            }*/
 #endif
 
             _current = *_updated_edges;

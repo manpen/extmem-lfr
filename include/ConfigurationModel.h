@@ -237,36 +237,10 @@ protected:
 
         // do first problematic nodes
         for (node_t count_threshold = 0; (count_threshold < _nodes_above_threshold) && (!_edges.empty()); ++count_threshold) {
-            /*const multinode_t random_noise = dis64(gen64);
-
-            // first component of edge is SAFELY less than nodes_above_threshhold
-            const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
-
-            count_threshold = static_cast<node_t>((*_edges).first);
-
-	    //std::cout << "randomized multiplier: " << disShift(gen64) << std::endl;
-
-            _multinodemsg_sorter.push(
-                MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node});
-
-            if ((*_edges).second < _nodes_above_threshold) {
-
-                const multinode_t snd_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).second);
-
-                _multinodemsg_sorter.push(
-                    MultiNodeMsg{ (random_noise << 36) | snd_node});
-
-            } else {
-
-                _multinodemsg_sorter.push(
-                    MultiNodeMsg{ random_noise << 36 | static_cast<multinode_t>((*_edges).second)});
-
-            }*/
-
             // new code
             // prevent sorter out of bounds
             if (_threshold > 0) {
-                while(static_cast<multinode_t>((*_edges).second) < _nodes_above_threshold) {
+                while((static_cast<multinode_t>((*_edges).second) < _nodes_above_threshold) && !_edges.empty()) {
                     const multinode_t random_noise = dis64(gen64);
 
                     const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
@@ -282,7 +256,7 @@ protected:
                     ++_edges;
                 }
 
-                while (static_cast<multinode_t>((*_edges).first) == count_threshold) {
+                while ((static_cast<multinode_t>((*_edges).first) == count_threshold) && !_edges.empty()) {
                     const multinode_t random_noise = dis64(gen64);
                     
                     const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);

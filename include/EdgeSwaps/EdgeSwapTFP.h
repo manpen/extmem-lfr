@@ -87,7 +87,11 @@ namespace EdgeSwapTFP {
 
         ExistenceInfoMsg() { }
 
-        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_, const bool &exists_ = true, const degree_t &quant_ = 1) :
+        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_,
+                        #ifdef MODIF
+                         const degree_t &quant_ = 1,
+                        #endif
+                         const bool &exists_ = true) :
             swap_id(swap_id_), edge(edge_)
             #ifdef MODIF
             , quant(quant_)
@@ -269,7 +273,8 @@ namespace EdgeSwapTFP {
               _mem_est(im_memory, run_length, edges.size() / num_nodes),
 
               _run_length(run_length),
-              _edges(edges),
+              //_edges(true, true),
+              _edges(edges), //, true, true), // edges), //, true, true),
 
               _edge_swap_sorter(new EdgeSwapSorter(EdgeSwapComparator(), _mem_est.edge_swap_sorter())),
               _next_swap_id_pushing(0),

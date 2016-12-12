@@ -55,7 +55,7 @@ namespace {
    		using EdgeSwapAlgo = TypeParam;
 
    		EdgeVector edge_list;
-   		EdgeStream edge_stream;
+   		EdgeStream edge_stream(true, true);
    		edge_list.push_back({1, 3});
    		edge_list.push_back({2, 4});
    		edge_list.push_back({2, 4});
@@ -98,7 +98,7 @@ namespace {
    		using EdgeSwapAlgo = TypeParam;
 
    		EdgeVector edge_list;
-   		EdgeStream edge_stream;
+   		EdgeStream edge_stream(true, true);
    		edge_list.push_back({1, 2});
    		edge_list.push_back({1, 2});
    		edge_list.push_back({1, 2});
@@ -111,10 +111,14 @@ namespace {
       	this->_list_to_stream(edge_list, edge_stream);
 
    		SwapVector swap_list;
+   		swap_list.push_back({3, 4, false});
    		swap_list.push_back({0, 5, false});
+   		swap_list.push_back({3, 4, false});
    		swap_list.push_back({1, 6, false});
+   		swap_list.push_back({3, 4, false});
    		swap_list.push_back({2, 7, false});
    		swap_list.push_back({3, 4, false});
+		//swap_list.push_back({3, 4, false});
 
 	    EdgeSwapAlgo algo(edge_stream, swap_list);
 	    algo.setDisplayDebug(debug_this_test);
@@ -146,7 +150,7 @@ namespace {
    		using EdgeSwapAlgo = TypeParam;
 
    		EdgeVector edge_list;
-   		EdgeStream edge_stream;
+   		EdgeStream edge_stream(true, true);
    		edge_list.push_back({1, 2});
    		edge_list.push_back({1, 2});
    		edge_list.push_back({1, 2});
@@ -188,13 +192,13 @@ namespace {
    		bool debug_this_test = true;
    		using EdgeSwapAlgo = TypeParam;
 
-		const degree_t min_deg = 1;
-		const degree_t max_deg = 20;
-		const node_t num_nodes = 100;
-	    const degree_t threshold = max_deg / 5;
+		const degree_t min_deg = 10;
+		const degree_t max_deg = 1000;
+		const node_t num_nodes = 10000;
+	    const degree_t threshold = min_deg;
 	    
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
-		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
+		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -1.2, num_nodes);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();
@@ -212,7 +216,7 @@ namespace {
 		const node_t edge_count = cmhh.size();
 
 		EdgeVector cmhh_list(edge_count);
-		EdgeStream edge_stream;
+		EdgeStream edge_stream(true, true);
 
 		//for (; !cmhh.empty(); ++cmhh) {
 		//	std::cout << "streamcheck: " << *cmhh << std::endl;
@@ -239,17 +243,19 @@ namespace {
         std::uniform_int_distribution<node_t> dis(0, edge_count - 1);
         std::bernoulli_distribution disBer(0.5);
 
-        int_t count;
+        int_t count = 0;
 
         edge_t prev;
         bool first = true;
 
-		for (stxxl::vector<decltype(cmhh)::value_type>::const_iterator i = cmhh_list.begin(); i != cmhh_list.end(); ++i) {
-			auto edge = *i;
+		//for (stxxl::vector<decltype(cmhh)::value_type>::const_iterator i = cmhh_list.begin(); i != cmhh_list.end(); ++i) {
+		//for (usigned long i = 0; i < cmhh_list.size(); ++i) {
+        for (stxxl::vector<edge_t>::iterator iter = cmhh_list.begin(); iter != cmhh_list.end(); ++iter) {
+            auto edge = *iter;
 
 			if (first) {
 				first = false;
-				prev = *i;
+				prev = *iter;
 				continue;
 			}
 
@@ -258,7 +264,11 @@ namespace {
 				bool coin = disBer(gen64);
 
 				if (LIKELY(random_swap_constituent != count)) {
-					swap_list.push_back({count, random_swap_constituent, coin});
+                    if (count < random_swap_constituent)
+					    swap_list.push_back({count, random_swap_constituent, coin});
+                    else
+                        swap_list.push_back({random_swap_constituent, count, coin});
+
 					std::cout << "Added a swap " << count << " , " << random_swap_constituent << " , " << coin << std::endl;
 				}
 			}
@@ -290,7 +300,7 @@ namespace {
 	    for (unsigned int i = 0; i < edge_list.size(); ++i) {
 	    	const edge_t e0 = edge_list[i];
 	    	const edge_t c0 = edge_list_[i];
-	    	std::cout << "Comparing EdgeSwapTFP " << e0 << " with FullyInternal " << c0 << std::endl;
+	    	//std::cout << "Comparing EdgeSwapTFP " << e0 << " with FullyInternal " << c0 << std::endl;
 	    	ASSERT_EQ(e0, c0);
 	    }
    	}

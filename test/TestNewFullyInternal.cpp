@@ -26,10 +26,14 @@ TEST_F(TestNewFullyInternal, test2) {
    		edge_list.push_back({7, 8});
 	
 		SwapVector swap_list;
-   		swap_list.push_back({0, 5, false});
-   		swap_list.push_back({1, 6, false});
-   		swap_list.push_back({2, 7, false});
-   		swap_list.push_back({3, 4, false});
+        swap_list.push_back({3, 4, false});
+        swap_list.push_back({0, 5, false});
+        swap_list.push_back({3, 4, false});
+        swap_list.push_back({1, 6, false});
+        swap_list.push_back({3, 4, false});
+        swap_list.push_back({2, 7, false});
+        swap_list.push_back({3, 4, false});
+        //swap_list.push_back({3, 4, false});
 
 	    Algo esfi(edge_list, swap_list);
 		esfi.run();
