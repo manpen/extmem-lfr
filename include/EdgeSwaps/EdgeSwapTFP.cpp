@@ -695,7 +695,7 @@ namespace EdgeSwapTFP {
                     #ifdef NDEBUG
                         const auto succ_edge_it = edge_quant_map.find(succ.edge);
                         if (succ_edge_it != edge_quant_map.end()) {
-                            degree_t succ_edge_quant = succ_edge_it->second;
+                            const degree_t succ_edge_quant = succ_edge_it->second;
                             _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, succ_edge_quant});
                         }
                     #else

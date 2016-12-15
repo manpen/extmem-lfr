@@ -7,8 +7,8 @@
 #include <EdgeSwaps/IMEdgeSwap.h>
 #include <ConfigurationModel.h>
 #include <Utils/StreamPusher.h>
-#include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <EdgeSwaps/MultiEdgeSwapFullyInternal.h>
+#include <DegreeDistributionCheck.h>
 
 namespace {
 	using EdgeVector = stxxl::vector<edge_t>;
@@ -192,13 +192,13 @@ namespace {
    		bool debug_this_test = true;
    		using EdgeSwapAlgo = TypeParam;
 
-		const degree_t min_deg = 10;
-		const degree_t max_deg = 1000;
-		const node_t num_nodes = 10000;
+		const degree_t min_deg = 1;
+		const degree_t max_deg = 5;
+		const node_t num_nodes = 30;
 	    const degree_t threshold = min_deg;
 	    
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
-		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -1.2, num_nodes);
+		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2, num_nodes);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();
@@ -215,26 +215,20 @@ namespace {
 		// for random numbers later
 		const node_t edge_count = cmhh.size();
 
-		EdgeVector cmhh_list(edge_count);
+		EdgeVector cmhh_list((unsigned long long int) edge_count);
 		EdgeStream edge_stream(true, true);
-
-		//for (; !cmhh.empty(); ++cmhh) {
-		//	std::cout << "streamcheck: " << *cmhh << std::endl;
-		//}
 
 		stxxl::stream::materialize(cmhh, cmhh_list.begin());
 
-		//for (unsigned int i = 0; i < cmhh_list.size(); ++i) {
-		//	std::cout << "vectorcheck: " << cmhh_list[i] << std::endl;
-		//}
+        // get degree distribution of cmhh
+        using result_t  = stxxl::vector<decltype(hh_gen)::value_type>;
 
-		//this->_print_list(cmhh_list, debug_this_test);
+		DegreeDistributionCheck<result_t::iterator> cmhh_check(cmhh_list.begin(), cmhh_list.end());
 
+        auto cmhh_degreedistribution = cmhh_check.getDistribution();
+
+        //
       	this->_list_to_stream(cmhh_list, edge_stream);
-
-      	//for (; !edge_stream.empty(); ++edge_stream) {
-		//	std::cout << "edgestreamcheck: " << *edge_stream << std::endl;
-		//}
 
 		SwapVector swap_list;
 
@@ -248,8 +242,6 @@ namespace {
         edge_t prev;
         bool first = true;
 
-		//for (stxxl::vector<decltype(cmhh)::value_type>::const_iterator i = cmhh_list.begin(); i != cmhh_list.end(); ++i) {
-		//for (usigned long i = 0; i < cmhh_list.size(); ++i) {
         for (stxxl::vector<edge_t>::iterator iter = cmhh_list.begin(); iter != cmhh_list.end(); ++iter) {
             auto edge = *iter;
 
@@ -269,7 +261,7 @@ namespace {
                     else
                         swap_list.push_back({random_swap_constituent, count, coin});
 
-					std::cout << "Added a swap " << count << " , " << random_swap_constituent << " , " << coin << std::endl;
+					//std::cout << "Added a swap " << count << " , " << random_swap_constituent << " , " << coin << std::endl;
 				}
 			}
 			++count;
@@ -290,7 +282,20 @@ namespace {
 
 	    this->_stream_to_list(edge_stream, edge_list);
 
-	    //this->_print_list(edge_list, debug_this_test);
+
+        // get degree distribution of edge_list
+        using result_t  = stxxl::vector<decltype(edge_stream)::value_type>;
+
+        DegreeDistributionCheck<result_t::iterator> el_check(edge_list.begin(), edge_list.end());
+
+        auto edge_degreedistribution = el_check.getDistribution();
+
+        for (unsigned int i = 0; !edge_degreedistribution.empty() && !cmhh_degreedistribution.empty(); ++i,
+                ++edge_degreedistribution, ++cmhh_degreedistribution) {
+            ASSERT_EQ((*edge_degreedistribution).value, (*cmhh_degreedistribution).value);
+            ASSERT_EQ((*edge_degreedistribution).count, (*cmhh_degreedistribution).count);
+        }
+        //
 
 	    AlgoFullyInternal esfi(edge_list, swap_list);
 		esfi.run();

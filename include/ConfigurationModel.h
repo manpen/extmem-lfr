@@ -60,7 +60,7 @@ constexpr uint32_t MAX_LSB = 0x9BE09BABu;
 constexpr uint32_t MIN_LSB = 0x00000000u;
 constexpr uint32_t MAX_CRCFORWARD = 0x641F6454u;
 
-using Edge64Comparator = typename GenericComparator<edge_t>::Ascending;
+using EdgeComparator = typename GenericComparator<edge_t>::Ascending;
 
 /**
  * @typedef multinode_t
@@ -158,7 +158,7 @@ public:
         , _high_degree_shift_bounds(_highDegreeShiftBounds(node_upperbound, nodes_above_threshold))
         , _multinodemsg_comp(seed)
         , _multinodemsg_sorter(_multinodemsg_comp, SORTER_MEM)
-        , _edge_sorter(Edge64Comparator(), SORTER_MEM)
+        , _edge_sorter(EdgeComparator(), SORTER_MEM)
         { }
 
     using value_type = edge_t;
@@ -220,7 +220,7 @@ protected:
     MultiNodeMsgComparator _multinodemsg_comp;
     MultiNodeSorter _multinodemsg_sorter;
 
-    using EdgeSorter = stxxl::sorter<value_type, Edge64Comparator>;
+    using EdgeSorter = stxxl::sorter<value_type, EdgeComparator>;
     EdgeSorter _edge_sorter; 
 
     void _generateMultiNodes() {
@@ -385,7 +385,7 @@ public:
                                 : _edges(edges)
                                 , _node_upperbound(node_upperbound)
                                 , _testnode_sorter(MNComparator(), SORTER_MEM)
-                                , _test_edge_sorter(Edge64Comparator(), SORTER_MEM)
+                                , _test_edge_sorter(EdgeComparator(), SORTER_MEM)
     { }
 
     using value_type = edge_t;
@@ -441,7 +441,7 @@ protected:
     using TestNodeSorter = stxxl::sorter<TestNodeMsg, MNComparator>;
     TestNodeSorter _testnode_sorter;
 
-    using EdgeSorter = stxxl::sorter<value_type, Edge64Comparator>;
+    using EdgeSorter = stxxl::sorter<value_type, EdgeComparator>;
     EdgeSorter _test_edge_sorter;
     // internal algos
     void _generateMultiNodes() {
