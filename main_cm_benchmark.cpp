@@ -1,10 +1,7 @@
 #include <defs.h>
 
 #include <ConfigurationModel.h>
-#include <Utils/MonotonicPowerlawRandomStream.h>
-#include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <Utils/StreamPusher.h>
-#include <time.h>
 
 //benchmarks
 #include <stxxl/stats>
@@ -23,7 +20,7 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Benchmark for ConfigurationModel(HavelHakimi)..." << std::endl;
 
-	for (multinode_t num_nodes = pow(10, start); num_nodes <= pow(10, runs + 1); num_nodes *= 10) {
+	for (node_t num_nodes = pow(10, start); num_nodes <= pow(10, runs + 1); num_nodes *= 10) {
 
 		const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
         if (max_deg > num_nodes)
@@ -226,7 +223,7 @@ int main(int argc, char* argv[]) {
 */
 // ConfigurationModel RandomRandom
 
-    for (multinode_t num_nodes = pow(10, start); num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
+    for (node_t num_nodes = pow(10, start); num_nodes <= pow(10, runs + 1); num_nodes*= 10) {
 
         const degree_t max_deg = static_cast<degree_t>(num_nodes / ratio);
         if (max_deg > num_nodes)

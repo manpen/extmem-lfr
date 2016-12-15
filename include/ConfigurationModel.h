@@ -74,7 +74,7 @@ using EdgeComparator = typename GenericComparator<edge_t>::Ascending;
 class MultiNodeMsg {
 public:
     MultiNodeMsg() { }
-    MultiNodeMsg(const multinode_t eid_node_) : _eid_node(eid_node_) {}
+    MultiNodeMsg(const node_t eid_node_) : _eid_node(eid_node_) {}
 
     // getters
     uint32_t lsb() const {
@@ -86,12 +86,12 @@ public:
     }
 
     // just return the node
-    multinode_t node() const {
+    node_t node() const {
         return _eid_node & NODEMASK;
     }
 
 protected:
-    multinode_t _eid_node;
+    node_t _eid_node;
 };
 
 // Comparator
@@ -125,13 +125,13 @@ public:
 protected:
     // unnecessary initialization, compiler asks for it
     const uint32_t _seed = 1;
-    const std::pair<multinode_t, multinode_t> _limits;
+    const std::pair<node_t, node_t> _limits;
 
-    std::pair<multinode_t, multinode_t> _setLimits(const uint32_t seed_) const {
-        const multinode_t max_inv_msb = static_cast<multinode_t>(MAX_CRCFORWARD ^ seed_) << 32;
-        const multinode_t min_inv_msb = static_cast<multinode_t>(seed_) << 32;
+    std::pair<node_t, node_t> _setLimits(const uint32_t seed_) const {
+        const node_t max_inv_msb = static_cast<node_t>(MAX_CRCFORWARD ^ seed_) << 32;
+        const node_t min_inv_msb = static_cast<node_t>(seed_) << 32;
 
-        return std::pair<multinode_t, multinode_t>{max_inv_msb | MAX_LSB, min_inv_msb | MIN_LSB};
+        return std::pair<node_t, node_t>{max_inv_msb | MAX_LSB, min_inv_msb | MIN_LSB};
     }
 
 };
@@ -214,7 +214,7 @@ protected:
     const degree_t _threshold;
     const degree_t _max_degree;
     const node_t   _nodes_above_threshold;
-    const std::pair<multinode_t, multinode_t> _high_degree_shift_bounds;
+    const std::pair<node_t, node_t> _high_degree_shift_bounds;
 
     typedef stxxl::sorter<MultiNodeMsg, MultiNodeMsgComparator> MultiNodeSorter;
     MultiNodeMsgComparator _multinodemsg_comp;
@@ -230,25 +230,25 @@ protected:
         std::random_device rd;
         // random noise
         std::mt19937_64 gen64(rd());
-        std::uniform_int_distribution<multinode_t> dis64;
+        std::uniform_int_distribution<node_t> dis64;
 
         // shift multiplier for high degree nodes
-        std::uniform_int_distribution<multinode_t> disShift(_high_degree_shift_bounds.first, _high_degree_shift_bounds.second);
+        std::uniform_int_distribution<node_t> disShift(_high_degree_shift_bounds.first, _high_degree_shift_bounds.second);
 
         // do first problematic nodes
         for (node_t count_threshold = 0; (count_threshold < _nodes_above_threshold) && (!_edges.empty()); ++count_threshold) {
             // new code
             // prevent sorter out of bounds
             if (_threshold > 0) {
-                while((static_cast<multinode_t>((*_edges).second) < _nodes_above_threshold) && !_edges.empty()) {
-                    const multinode_t random_noise = dis64(gen64);
+                while((static_cast<node_t>((*_edges).second) < _nodes_above_threshold) && !_edges.empty()) {
+                    const node_t random_noise = dis64(gen64);
 
-                    const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+                    const node_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<node_t>((*_edges).first);
 
-                    const multinode_t snd_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).second);
+                    const node_t snd_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<node_t>((*_edges).second);
 
                     _multinodemsg_sorter.push(
-                        MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node });
+                        MultiNodeMsg{ (random_noise & (node_t) 0xFFFFFFF000000000) | fst_node });
                 
                     _multinodemsg_sorter.push(
                         MultiNodeMsg{ (random_noise << 36) | snd_node });
@@ -256,15 +256,15 @@ protected:
                     ++_edges;
                 }
 
-                while ((static_cast<multinode_t>((*_edges).first) == count_threshold) && !_edges.empty()) {
-                    const multinode_t random_noise = dis64(gen64);
+                while ((static_cast<node_t>((*_edges).first) == count_threshold) && !_edges.empty()) {
+                    const node_t random_noise = dis64(gen64);
                     
-                    const multinode_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<multinode_t>((*_edges).first);
+                    const node_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<node_t>((*_edges).first);
 
                     _multinodemsg_sorter.push(
-                        MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | fst_node });
+                        MultiNodeMsg{ (random_noise & (node_t) 0xFFFFFFF000000000) | fst_node });
                     _multinodemsg_sorter.push(
-                        MultiNodeMsg{ (random_noise << 36) | static_cast<multinode_t>((*_edges).second) });
+                        MultiNodeMsg{ (random_noise << 36) | static_cast<node_t>((*_edges).second) });
 
                     ++_edges;
                 }
@@ -274,12 +274,12 @@ protected:
         // not so problematic
         for (; !_edges.empty(); ++_edges) {
 
-            const multinode_t random_noise = dis64(gen64);
+            const node_t random_noise = dis64(gen64);
 
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ (random_noise & (multinode_t) 0xFFFFFFF000000000) | static_cast<multinode_t>((*_edges).first)});
+                MultiNodeMsg{ (random_noise & (node_t) 0xFFFFFFF000000000) | static_cast<node_t>((*_edges).first)});
             _multinodemsg_sorter.push(
-                MultiNodeMsg{ (random_noise << 36) | static_cast<multinode_t>((*_edges).second)});
+                MultiNodeMsg{ (random_noise << 36) | static_cast<node_t>((*_edges).second)});
 
         }
 
@@ -297,13 +297,13 @@ protected:
         for(; !_multinodemsg_sorter.empty(); ++_multinodemsg_sorter) {
             auto const & fst_node = *_multinodemsg_sorter;
 
-            const multinode_t fst_entry = ( fst_node.node() <= (multinode_t) _node_upperbound ? fst_node.node() : (fst_node.node() - _node_upperbound) % _nodes_above_threshold);
+            const node_t fst_entry = ( fst_node.node() <= (node_t) _node_upperbound ? fst_node.node() : (fst_node.node() - _node_upperbound) % _nodes_above_threshold);
 
             ++_multinodemsg_sorter;
 
             auto const & snd_node = *_multinodemsg_sorter;
 
-            const multinode_t snd_entry = ( snd_node.node() <= (multinode_t) _node_upperbound ? snd_node.node() : (snd_node.node() - _node_upperbound) % _nodes_above_threshold);
+            const node_t snd_entry = ( snd_node.node() <= (node_t) _node_upperbound ? snd_node.node() : (snd_node.node() - _node_upperbound) % _nodes_above_threshold);
 
             if (fst_entry < snd_entry)
                 _edge_sorter.push(edge_t{fst_entry, snd_entry});
@@ -318,8 +318,8 @@ protected:
         return 27 - static_cast<uint64_t>(log2(n));
     }
 
-    std::pair<multinode_t, multinode_t> _highDegreeShiftBounds(uint64_t node_upperbound, node_t nodes_above_threshold) const {
-        return std::pair<multinode_t, multinode_t>{(pow(2, 32) - node_upperbound) / nodes_above_threshold,
+    std::pair<node_t, node_t> _highDegreeShiftBounds(uint64_t node_upperbound, node_t nodes_above_threshold) const {
+        return std::pair<node_t, node_t>{(pow(2, 32) - node_upperbound) / nodes_above_threshold,
 	                                           (pow(2, 36) - node_upperbound) / nodes_above_threshold - 1};
     }
 
@@ -328,11 +328,11 @@ protected:
 // Pseudo-random approach
 
 struct TestNodeMsg {
-    multinode_t key;
-    multinode_t node;
+    node_t key;
+    node_t node;
 
     TestNodeMsg() { }
-    TestNodeMsg(const multinode_t &key_, const multinode_t &node_) : key(key_), node(node_) {}
+    TestNodeMsg(const node_t &key_, const node_t &node_) : key(key_), node(node_) {}
 
     DECL_LEX_COMPARE_OS(TestNodeMsg, key, node);
 };
@@ -347,13 +347,13 @@ public:
         if (a.key != b.key)
             return a.key < b.key;
         else {
-            if (b.node == std::numeric_limits<multinode_t>::min())
+            if (b.node == std::numeric_limits<node_t>::min())
                 return false;
-            if (a.node == std::numeric_limits<multinode_t>::max())
+            if (a.node == std::numeric_limits<node_t>::max())
                 return false;
-            if (b.node == std::numeric_limits<multinode_t>::max())
+            if (b.node == std::numeric_limits<node_t>::max())
                 return true;
-            if (a.node == std::numeric_limits<multinode_t>::min())
+            if (a.node == std::numeric_limits<node_t>::min())
                 return true;
             std::default_random_engine gen;
             std::bernoulli_distribution ber(0.5);
@@ -365,11 +365,11 @@ public:
     }
 
     TestNodeMsg max_value() const {
-        return TestNodeMsg(std::numeric_limits<multinode_t>::max(), std::numeric_limits<multinode_t>::max());
+        return TestNodeMsg(std::numeric_limits<node_t>::max(), std::numeric_limits<node_t>::max());
     }
 
     TestNodeMsg min_value() const {
-        return TestNodeMsg(std::numeric_limits<multinode_t>::min(), std::numeric_limits<multinode_t>::min());
+        return TestNodeMsg(std::numeric_limits<node_t>::min(), std::numeric_limits<node_t>::min());
     }
 };
 
@@ -450,11 +450,11 @@ protected:
         //stxxl::random_number64 rand64;
         std::random_device rd;
         std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<multinode_t> dis;
+        std::uniform_int_distribution<node_t> dis;
 
         for (; !_edges.empty(); ++_edges) {
-            _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<multinode_t>((*_edges).first)});
-            _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<multinode_t>((*_edges).second)});
+            _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<node_t>((*_edges).first)});
+            _testnode_sorter.push(TestNodeMsg{dis(gen), static_cast<node_t>((*_edges).second)});
 
         }
        

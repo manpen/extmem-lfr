@@ -64,21 +64,20 @@ TEST_F(TestConfigurationModel, crccomps) {
 	TestNodeRandomComparator tnrc;
 	const TestNodeMsg tmax = tnrc.max_value();
 	const TestNodeMsg tmin = tnrc.min_value();
-	ASSERT_EQ(std::numeric_limits<multinode_t>::max(), tmax.key);
-	ASSERT_EQ(std::numeric_limits<multinode_t>::max(), tmax.node);
-	ASSERT_EQ(std::numeric_limits<multinode_t>::min(), tmin.key);
-	ASSERT_EQ(std::numeric_limits<multinode_t>::min(), tmin.node);
+	ASSERT_EQ(std::numeric_limits<node_t>::max(), tmax.key);
+	ASSERT_EQ(std::numeric_limits<node_t>::max(), tmax.node);
+	ASSERT_EQ(std::numeric_limits<node_t>::min(), tmin.key);
+	ASSERT_EQ(std::numeric_limits<node_t>::min(), tmin.node);
 	ASSERT_TRUE(tnrc(tmin, tmax));
 	ASSERT_FALSE(tnrc(tmin, tmin));
 }
 
-/*
 TEST_F(TestConfigurationModel, tHavelHakimi) {
-	int x = 13;
 
-    const degree_t min_deg = 2;
-    const degree_t max_deg = 100;
-    const node_t num_nodes = 1000;
+    const degree_t min_deg = 10;
+    const degree_t max_deg = 10000;
+    const node_t num_nodes = 100000;
+    const degree_t threshold = max_deg / 200;
     
     HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
     MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes);
@@ -86,11 +85,11 @@ TEST_F(TestConfigurationModel, tHavelHakimi) {
     StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
     hh_gen.generate();
 
-    HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator> cmhh(hh_gen, 223224, 1000);
+    HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator> cmhh(hh_gen, 223224, num_nodes, threshold,
+                                                                hh_gen.maxDegree(), hh_gen.nodesAboveThreshold());
     cmhh.run();   
 
-    std::cout << (*cmhh).first << std::endl;
-}*/
+}
 
 TEST_F(TestConfigurationModel, reverse) {
 	

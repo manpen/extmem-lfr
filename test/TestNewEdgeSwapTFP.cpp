@@ -192,9 +192,9 @@ namespace {
    		bool debug_this_test = true;
    		using EdgeSwapAlgo = TypeParam;
 
-		const degree_t min_deg = 1;
-		const degree_t max_deg = 5;
-		const node_t num_nodes = 30;
+		const degree_t min_deg = 20;
+		const degree_t max_deg = 10000;
+		const node_t num_nodes = 1000000;
 	    const degree_t threshold = min_deg;
 	    
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
@@ -305,8 +305,10 @@ namespace {
 	    for (unsigned int i = 0; i < edge_list.size(); ++i) {
 	    	const edge_t e0 = edge_list[i];
 	    	const edge_t c0 = edge_list_[i];
-	    	//std::cout << "Comparing EdgeSwapTFP " << e0 << " with FullyInternal " << c0 << std::endl;
 	    	ASSERT_EQ(e0, c0);
 	    }
-   	}
+
+
+        std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
+    }
 }
