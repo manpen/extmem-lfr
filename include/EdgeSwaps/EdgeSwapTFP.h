@@ -244,6 +244,7 @@ namespace EdgeSwapTFP {
 
         // Hung
         bool _runnable = true;
+        int_t internal_count = 0;
 
         void _reset() {
             _edge_swap_sorter->clear();

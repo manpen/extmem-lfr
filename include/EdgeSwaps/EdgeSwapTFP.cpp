@@ -958,7 +958,9 @@ namespace EdgeSwapTFP {
         
         REPORT_SORTER_STATS(*_edge_swap_sorter);
 
-        std::cout << "=== Swaps to process: " << _edge_swap_sorter->size() << std::endl;
+        std::cout << "_iteration: " << internal_count++ << std::endl;
+        std::cout << "_swaps: " << _edge_swap_sorter->size() << std::endl;
+
         if (!_edge_swap_sorter->size()) {
             _runnable = false;
             return;
