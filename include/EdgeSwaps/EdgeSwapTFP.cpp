@@ -386,12 +386,10 @@ namespace EdgeSwapTFP {
             auto & existence_request_sorter = _existence_request_sorter;
         #endif
 
-        std::cout << "exreqsorter.empty()? " << existence_request_sorter.empty() << std::endl;
 
         while (!existence_request_sorter.empty()) {
             auto &request = *existence_request_sorter;
             edge_t current_edge = request.edge;
-            std::cout << "current_edge " << current_edge << std::endl;
             
             /*
              * Hung: We only checked for existence, in _perform_swaps not sufficient information!
@@ -401,11 +399,8 @@ namespace EdgeSwapTFP {
             bool exists = false;
             degree_t exist_quant = 0;
 
-            std::cout << "_edges.empty()? " << _edges.empty() << std::endl;
-
             for (; !_edges.empty(); ++_edges) {
                 const auto &edge = *_edges;
-                std::cout << "edge " << edge << " curr_edge " << current_edge << std::endl;
                 if (edge > current_edge) break;
                 if (edge == current_edge){
                     exists = true;
@@ -456,7 +451,6 @@ namespace EdgeSwapTFP {
                     _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant});
                 }
             #else
-                std::cout << "exist_quant:" << exist_quant << std::endl;
                 _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant, exists});
                 DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists << " with quantity " << exist_quant);
             #endif
@@ -868,14 +862,9 @@ namespace EdgeSwapTFP {
         SwapStream swap_stream;
 
         if (_edge_update_sorter.size()) {
-            for (; !_edge_update_sorter.empty(); ++_edge_update_sorter) {
-                std::cout << "EdgeUpdateVal: " << *_edge_update_sorter << std::endl;
-            }
-            _edge_update_sorter.rewind();
 
             EdgeStream forward_stream;
             EdgeStream final_stream;
-            EdgeStream tmp_stream;
 
             UpdateStream  update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
             StreamPusher<UpdateStream, EdgeStream>(update_stream, forward_stream);
@@ -883,13 +872,7 @@ namespace EdgeSwapTFP {
             update_stream.finish();
             forward_stream.consume();
 
-            for (; !forward_stream.empty(); ++forward_stream) {
-                tmp_stream.push(*forward_stream);
-                std::cout << "Updated Edge: " << *forward_stream << std::endl;
-            }
-            tmp_stream.consume();
-
-            EdgeToEdgeSwapPusher<EdgeStream, EdgeStream, SwapStream>(tmp_stream, final_stream, swap_stream);
+            EdgeToEdgeSwapPusher<EdgeStream, EdgeStream, SwapStream>(forward_stream, final_stream, swap_stream);
             final_stream.consume();
 
             std::swap(final_stream, _edges);
@@ -934,10 +917,6 @@ namespace EdgeSwapTFP {
         if (!_runnable)
             return;
 
-        for (; !_edges.empty(); ++_edges) {
-            std::cout << "PS Edge: " << *_edges << std::endl;
-        }
-
         _edges.consume();
 
         _compute_dependency_chain(_edges, _edge_update_mask);
@@ -946,13 +925,7 @@ namespace EdgeSwapTFP {
         _report_stats("_compute_dependency_chain: ", show_stats);
         _simulate_swaps();
         _report_stats("_simulate_swaps: ", show_stats);
-
-        std::cout << "Before LE edges.emtpy()? " << _edges.empty() << std::endl;
-
         _load_existence();
-
-        std::cout << "After LE edges.emtpy()? " << _edges.empty() << std::endl;
-
         _report_stats("_load_existence: ", show_stats);
         _perform_swaps();
         _report_stats("_perform_swaps: ", show_stats);
