@@ -202,7 +202,7 @@ namespace EdgeSwapTFP {
                 if (LIKELY(!depchain_successor_sorter.empty())) {
                     auto &msg = *depchain_successor_sorter;
 
-                    assert(msg.swap_id >= 2*sid+i);
+                    assert(msg.swap_id > 2*sid+i);
 
                     if (UNLIKELY(msg.swap_id == 2*sid+i)) {
                         DEBUG_MSG(_display_debug, "Got successor for S" << sid << ": " << msg);
@@ -373,6 +373,8 @@ namespace EdgeSwapTFP {
      */
     void EdgeSwapTFP::_load_existence() {
 
+        _edges.consume();
+
         uint64_t stat_exist_reqs = _existence_request_sorter.size();
         uint64_t stat_forward_only = 0;
         uint64_t stat_dropped_dep = 0;
@@ -384,12 +386,12 @@ namespace EdgeSwapTFP {
             auto & existence_request_sorter = _existence_request_sorter;
         #endif
 
-
+        std::cout << "exreqsorter.empty()? " << existence_request_sorter.empty() << std::endl;
 
         while (!existence_request_sorter.empty()) {
             auto &request = *existence_request_sorter;
             edge_t current_edge = request.edge;
-
+            std::cout << "current_edge " << current_edge << std::endl;
             
             /*
              * Hung: We only checked for existence, in _perform_swaps not sufficient information!
@@ -398,8 +400,12 @@ namespace EdgeSwapTFP {
             // count edge occurences
             bool exists = false;
             degree_t exist_quant = 0;
+
+            std::cout << "_edges.empty()? " << _edges.empty() << std::endl;
+
             for (; !_edges.empty(); ++_edges) {
                 const auto &edge = *_edges;
+                std::cout << "edge " << edge << " curr_edge " << current_edge << std::endl;
                 if (edge > current_edge) break;
                 if (edge == current_edge){
                     exists = true;
@@ -429,6 +435,9 @@ namespace EdgeSwapTFP {
                 }
 
                 last_swap = request.swap_id();
+
+
+
                 foundTargetEdge = (foundTargetEdge || !request.forward_only());
 
                 if (compute_stats) {
@@ -447,6 +456,7 @@ namespace EdgeSwapTFP {
                     _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant});
                 }
             #else
+                std::cout << "exist_quant:" << exist_quant << std::endl;
                 _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant, exists});
                 DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists << " with quantity " << exist_quant);
             #endif
@@ -742,6 +752,7 @@ namespace EdgeSwapTFP {
                 auto e0_quant_it = edge_quant_map.find(edges[0]);
                 DEBUG_MSG(_display_debug, "Before Existence of edges[0] " << edges[0] << " with quant " << e0_quant_it->second);
                 if (e0_quant_it != edge_quant_map.end() && e0_quant_it->second >= 1) {
+                    DEBUG_MSG(_display_debug, "If Existence of edges[0] " << edges[0] << " with quant " << e0_quant_it->second);
                     if (e0_quant_it->second != 1)
                         _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[0]
                         #ifndef NDEBUG
@@ -769,7 +780,9 @@ namespace EdgeSwapTFP {
 
                 auto e1_quant_it = edge_quant_map.find(edges[1]);
                 DEBUG_MSG(_display_debug, "Before Existence of edges[1] " << edges[1] << " with quant " << e1_quant_it->second);
+
                 if (e1_quant_it != edge_quant_map.end() && e1_quant_it->second >= 1) {
+                    DEBUG_MSG(_display_debug, "If Existence of edges[1] " << edges[1] << " with quant " << e1_quant_it->second);
                     if (e1_quant_it->second != 1)
                         _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[1]
                         #ifndef NDEBUG
@@ -847,7 +860,6 @@ namespace EdgeSwapTFP {
     }
 
     void EdgeSwapTFP::_apply_updates() {
-        if (_edge_update_sorter_thread) _edge_update_sorter_thread->join();
 
         using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
 
@@ -856,13 +868,31 @@ namespace EdgeSwapTFP {
         SwapStream swap_stream;
 
         if (_edge_update_sorter.size()) {
+            for (; !_edge_update_sorter.empty(); ++_edge_update_sorter) {
+                std::cout << "EdgeUpdateVal: " << *_edge_update_sorter << std::endl;
+            }
+            _edge_update_sorter.rewind();
+
+            EdgeStream forward_stream;
+            EdgeStream final_stream;
+            EdgeStream tmp_stream;
 
             UpdateStream  update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
-            update_stream.finish();
-            _edges.rewind();
+            StreamPusher<UpdateStream, EdgeStream>(update_stream, forward_stream);
 
-            EdgeSwapGenPusher<decltype(_edges), SwapStream>(_edges, swap_stream);
-            _edges.rewind();
+            update_stream.finish();
+            forward_stream.consume();
+
+            for (; !forward_stream.empty(); ++forward_stream) {
+                tmp_stream.push(*forward_stream);
+                std::cout << "Updated Edge: " << *forward_stream << std::endl;
+            }
+            tmp_stream.consume();
+
+            EdgeToEdgeSwapPusher<EdgeStream, EdgeStream, SwapStream>(tmp_stream, final_stream, swap_stream);
+            final_stream.consume();
+
+            std::swap(final_stream, _edges);
 
             _edge_update_sorter.clear();
 
@@ -875,24 +905,15 @@ namespace EdgeSwapTFP {
 
         swap_stream.consume();
 
-        if (!swap_stream.size())
+        if (!swap_stream.size()) {
             _runnable = false;
 
-        #ifndef NDEBUG
-        // test that input is lexicographically ordered and loop free
-        {
-            edge_t last_edge = *_edges;
-            ++_edges;
-            // assert(!last_edge.is_loop());
-            for(;!_edges.empty();++_edges) {
-                auto & edge = *_edges;
-                // assert(!edge.is_loop());
-                // assert(last_edge < edge);
-                last_edge = edge;
-            }
-            _edges.rewind();
+            _next_swap_id_pushing = 0;
+            _edge_swap_sorter_pushing->finish_clear();
+            _swap_directions_pushing.clear();
+
+            return;
         }
-        #endif
 
         // push these generated swaps into the algorithm
         _next_swap_id_pushing = 0;
@@ -913,14 +934,25 @@ namespace EdgeSwapTFP {
         if (!_runnable)
             return;
 
-        _edge_update_mask.clear();
+        for (; !_edges.empty(); ++_edges) {
+            std::cout << "PS Edge: " << *_edges << std::endl;
+        }
+
+        _edges.consume();
+
         _compute_dependency_chain(_edges, _edge_update_mask);
         std::swap(_edge_update_mask, _last_edge_update_mask);
 
         _report_stats("_compute_dependency_chain: ", show_stats);
         _simulate_swaps();
         _report_stats("_simulate_swaps: ", show_stats);
+
+        std::cout << "Before LE edges.emtpy()? " << _edges.empty() << std::endl;
+
         _load_existence();
+
+        std::cout << "After LE edges.emtpy()? " << _edges.empty() << std::endl;
+
         _report_stats("_load_existence: ", show_stats);
         _perform_swaps();
         _report_stats("_perform_swaps: ", show_stats);
@@ -932,11 +964,11 @@ namespace EdgeSwapTFP {
 
 
     void EdgeSwapTFP::_start_processing(bool async) {
-        if (!_runnable || !_edge_swap_sorter_pushing->size())
+        if (!_runnable)
             return;
 
         // prepare new structures
-        _edge_swap_sorter_pushing->sort();
+        _edge_swap_sorter_pushing->sort_reuse();
         _swap_directions_pushing.consume();
 
         // wait for computation to finish (if there is some)
@@ -969,7 +1001,7 @@ namespace EdgeSwapTFP {
     }
 
     void EdgeSwapTFP::run() {
-        _start_processing();
+        _start_processing(false);
     }
 
     EdgeSwapTFP::MemoryEstimation::size_array_t

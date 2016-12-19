@@ -93,8 +93,12 @@ public:
             _edge_output.push(curr);
             if (curr == prev || curr.is_loop()) {
                 auto random_partner = dis(gen);
-                if (LIKELY(random_partner != count))
-                    _output.push({count, random_partner, ber(gen)});
+                if (LIKELY(random_partner != count)) {
+                    if (count < random_partner)
+                        _output.push({count, random_partner, ber(gen)});
+                    else
+                        _output.push({random_partner, count, ber(gen)});
+                }
             }
         }
 

@@ -46,11 +46,11 @@ struct RunConfig {
 
     unsigned int randomSeed;
     RunConfig()
-            : numNodes(1000)
-            , minDeg(2)
-            , maxDeg(500)
+            : numNodes(10 * IntScale::K)
+            , minDeg(20)
+            , maxDeg(1 * IntScale::K)
             , gamma(-1.2)
-            , runSize(100000) // large enough to not just start_processing...
+            , runSize(100000000000000000) // large enough to not just start_processing...
             , internalMem(8 * IntScale::Gi)
 
     {
@@ -119,6 +119,8 @@ void benchmark(RunConfig & config) {
 
     edge_stream.consume();
     swap_stream.consume();
+
+    std::cout << "swap_stream.size(): " << swap_stream.size() << std::endl;
 
     // Run algorithm
     EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);

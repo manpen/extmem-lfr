@@ -71,6 +71,7 @@ namespace {
    		swap_list.push_back({3, 5, true});
 
 	    EdgeSwapAlgo algo(edge_stream, swap_list);
+
 	    algo.setDisplayDebug(debug_this_test);
 
 		if (EdgeSwapTrait<EdgeSwapAlgo>::pushableSwaps()) {
@@ -186,7 +187,7 @@ namespace {
 	    ASSERT_EQ(edge_list[5], edge_t(2, 5));
 
    	}
-
+/*
    	TYPED_TEST(TestNewEdgeSwapTFP, manyRandom) {
 
    		bool debug_this_test = true;
@@ -310,5 +311,5 @@ namespace {
 
 
         std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
-    }
+    }*/
 }

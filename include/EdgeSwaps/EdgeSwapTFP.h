@@ -78,9 +78,7 @@ namespace EdgeSwapTFP {
     struct ExistenceInfoMsg {
         swapid_t swap_id;
         edge_t edge;
-      #ifdef MODIF
         degree_t quant;
-      #endif
       #ifndef NDEBUG
         bool exists;
       #endif
@@ -88,9 +86,7 @@ namespace EdgeSwapTFP {
         ExistenceInfoMsg() { }
 
         ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_,
-                        #ifdef MODIF
                          const degree_t &quant_ = 1,
-                        #endif
                          const bool &exists_ = true) :
             swap_id(swap_id_), edge(edge_)
             #ifdef MODIF
@@ -101,12 +97,10 @@ namespace EdgeSwapTFP {
             #endif
         { stxxl::STXXL_UNUSED(exists_); }
 
-        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge
+        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge,
+                            quant
             #ifndef NDEBUG
             , exists
-            #endif
-            #ifdef MODIF
-            , quant
             #endif
         );
     };
@@ -214,6 +208,8 @@ namespace EdgeSwapTFP {
         using EdgeUpdateSorter = stxxl::sorter<edge_t, EdgeUpdateComparator>;
         EdgeUpdateSorter _edge_update_sorter;
         std::unique_ptr<std::thread> _edge_update_sorter_thread;
+        // Hung
+        std::unique_ptr<std::thread> _apply_update_thread;
 
 // PQ used internally in _simulate_swaps and _perform_swaps
         using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
