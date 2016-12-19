@@ -11,6 +11,8 @@
 
 #include <Utils/AsyncStream.h>
 #include <Utils/AsyncPusher.h>
+#include <SwapStream.h>
+#include <Utils/StreamPusher.h>
 
 #define ASYNC_STREAMS
 #define REPORT_SORTER_STATS(X) \
@@ -743,8 +745,8 @@ namespace EdgeSwapTFP {
                     if (e0_quant_it->second != 1)
                         _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[0]
                         #ifndef NDEBUG
-                            , true
                             , e0_quant_it -> second - 1
+                            , true
                         #else
                             , e0_quant_it -> second - 1
                         #endif
@@ -771,8 +773,8 @@ namespace EdgeSwapTFP {
                     if (e1_quant_it->second != 1)
                         _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[1]
                         #ifndef NDEBUG
-                            , true
                             , e1_quant_it -> second - 1
+                            , true
                         #else
                             , e1_quant_it -> second - 1
                         #endif
@@ -844,45 +846,39 @@ namespace EdgeSwapTFP {
         }
     }
 
-    void EdgeSwapTFP::_process_swaps() {
-        constexpr bool show_stats = true;
+    void EdgeSwapTFP::_apply_updates() {
+        if (_edge_update_sorter_thread) _edge_update_sorter_thread->join();
 
         using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
 
-        if (!_edge_swap_sorter->size()) {
-            // there are no swaps - let's see whether there are pending updates
-            if (_edge_update_sorter.size()) {
-                UpdateStream update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
-                update_stream.finish();
-                _edges.rewind();
-            }
-            _edge_update_sorter.clear();
+        // At this line of code, _edge_swap_sorter will always be empty
 
-            _reset();
+        SwapStream swap_stream;
 
-            return;
-        }
+        if (_edge_update_sorter.size()) {
 
-        if (_first_run) {
-            // first iteration
-            _compute_dependency_chain(_edges, _edge_update_mask);
+            UpdateStream  update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
+            update_stream.finish();
             _edges.rewind();
-            _first_run = false;
+
+            EdgeSwapGenPusher<decltype(_edges), SwapStream>(_edges, swap_stream);
+            _edges.rewind();
+
+            _edge_update_sorter.clear();
 
         } else {
-            if (_edge_update_sorter_thread)
-                _edge_update_sorter_thread->join();
-
-            UpdateStream update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
-            _compute_dependency_chain(update_stream, _edge_update_mask);
-            update_stream.finish();
-
-            _edge_update_sorter.clear();
+            EdgeSwapGenPusher<decltype(_edges), SwapStream>(_edges, swap_stream);
             _edges.rewind();
 
+            _edge_update_sorter.clear();
         }
 
-#ifndef NDEBUG
+        swap_stream.consume();
+
+        if (!swap_stream.size())
+            _runnable = false;
+
+        #ifndef NDEBUG
         // test that input is lexicographically ordered and loop free
         {
             edge_t last_edge = *_edges;
@@ -896,8 +892,29 @@ namespace EdgeSwapTFP {
             }
             _edges.rewind();
         }
-#endif
+        #endif
 
+        // push these generated swaps into the algorithm
+        _next_swap_id_pushing = 0;
+        _edge_swap_sorter_pushing->clear();
+        _swap_directions_pushing.clear();
+
+        for (; !swap_stream.empty(); ++swap_stream) {
+            auto swap = *swap_stream;
+            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[0], _next_swap_id_pushing++));
+            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
+            _swap_directions_pushing.push(swap.direction());
+        }
+    }
+
+    void EdgeSwapTFP::_process_swaps() {
+        constexpr bool show_stats = true;
+
+        if (!_runnable)
+            return;
+
+        _edge_update_mask.clear();
+        _compute_dependency_chain(_edges, _edge_update_mask);
         std::swap(_edge_update_mask, _last_edge_update_mask);
 
         _report_stats("_compute_dependency_chain: ", show_stats);
@@ -907,17 +924,22 @@ namespace EdgeSwapTFP {
         _report_stats("_load_existence: ", show_stats);
         _perform_swaps();
         _report_stats("_perform_swaps: ", show_stats);
+        _apply_updates();
+        _report_stats("_apply_updates: ", show_stats);
 
         _reset();
     }
 
 
     void EdgeSwapTFP::_start_processing(bool async) {
+        if (!_runnable || !_edge_swap_sorter_pushing->size())
+            return;
+
         // prepare new structures
         _edge_swap_sorter_pushing->sort();
         _swap_directions_pushing.consume();
 
-        // wait for compution to finish (if there is some)
+        // wait for computation to finish (if there is some)
         if (_process_thread.joinable())
             _process_thread.join();
 
@@ -931,6 +953,12 @@ namespace EdgeSwapTFP {
         
         REPORT_SORTER_STATS(*_edge_swap_sorter);
 
+        std::cout << "=== Swaps to process: " << _edge_swap_sorter->size() << std::endl;
+        if (!_edge_swap_sorter->size()) {
+            _runnable = false;
+            return;
+        }
+
         if (async) {
             // start worker thread
             _process_thread = std::thread(&EdgeSwapTFP::_process_swaps, this);
@@ -942,8 +970,6 @@ namespace EdgeSwapTFP {
 
     void EdgeSwapTFP::run() {
         _start_processing();
-        _start_processing(false);
-        _first_run = true;
     }
 
     EdgeSwapTFP::MemoryEstimation::size_array_t

@@ -246,6 +246,9 @@ namespace EdgeSwapTFP {
         void _perform_swaps();
         void _apply_updates();
 
+        // Hung
+        bool _runnable = true;
+
         void _reset() {
             _edge_swap_sorter->clear();
             _depchain_edge_sorter.clear();
@@ -322,6 +325,10 @@ namespace EdgeSwapTFP {
 
 
         void run();
+
+        bool runnable() {
+            return _runnable;
+        }
     };
 }
 

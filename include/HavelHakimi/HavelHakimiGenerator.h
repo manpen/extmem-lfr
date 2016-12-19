@@ -37,7 +37,7 @@ struct HavelHakimiNodeDegree {
      */
     struct ComparatorLess {
         bool operator () (const HavelHakimiNodeDegree& a, const HavelHakimiNodeDegree & b) const { return a < b; }
-        HavelHakimiNodeDegree min_value() const { return {0LL, std::numeric_limits<node_t>::min()}; }
+        HavelHakimiNodeDegree min_value() const { return {0LL, std::numeric_limits<degree_t>::min()}; }
     };
 };
 

@@ -381,9 +381,8 @@ public:
     HavelHakimi_ConfigurationModel_Random() = delete; 
 
     HavelHakimi_ConfigurationModel_Random(const HavelHakimi_ConfigurationModel_Random&) = delete;
-    HavelHakimi_ConfigurationModel_Random(EdgeReader &edges, const uint64_t node_upperbound)
+    HavelHakimi_ConfigurationModel_Random(EdgeReader &edges)
                                 : _edges(edges)
-                                , _node_upperbound(node_upperbound)
                                 , _testnode_sorter(MNComparator(), SORTER_MEM)
                                 , _test_edge_sorter(EdgeComparator(), SORTER_MEM)
     { }
@@ -436,7 +435,6 @@ public:
 
 protected:
     EdgeReader _edges;
-    const uint64_t _node_upperbound;
 
     using TestNodeSorter = stxxl::sorter<TestNodeMsg, MNComparator>;
     TestNodeSorter _testnode_sorter;

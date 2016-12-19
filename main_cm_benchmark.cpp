@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
         StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
         hh_gen.generate();
 
-        HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeRandomComparator> cmhh(hh_gen, num_nodes);
+        HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeRandomComparator> cmhh(hh_gen);
 
         // Start benchmark here
         // Stats-measurements
