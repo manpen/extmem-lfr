@@ -5,7 +5,6 @@
 #include <iostream>
 #include <chrono>
 
-#include <string>
 #include <algorithm>
 #include <locale>
 
@@ -14,8 +13,6 @@
 #include <stack>
 #include <stxxl/vector>
 #include <EdgeStream.h>
-
-#include <Utils/IOStatistics.h>
 
 #include <Utils/MonotonicPowerlawRandomStream.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
@@ -26,13 +23,11 @@
 #include "SwapGenerator.h"
 
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
-#include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
-#include <EdgeSwaps/IMEdgeSwap.h>
 
-#include <CluewebReader.h>
 #include <ConfigurationModel.h>
 #include <SwapStream.h>
+#include <Utils/export_metis.h>
 
 struct RunConfig {
     stxxl::uint64 numNodes;
@@ -128,6 +123,9 @@ void benchmark(RunConfig & config) {
 
     while (swap_algo.runnable())
         swap_algo.run();
+
+    std::cout << (stxxl::stats_data(*stats) - stats_begin);
+    export_as_metis(edge_stream, "graph.metis");
 }
 
 
