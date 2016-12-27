@@ -44,7 +44,7 @@ namespace {
 	  // EdgeSwapFullyInternal<EdgeVector, SwapVector>,
 
       //EdgeSwapInternalSwaps,
-      ModifiedEdgeSwapTFP::EdgeSwapTFP, IMEdgeSwap
+      ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP, IMEdgeSwap
       //EdgeSwapParallelTFP::EdgeSwapParallelTFP,
    	>;
 

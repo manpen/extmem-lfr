@@ -17,9 +17,7 @@
 
 #include <EdgeStream.h>
 
-#define MODIF
-
-namespace ModifiedEdgeSwapTFP {
+namespace EdgeSwapTFP {
     struct EdgeSwapMsg {
         edgeid_t edge_id;
         swapid_t swap_id;
@@ -59,7 +57,6 @@ namespace ModifiedEdgeSwapTFP {
         edge_t edge;
         swapid_t flagged_swap_id;
 
-
         swapid_t swap_id() const {return flagged_swap_id >> 1;}
         bool forward_only() const {return !(flagged_swap_id & 1);}
 
@@ -78,27 +75,20 @@ namespace ModifiedEdgeSwapTFP {
     struct ExistenceInfoMsg {
         swapid_t swap_id;
         edge_t edge;
-        degree_t quant;
       #ifndef NDEBUG
         bool exists;
       #endif
 
         ExistenceInfoMsg() { }
 
-        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_,
-                         const degree_t &quant_ = 1,
-                         const bool &exists_ = true) :
+        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_, const bool &exists_ = true) :
             swap_id(swap_id_), edge(edge_)
-            #ifdef MODIF
-            , quant(quant_)
-            #endif
             #ifndef NDEBUG
             , exists(exists_)
             #endif
         { stxxl::STXXL_UNUSED(exists_); }
 
-        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge,
-                            quant
+        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge
             #ifndef NDEBUG
             , exists
             #endif
@@ -118,7 +108,7 @@ namespace ModifiedEdgeSwapTFP {
         DECL_LEX_COMPARE_OS(ExistenceSuccessorMsg, swap_id, edge, successor);
     };
 
-    class ModifiedEdgeSwapTFP : public EdgeSwapBase {
+    class EdgeSwapTFP : public EdgeSwapBase {
     protected:
         constexpr static size_t _pq_mem = PQ_INT_MEM;
         constexpr static size_t _pq_pool_mem = PQ_POOL_MEM;
@@ -208,8 +198,6 @@ namespace ModifiedEdgeSwapTFP {
         using EdgeUpdateSorter = stxxl::sorter<edge_t, EdgeUpdateComparator>;
         EdgeUpdateSorter _edge_update_sorter;
         std::unique_ptr<std::thread> _edge_update_sorter_thread;
-        // Hung
-        std::unique_ptr<std::thread> _apply_update_thread;
 
 // PQ used internally in _simulate_swaps and _perform_swaps
         using DependencyChainEdgeComparatorPQ = typename GenericComparatorStruct<DependencyChainEdgeMsg>::Descending;
@@ -242,10 +230,6 @@ namespace ModifiedEdgeSwapTFP {
         void _perform_swaps();
         void _apply_updates();
 
-        // Hung
-        bool _runnable = true;
-        int_t internal_count = 0;
-
         void _reset() {
             _edge_swap_sorter->clear();
             _depchain_edge_sorter.clear();
@@ -262,19 +246,18 @@ namespace ModifiedEdgeSwapTFP {
         std::thread _process_thread;
 
     public:
-        ModifiedEdgeSwapTFP() = delete;
-        ModifiedEdgeSwapTFP(const ModifiedEdgeSwapTFP &) = delete;
+        EdgeSwapTFP() = delete;
+        EdgeSwapTFP(const EdgeSwapTFP &) = delete;
 
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector
-        ModifiedEdgeSwapTFP(edge_buffer_t &edges, const swapid_t& run_length, const node_t& num_nodes, const size_t& im_memory) :
+        EdgeSwapTFP(edge_buffer_t &edges, const swapid_t& run_length, const node_t& num_nodes, const size_t& im_memory) :
               EdgeSwapBase(),
               _mem_est(im_memory, run_length, edges.size() / num_nodes),
 
               _run_length(run_length),
-              //_edges(true, true),
-              _edges(edges), //, true, true), // edges), //, true, true),
+              _edges(edges),
 
               _edge_swap_sorter(new EdgeSwapSorter(EdgeSwapComparator(), _mem_est.edge_swap_sorter())),
               _next_swap_id_pushing(0),
@@ -299,8 +282,8 @@ namespace ModifiedEdgeSwapTFP {
 
         { }
 
-        ModifiedEdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps, swapid_t run_length = 1000000) :
-            ModifiedEdgeSwapTFP(edges, run_length, edges.size(), 1llu << 30)
+        EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps, swapid_t run_length = 1000000) :
+            EdgeSwapTFP(edges, run_length, edges.size(), 1llu << 30)
         {
             std::cerr << "Using deprecated EdgeSwapTFP constructor. This is likely much slower!" << std::endl;
             stxxl::STXXL_UNUSED(swaps);
@@ -322,15 +305,11 @@ namespace ModifiedEdgeSwapTFP {
 
 
         void run();
-
-        bool runnable() {
-            return _runnable;
-        }
     };
 }
 
 template <>
-struct EdgeSwapTrait<ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP> {
+struct EdgeSwapTrait<EdgeSwapTFP::EdgeSwapTFP> {
     static bool swapVector() {return false;}
     static bool pushableSwaps() {return true;}
     static bool pushableSwapBuffers() {return false;}

@@ -118,7 +118,7 @@ void benchmark(RunConfig & config) {
     std::cout << "swap_stream.size(): " << swap_stream.size() << std::endl;
 
     // Run algorithm
-    ModifiedEdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
+    ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
     StreamPusher<SwapStream, decltype(swap_algo)>(swap_stream, swap_algo);
 
     while (swap_algo.runnable())
