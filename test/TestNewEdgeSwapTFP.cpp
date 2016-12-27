@@ -2,7 +2,7 @@
 
 #include <stxxl/vector>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
-#include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 #include <ConfigurationModel.h>
@@ -44,7 +44,7 @@ namespace {
 	  // EdgeSwapFullyInternal<EdgeVector, SwapVector>,
 
       //EdgeSwapInternalSwaps,
-      EdgeSwapTFP::EdgeSwapTFP, IMEdgeSwap
+      ModifiedEdgeSwapTFP::EdgeSwapTFP, IMEdgeSwap
       //EdgeSwapParallelTFP::EdgeSwapParallelTFP,
    	>;
 

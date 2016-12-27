@@ -1,4 +1,4 @@
-#include "EdgeSwapTFP.h"
+#include "ModifiedEdgeSwapTFP.h"
 
 #include <algorithm>
 #include <array>
@@ -25,7 +25,7 @@
 }}
 //#define ASYNC_PUSHERS
 
-namespace EdgeSwapTFP {
+namespace ModifiedEdgeSwapTFP {
     /*
      * This method implements the steps "request nodes" and "load nodes".
      */

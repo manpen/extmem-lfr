@@ -19,7 +19,7 @@
 
 #define MODIF
 
-namespace EdgeSwapTFP {
+namespace ModifiedEdgeSwapTFP {
     struct EdgeSwapMsg {
         edgeid_t edge_id;
         swapid_t swap_id;
@@ -330,7 +330,7 @@ namespace EdgeSwapTFP {
 }
 
 template <>
-struct EdgeSwapTrait<EdgeSwapTFP::EdgeSwapTFP> {
+struct EdgeSwapTrait<ModifiedEdgeSwapTFP::EdgeSwapTFP> {
     static bool swapVector() {return false;}
     static bool pushableSwaps() {return true;}
     static bool pushableSwapBuffers() {return false;}

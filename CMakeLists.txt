@@ -79,7 +79,7 @@ add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/EdgeVectorCache.cpp
     include/EdgeSwaps/EdgeSwapInternalSwaps.cpp
     include/EdgeSwaps/EdgeSwapInternalSwapsBase.cpp
-    include/EdgeSwaps/EdgeSwapTFP.cpp
+        include/EdgeSwaps/ModifiedEdgeSwapTFP.cpp
     include/EdgeSwaps/SemiLoadedEdgeSwapTFP.cpp
     include/EdgeSwaps/EdgeSwapParallelTFP.cpp
     include/EdgeSwaps/IMEdgeSwap.cpp

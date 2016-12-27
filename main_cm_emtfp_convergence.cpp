@@ -23,7 +23,7 @@
 #include "SwapGenerator.h"
 
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
-#include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 
 #include <ConfigurationModel.h>
 #include <SwapStream.h>
@@ -118,7 +118,7 @@ void benchmark(RunConfig & config) {
     std::cout << "swap_stream.size(): " << swap_stream.size() << std::endl;
 
     // Run algorithm
-    EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
+    ModifiedEdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
     StreamPusher<SwapStream, decltype(swap_algo)>(swap_stream, swap_algo);
 
     while (swap_algo.runnable())

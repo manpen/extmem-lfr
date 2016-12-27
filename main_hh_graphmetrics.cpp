@@ -23,7 +23,7 @@
 #include "SwapGenerator.h"
 
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
-#include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 
 #include <ConfigurationModel.h>
 #include <SwapStream.h>

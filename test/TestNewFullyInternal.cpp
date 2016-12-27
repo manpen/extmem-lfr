@@ -2,7 +2,7 @@
 
 #include <stxxl/vector>
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
-#include <EdgeSwaps/EdgeSwapTFP.h>
+#include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 #include <EdgeSwaps/MultiEdgeSwapFullyInternal.h>
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
