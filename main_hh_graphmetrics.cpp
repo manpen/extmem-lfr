@@ -35,18 +35,15 @@ struct RunConfig {
     stxxl::uint64 maxDeg;
     double gamma;
 
-    stxxl::uint64 runSize;
-
-    stxxl::uint64 internalMem;
+    stxxl::uint64 index;
 
     unsigned int randomSeed;
     RunConfig()
             : numNodes(10 * IntScale::K)
             , minDeg(20)
             , maxDeg(1 * IntScale::K)
-            , gamma(-1.2)
-            , runSize(100000000000000000) // large enough to not just start_processing...
-            , internalMem(8 * IntScale::Gi)
+            , gamma(-2)
+            , index(0)
 
     {
         using myclock = std::chrono::high_resolution_clock;
@@ -55,10 +52,10 @@ struct RunConfig {
     }
 
 #if STXXL_VERSION_INTEGER > 10401
-    #define CMDLINE_COMP(chr, str, dest, args...) \
+#define CMDLINE_COMP(chr, str, dest, args...) \
         chr, str, dest, args
 #else
-#define CMDLINE_COMP(chr, str, dest, args...) \
+    #define CMDLINE_COMP(chr, str, dest, args...) \
         chr, str, args, dest
 #endif
 
@@ -67,15 +64,12 @@ struct RunConfig {
 
         // setup and gather parameters
         {
-            cp.add_bytes (CMDLINE_COMP('n', "num-nodes", numNodes, "Generate # nodes, Default: 10 Mi"));
-            cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,   "Min. Deg of Powerlaw Deg. Distr."));
-            cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr."));
-            cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr."));
+            cp.add_bytes (CMDLINE_COMP('n', "num-nodes", numNodes,     "Generate # nodes, Default: 10 Mi"));
+            cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,       "Min. Deg of Powerlaw Deg. Distr."));
+            cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,       "Max. Deg of Powerlaw Deg. Distr."));
+            cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,        "Gamma of Powerlaw Deg. Distr."));
             cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
-
-            cp.add_bytes  (CMDLINE_COMP('r', "run-size", runSize, "Number of swaps per graph scan"));
-
-            cp.add_bytes  (CMDLINE_COMP('i', "ram", internalMem, "Internal memory"));
+            cp.add_bytes (CMDLINE_COMP('j', "index",     index,        "Index"));
 
             if (!cp.process(argc, (const char *const *) argv)) {
                 cp.print_usage();
@@ -106,26 +100,8 @@ void benchmark(RunConfig & config) {
     StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
     hh_gen.generate();
 
-    HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeRandomComparator> cmhh_gen(hh_gen);
-    cmhh_gen.run();
-
-    // Build Swaps
-    EdgeToEdgeSwapPusher<decltype(cmhh_gen), EdgeStream, SwapStream>(cmhh_gen, edge_stream, swap_stream);
-
-    edge_stream.consume();
-    swap_stream.consume();
-
-    std::cout << "swap_stream.size(): " << swap_stream.size() << std::endl;
-
-    // Run algorithm
-    EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
-    StreamPusher<SwapStream, decltype(swap_algo)>(swap_stream, swap_algo);
-
-    while (swap_algo.runnable())
-        swap_algo.run();
-
     std::cout << (stxxl::stats_data(*stats) - stats_begin);
-    export_as_metis(edge_stream, "graph.metis");
+    export_as_metis(hh_gen, "graph.metis");
 }
 
 int main(int argc, char* argv[]) {
