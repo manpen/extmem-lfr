@@ -16,14 +16,14 @@ foldername="log${count}_${now}"
 mkdir -p hh_graphmetrics/${foldername}
 echo "[HHGRAPHMETRICS] Created Folder: hh_graphmetrics/${foldername}"
 
-gamma=(2.0)
-mindeg=(10)
-nodes=(1000)
-divisor=(10)
-#gamma=(1.2 1.5 1.8 2.0)
-#mindeg=(5 10 20 100)
-#nodes=(100000 1000000 10000000 100000000)
-#divisor=(10 200)
+#gamma=(2.0)
+#mindeg=(10)
+#nodes=(1000)
+#divisor=(10)
+gamma=(1.2 1.5 1.8 2.0)
+mindeg=(5 10 20 100)
+nodes=(100000 1000000 10000000 100000000)
+divisor=(10 200)
 for g in ${gamma[*]};
 do
 	for a in ${mindeg[*]};
