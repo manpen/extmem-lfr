@@ -315,8 +315,9 @@ namespace ModifiedEdgeSwapTFP {
            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
            _swap_directions_pushing.push(swap.direction());
 
-           if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
-               _start_processing();
+            // we don't need this in modified version
+           //if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
+            //   _start_processing();
         }
 
 
@@ -326,6 +327,30 @@ namespace ModifiedEdgeSwapTFP {
         bool runnable() {
             return _runnable;
         }
+//! @name STXXL Streaming Interface
+//! @{
+        bool empty() const {
+            return _edges.empty();
+        }
+
+        const edge_t& operator*() const {
+            assert(!_edges.empty());
+
+            return *_edges;
+        }
+
+        ModifiedEdgeSwapTFP& operator++() {
+            assert(!_edges.empty());
+
+            ++_edges;
+
+            return *this;
+        }
+
+        void consume() {
+            _edges.consume();
+        }
+//! @}
     };
 }
 

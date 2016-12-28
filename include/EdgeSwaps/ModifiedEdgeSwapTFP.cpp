@@ -875,6 +875,11 @@ namespace ModifiedEdgeSwapTFP {
             update_stream.finish();
             forward_stream.consume();
 
+            //for (; !forward_stream.empty(); ++forward_stream)
+            //    std::cout << *forward_stream << std::endl;
+
+            //forward_stream.consume();
+
             EdgeToEdgeSwapPusher<EdgeStream, EdgeStream, SwapStream>(forward_stream, final_stream, swap_stream);
             final_stream.consume();
 
@@ -890,6 +895,8 @@ namespace ModifiedEdgeSwapTFP {
         }
 
         swap_stream.consume();
+
+        std::cout << "Apply updates, swaps: " << swap_stream.size() << std::endl;
 
         if (!swap_stream.size()) {
             _runnable = false;
