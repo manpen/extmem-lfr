@@ -30,7 +30,10 @@
 #include <EdgeSwaps/EdgeSwapTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
 
+#include <ConfigurationModel.h>
 #include <CluewebReader.h>
+#include <SwapStream.h>
+#include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 
 enum EdgeSwapAlgo {
     IM,
@@ -173,9 +176,8 @@ void benchmark(RunConfig & config) {
         StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
         hh_gen.generate();
 
-        HavelHakimi_ConfigurationModel_Random<> cmhh_gen(hh_gen);
-
-        StreamPusher<decltype(hh_gen), EdgeStream>(cmhh_gen, edge_stream);
+        HavelHakimi_ConfigurationModel_Random<HavelHakimiIMGenerator, TestNodeRandomComparator> cmhh_gen(hh_gen);
+        cmhh_gen.run();
 
         EdgeToEdgeSwapPusher<decltype(cmhh_gen), EdgeStream, SwapStream>(cmhh_gen, edge_stream, swap_stream);
 
@@ -233,14 +235,24 @@ void benchmark(RunConfig & config) {
 
             case TFP: {
                 ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
-                StreamPusher<SwapStream, decltype(swap_algo)>(swap_stream, swap_algo);
+                StreamPusher<SwapStream, decltype(init_algo)>(swap_stream, init_algo);
 
-                while (swap_algo.runnable())
-                    swap_algo.run();
+                while (init_algo.runnable())
+                    init_algo.run();
 
-                edge_stream.consume();
+                EdgeStream inter_edges;
+                init_algo.consume();
+                StreamPusher<decltype(init_algo), EdgeStream>(init_algo, inter_edges);
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
+                inter_edges.consume();
+                std::cout << inter_edges.size() << std::endl;
+/*
+                for (; !inter_edges.empty(); ++inter_edges)
+                    std::cout << *inter_edges << std::endl;
+
+                inter_edges.consume();*/
+
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, config.runSize, config.numNodes, config.internalMem);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
                 break;
