@@ -91,15 +91,21 @@ public:
         for (edgeid_t count = 1; !_input.empty(); ++_input, ++count) {
             auto curr = *_input;
             _edge_output.push(curr);
+            //std::cout << "Comparing " << curr << " with " << prev << std::endl;
             if (curr == prev || curr.is_loop()) {
-                auto random_partner = dis(gen);
-                if (LIKELY(random_partner != count)) {
-                    if (count < random_partner)
-                        _output.push({count, random_partner, ber(gen)});
-                    else
-                        _output.push({random_partner, count, ber(gen)});
-                }
+                node_t random_partner;
+
+                do {
+                    random_partner = dis(gen);
+                } while (UNLIKELY(random_partner == count));
+
+                if (count < random_partner)
+                    _output.push({count, random_partner, ber(gen)});
+                else
+                    _output.push({random_partner, count, ber(gen)});
             }
+
+            prev = curr;
         }
 
     }
