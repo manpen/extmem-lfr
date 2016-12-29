@@ -33,7 +33,7 @@ echo "[combined_ESTFP_graphmetrics] Created Folder: hh_cm_memes_emes_graphmetric
 #divisor=(10)
 gamma=(1.2 1.5 1.8 2.0)
 mindeg=(5 10 20 100)
-nodes=(100000 1000000 10000000 100000000)
+nodes=(100000 1000000 10000000)
 divisor=(10 200)
 for g in ${gamma[*]};
 do
@@ -51,7 +51,8 @@ do
                             echo divisor $div >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
                             echo swaps $(($n*10)) >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log 
                             ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -r $n -m $(($n*$EDGESCANS)) >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-                            python3 hh_demo.py >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
+                            mv ./graph.metis hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
+                            #python3 hh_demo.py >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
                         done
                 done
         done

@@ -19,7 +19,7 @@ echo "[CONVERGENCE] Created Folder: convergence_tests/${foldername}"
 #divisor=(10)
 gamma=(1.2 1.5 1.8 2.0)
 mindeg=(5 10 20 100)
-nodes=(100000 1000000 10000000 100000000)
+nodes=(100000 1000000 10000000)
 divisor=(10 200)
 for g in ${gamma[*]};
 do
@@ -36,7 +36,8 @@ do
                             echo gamma $g >> hh_cm_emes_${a}_${b}_${g}_${div}_${n}.log
                             echo divisor $div >> hh_cm_emes_${a}_${b}_${g}_${div}_${n}.log
                             ./build/cm_emtfp_convergence -a $a -b $b -g $g -n $n >> hh_cm_emes_${a}_${b}_${g}_${div}_${n}.log
-                            python3 hh_demo.py >> hh_cm_emes_${a}_${b}_${g}_${div}_${n}.graphdata
+                            mv ./graph.metis hh_cm_emes_${a}_${b}_${g}_${div}_${n}.graphdata
+                            #python3 hh_demo.py >> hh_cm_emes_${a}_${b}_${g}_${div}_${n}.graphdata
                         done
                 done
         done

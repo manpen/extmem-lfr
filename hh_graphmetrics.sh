@@ -22,7 +22,7 @@ echo "[HHGRAPHMETRICS] Created Folder: hh_graphmetrics/${foldername}"
 #divisor=(10)
 gamma=(1.2 1.5 1.8 2.0)
 mindeg=(5 10 20 100)
-nodes=(100000 1000000 10000000 100000000)
+nodes=(100000 1000000 10000000)
 divisor=(10 200)
 for g in ${gamma[*]};
 do
@@ -41,7 +41,8 @@ do
                                 echo gamma $g >> hh_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                                 echo divisor $div >> hh_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                                 ./build/hh_graphmetrics -a $a -b $b -g $g -n $n -j $j >> hh_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
-                                python3 hh_demo.py >> hh_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
+                                mv ./graph.metis hh_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
+                                #python3 hh_demo.py >> hh_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                             done
                         done
                 done
