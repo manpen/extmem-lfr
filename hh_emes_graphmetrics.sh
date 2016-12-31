@@ -16,9 +16,9 @@ echo "[standard_ESTFP_graphmetrics] Created Folder: hh_emes_graphmetrics/${folde
 #mindeg=(10)
 #nodes=(1000)
 #divisor=(10)
-gamma=(1.2 1.5 1.8 2.0)
+gamma=(1.5 1.8 2.0)
 mindeg=(5 10 20 100)
-nodes=(100000 1000000 10000000)
+nodes=(100000 1000000)
 divisor=(10 200)
 for g in ${gamma[*]};
 do
@@ -35,7 +35,7 @@ do
                             echo gamma $g >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
                             echo divisor $div >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
                             echo swaps $(($n*10)) >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log 
-                            ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -r $n -m $(($n*10)) >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
+                            ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -r $n -m $(($n*10)) -e TFP >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
                             mv ./graph.metis hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
                             #python3 hh_demo.py >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
                         done
