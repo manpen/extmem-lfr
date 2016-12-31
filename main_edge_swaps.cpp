@@ -27,6 +27,7 @@
 #include <EdgeSwaps/IMEdgeSwap.h>
 
 #include <CluewebReader.h>
+#include <Utils/export_metis.h>
 
 enum EdgeSwapAlgo {
     IM,
@@ -222,6 +223,10 @@ void benchmark(RunConfig & config) {
                 EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                 swap_algo.run();
+                swap_algo.consume();
+
+                std::cout << (stxxl::stats_data(*stats) - stats_begin);
+                export_as_metis_nonpointer(swap_algo, "graph.metis");
                 break;
             }
 
