@@ -5,7 +5,6 @@
 #include <iostream>
 #include <chrono>
 
-#include <string>
 #include <algorithm>
 #include <locale>
 
@@ -31,7 +30,6 @@
 #include <EdgeSwaps/IMEdgeSwap.h>
 
 #include <ConfigurationModel.h>
-#include <CluewebReader.h>
 #include <SwapStream.h>
 #include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 #include <Utils/export_metis.h>

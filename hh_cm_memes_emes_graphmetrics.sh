@@ -33,7 +33,7 @@ echo "[combined_ESTFP_graphmetrics] Created Folder: hh_cm_memes_emes_graphmetric
 #divisor=(10)
 gamma=(1.5 1.8 2.0)
 mindeg=(5 10 20 100)
-nodes=(100000 1000000)
+nodes=(10000 50000 100000 150000)
 divisor=(10 200)
 for g in ${gamma[*]};
 do
