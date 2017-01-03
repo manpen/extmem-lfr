@@ -1,5 +1,7 @@
 #!/bin/bash
 
+RUNS=5
+
 # parse args for multiple of m edges
 EDGESCANS=1
 for i in "$@"
@@ -43,17 +45,20 @@ do
                 do 
                     for div in ${divisor[*]};
                         do
-                            b=$(($n/$div))
-                            echo num_nodes $n >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-                            echo min_deg $a >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-			                echo max_deg $b >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-                            echo gamma $g >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-                            echo divisor $div >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-                            echo swaps $(($n*10)) >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log 
-                            ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -r $n -m $(($n*$EDGESCANS)) -e TFP >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.log
-                            mv ./graph.metis hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
-                            #python3 hh_demo.py >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}.graphdata
-                        done
+                            for j in `seq 1 $RUNS`;
+                            do
+                                b=$(($n/$div))
+                                echo num_nodes $n >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                echo min_deg $a >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                echo max_deg $b >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                echo gamma $g >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                echo divisor $div >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                echo swaps $(($n*10)) >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log 
+                                ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -r $n -m $(($n*$EDGESCANS)) -e TFP >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                mv ./graph.metis hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
+                                #python3 hh_demo.py >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
+                            done
+                       done
                 done
         done
 done
