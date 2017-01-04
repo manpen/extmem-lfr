@@ -28,6 +28,7 @@
 #include <ConfigurationModel.h>
 #include <SwapStream.h>
 #include <Utils/export_metis.h>
+#include <Utils/IOStatistics.h>
 
 struct RunConfig {
     stxxl::uint64 numNodes;
@@ -121,11 +122,14 @@ void benchmark(RunConfig & config) {
     ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
     StreamPusher<SwapStream, decltype(swap_algo)>(swap_stream, swap_algo);
 
-    while (swap_algo.runnable())
-        swap_algo.run();
+    {
+        IOStatistics swap_report("SwapStats");
 
-    std::cout << (stxxl::stats_data(*stats) - stats_begin);
-    export_as_metis(edge_stream, "graph.metis");
+        while (swap_algo.runnable())
+            swap_algo.run();
+    }
+
+    export_as_metis_nonpointer(swap_algo, "graph.metis");
 }
 
 int main(int argc, char* argv[]) {
