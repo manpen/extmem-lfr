@@ -22,7 +22,7 @@ echo "[CONVERGENCE] Created Folder: hh_cm_memes_graphmetrics/${foldername}"
 #divisor=(10)
 gamma=(1.5 2.0)
 mindeg=(5 10)
-nodes=(10000 50000 100000)
+nodes=(10000 50000 150000)
 divisor=(10 200)
 for g in ${gamma[*]};
 do

@@ -306,30 +306,6 @@ namespace EdgeSwapTFP {
 
         void run();
 
-        //! @name STXXL Streaming Interface
-//! @{
-        bool empty() const {
-            return _edges.empty();
-        }
-
-        const edge_t& operator*() const {
-            assert(!_edges.empty());
-
-            return *_edges;
-        }
-
-        EdgeSwapTFP& operator++() {
-            assert(!_edges.empty());
-
-            ++_edges;
-
-            return *this;
-        }
-
-        void consume() {
-            _edges.consume();
-        }
-//! @}
     };
 };
 

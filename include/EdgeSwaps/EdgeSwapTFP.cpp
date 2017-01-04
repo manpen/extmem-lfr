@@ -804,6 +804,11 @@ namespace EdgeSwapTFP {
             _edges.rewind();
         }
 #endif
+        //for (; !_edges.empty(); ++_edges)
+        //    std::cout << "Edge: " << *_edges << std::endl;
+
+        //_edges.rewind();
+
 
         std::swap(_edge_update_mask, _last_edge_update_mask);
 
@@ -852,6 +857,11 @@ namespace EdgeSwapTFP {
         _start_processing();
         _start_processing(false);
         _first_run = true;
+
+        //for (; !_edges.empty(); ++_edges)
+        //    std::cout << "runEdges: " << *_edges << std::endl;
+
+        //_edges.rewind();
     }
 
     EdgeSwapTFP::MemoryEstimation::size_array_t

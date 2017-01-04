@@ -211,7 +211,8 @@ void benchmark(RunConfig & config) {
 
     // Build swaps
     // Here m swaps PROBABLY or 2m
-    SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
+    const int64_t numSwaps = edge_stream.size();
+    SwapGenerator swap_gen(numSwaps, edge_stream.size());
 
     // Perform edge swaps
     {
@@ -253,15 +254,18 @@ void benchmark(RunConfig & config) {
 
                 inter_edges.consume();*/
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, config.runSize, config.numNodes, config.internalMem);
-                StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
+                const swapid_t runSize = inter_edges.size() / 8;
+
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem);
                 {
                     IOStatistics swap_report("SwapStats2");
+                    StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                     swap_algo.run();
                 }
-                swap_algo.consume();
 
-                export_as_metis_nonpointer(swap_algo, "graph.metis");
+                inter_edges.consume();
+
+                export_as_metis_nonpointer(inter_edges, "graph.metis");
 
                 break;
             }

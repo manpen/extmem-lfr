@@ -198,7 +198,8 @@ void benchmark(RunConfig & config) {
     }
 
     // Build swaps
-    SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
+    int64_t numSwaps = 10 * edge_stream.size();
+    SwapGenerator swap_gen(numSwaps, edge_stream.size());
 
     // Perform edge swaps
     {
@@ -219,17 +220,29 @@ void benchmark(RunConfig & config) {
             }
 
             case TFP: {
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
-                StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
+                //for (; !edge_stream.empty(); ++edge_stream)
+                //    std::cout << "BgnEdge: " << *edge_stream << std::endl;
 
+                //edge_stream.consume();
+
+                const swapid_t runSize = edge_stream.size() / 8;
+
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, runSize, config.numNodes, config.internalMem);
                 {
                     IOStatistics swap_report("SwapStats");
+                    StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                     swap_algo.run();
                 }
 
-                swap_algo.consume();
+                edge_stream.consume();
 
-                export_as_metis_nonpointer(swap_algo, "graph.metis");
+                export_as_metis_nonpointer(edge_stream, "graph.metis");
+
+                //edge_stream.consume();
+
+                //for (; !edge_stream.empty(); ++edge_stream) {
+                //    std::cout << "ResEdge: " << *edge_stream << std::endl;
+                //}
                 break;
             }
 

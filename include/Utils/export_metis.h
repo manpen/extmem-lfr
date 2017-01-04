@@ -45,7 +45,7 @@ void export_as_metis_nonpointer(EdgeStream &edges, const std::string& filename) 
 	stxxl::sorter<edge_t, EdgeComparator> edge_sorter(EdgeComparator(), SORTER_MEM);
 	node_t num_nodes = 0;
 	for (; !edges.empty(); ++edges) {
-        auto edge = *edges;
+        const auto edge = *edges;
 		edge_sorter.push(edge_t(edge.first, edge.second));
 		edge_sorter.push(edge_t(edge.second, edge.first));
 		num_nodes = std::max(num_nodes, std::max(edge.first, edge.second));

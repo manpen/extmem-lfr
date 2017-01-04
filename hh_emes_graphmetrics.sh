@@ -1,5 +1,5 @@
 #!/bin/bash
-RUNS=5
+RUNS=1
 
 # create parentfolder
 mkdir -p hh_emes_graphmetrics
@@ -14,14 +14,14 @@ foldername="log${count}_${now}"
 mkdir -p hh_emes_graphmetrics/${foldername}
 echo "[standard_ESTFP_graphmetrics] Created Folder: hh_emes_graphmetrics/${foldername}"
 
-gamma=(2.0)
-mindeg=(10)
-nodes=(10000)
-divisor=(10)
-#gamma=(1.5 1.8 2.0)
-#mindeg=(5 10 20 100)
-#nodes=(10000 50000 100000 150000)
-#divisor=(10 200)
+#gamma=(2.0)
+#mindeg=(10)
+#nodes=(10000)
+#divisor=(10)
+gamma=(1.5 2.0)
+mindeg=(5 10)
+nodes=(10000 50000 150000)
+divisor=(10 200)
 for g in ${gamma[*]};
 do
 	for a in ${mindeg[*]};
@@ -40,7 +40,7 @@ do
                             echo gamma $g >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo divisor $div >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo swaps $(($n*10)) >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log 
-                            ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -r $n -m $(($n*10)) -e TFP >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -r $(($n*4)) -m $(($n*30000)) -e TFP >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             mv ./graph.metis hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                             #python3 hh_demo.py >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                         done
