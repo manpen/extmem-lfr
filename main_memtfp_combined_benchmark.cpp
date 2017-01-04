@@ -216,7 +216,6 @@ void benchmark(RunConfig & config) {
     // Perform edge swaps
     {
 
-        IOStatistics swap_report("SwapStats");
         switch (config.edgeSwapAlgo) {
             case IM: {
                 IMEdgeSwap swap_algo(edge_stream);
@@ -236,8 +235,11 @@ void benchmark(RunConfig & config) {
                 ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
                 StreamPusher<SwapStream, decltype(init_algo)>(swap_stream, init_algo);
 
-                while (init_algo.runnable())
-                    init_algo.run();
+                {
+                    IOStatistics swap_report("SwapStats1");
+                    while (init_algo.runnable())
+                        init_algo.run();
+                }
 
                 EdgeStream inter_edges;
                 init_algo.consume();
@@ -253,10 +255,12 @@ void benchmark(RunConfig & config) {
 
                 EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, config.runSize, config.numNodes, config.internalMem);
                 StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
-                swap_algo.run();
+                {
+                    IOStatistics swap_report("SwapStats2");
+                    swap_algo.run();
+                }
                 swap_algo.consume();
 
-                std::cout << (stxxl::stats_data(*stats) - stats_begin);
                 export_as_metis_nonpointer(swap_algo, "graph.metis");
 
                 break;

@@ -224,10 +224,10 @@ void benchmark(RunConfig & config) {
 
                 {
                     IOStatistics swap_report("SwapStats");
-
                     swap_algo.run();
-                    swap_algo.consume();
                 }
+
+                swap_algo.consume();
 
                 export_as_metis_nonpointer(swap_algo, "graph.metis");
                 break;
