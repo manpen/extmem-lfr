@@ -1,6 +1,25 @@
 #!/bin/bash
 RUNS=1
 
+SNAPS=0
+FREQUENCY=10
+for i in "$@"
+do
+case $i in
+    -s*|--snaps=*)
+    SNAPS="${i#*=}"
+    shift
+    ;;
+    -f*|--freq=*)
+    FREQUENCY="${i#*=}"
+    shift
+    ;;
+    *)
+    
+    ;;
+esac
+done
+
 # create parentfolder
 mkdir -p hh_emes_graphmetrics
 
@@ -14,14 +33,14 @@ foldername="log${count}_${now}"
 mkdir -p hh_emes_graphmetrics/${foldername}
 echo "[standard_ESTFP_graphmetrics] Created Folder: hh_emes_graphmetrics/${foldername}"
 
-#gamma=(2.0)
-#mindeg=(10)
-#nodes=(10000)
-#divisor=(10)
-gamma=(1.5 2.0)
-mindeg=(5 10)
-nodes=(10000 50000 150000)
-divisor=(10 200)
+gamma=(2.0)
+mindeg=(10)
+nodes=(10000)
+divisor=(10)
+#gamma=(1.5 2.0)
+#mindeg=(5 10)
+#nodes=(10000 50000 150000)
+#divisor=(10 200)
 for g in ${gamma[*]};
 do
 	for a in ${mindeg[*]};
@@ -40,9 +59,13 @@ do
                             echo gamma $g >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo divisor $div >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo swaps $(($n*10)) >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log 
-                            ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -r $(($n*4)) -m $(($n*30000)) -e TFP >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            if [ $SNAPS -eq 1 ]
+                            then
+                                ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -e TFP -z -f 10 >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            else
+                                ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -e TFP >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            fi
                             mv ./graph.metis hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
-                            #python3 hh_demo.py >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                         done
                         echo "Generating graphmetric file"
                         $(./graph_analyze.sh -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})

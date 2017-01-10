@@ -64,6 +64,11 @@ struct RunConfig {
 
     std::string clueweb;
 
+    bool snapshots;
+    unsigned int frequency;
+
+    unsigned int edgeSizeFactor;
+
     RunConfig()
             : numNodes(10 * IntScale::Mi)
             , minDeg(2)
@@ -79,6 +84,9 @@ struct RunConfig {
             , factorNoSwaps(-1)
             , noRuns(0)
             , clueweb("")
+            , snapshots(false)
+            , frequency(0)
+            , edgeSizeFactor(1)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -119,6 +127,10 @@ struct RunConfig {
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
             cp.add_string(CMDLINE_COMP('c', "clueweb", clueweb, "path to clueweb file"));
+
+            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write metis file every frequency-times"));
+            cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots"));
+            cp.add_uint  (CMDLINE_COMP('w', "edge-size-factor",  edgeSizeFactor ,   "Swap number equals # * edge_stream"));
 
             if (!cp.process(argc, argv)) {
                 cp.print_usage();
@@ -212,7 +224,7 @@ void benchmark(RunConfig & config) {
     // Build swaps
     // Here m swaps PROBABLY or 2m
     const int64_t numSwaps = edge_stream.size();
-    SwapGenerator swap_gen(numSwaps, edge_stream.size());
+    SwapGenerator swap_gen(numSwaps, config.edgeSizeFactor * edge_stream.size());
 
     // Perform edge swaps
     {
@@ -248,6 +260,14 @@ void benchmark(RunConfig & config) {
 
                 inter_edges.consume();
                 std::cout << inter_edges.size() << std::endl;
+
+                // Write out initial snapshot
+                if (config.snapshots) {
+                    std::cout << "Exporting initial Snapshot" << std::endl;
+                    export_as_metis_nonpointer(inter_edges, "graph_snapshot_init.metis");
+                    inter_edges.consume();
+                }
+
 /*
                 for (; !inter_edges.empty(); ++inter_edges)
                     std::cout << *inter_edges << std::endl;
@@ -256,7 +276,7 @@ void benchmark(RunConfig & config) {
 
                 const swapid_t runSize = inter_edges.size() / 8;
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem, config.snapshots, config.frequency);
                 {
                     IOStatistics swap_report("SwapStats2");
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);

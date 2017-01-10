@@ -1,18 +1,28 @@
 #!/bin/bash
 
-RUNS=5
+RUNS=1
 
-# parse args for multiple of m edges
+SNAPS=0
+FREQUENCY=10
 EDGESCANS=1
 for i in "$@"
 do
-    case $i in
-        -s*|--scans=*)
-        EDGESCANS="${i#*=}"
-        shift
-        ;;
+case $i in
+    -s*|--snaps=*)
+    SNAPS="${i#*=}"
+    shift
+    ;;
+    -f*|--freq=*)
+    FREQUENCY="${i#*=}"
+    shift
+    ;;
+    -e*|--scans=*)
+    EDGESCANS="${i#*=}"
+    shift
+    ;;
     *)
-        ;;
+
+    ;;
 esac
 done
 
@@ -29,14 +39,14 @@ foldername="log${count}_${now}"
 mkdir -p hh_cm_memes_emes_graphmetrics/${foldername}
 echo "[combined_ESTFP_graphmetrics] Created Folder: hh_cm_memes_emes_graphmetrics/${foldername}"
 
-#gamma=(2.0)
-#mindeg=(10)
-#nodes=(10000)
-#divisor=(10)
-gamma=(1.5 2.0)
-mindeg=(5 10)
-nodes=(10000 50000 150000)
-divisor=(10 200)
+gamma=(2.0)
+mindeg=(10)
+nodes=(10000)
+divisor=(10)
+#gamma=(1.5 2.0)
+#mindeg=(5 10)
+#nodes=(10000 50000 150000)
+#divisor=(10 200)
 for g in ${gamma[*]};
 do
 	for a in ${mindeg[*]};
@@ -55,9 +65,13 @@ do
                                 echo gamma $g >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                                 echo divisor $div >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                                 echo swaps $(($n*10)) >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log 
-                                ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -r $(($n*4)) -m $(($n*$EDGESCANS)) -e TFP >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                if [ $SNAPS -eq 1 ]
+                                then
+                                    ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -e TFP -w $EDGESCANS -z -f $FREQUENCY >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                else
+                                    ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -e TFP -w $EDGESCANS >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                fi
                                 mv ./graph.metis hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
-                                #python3 hh_demo.py >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                             done
                             echo "Generating graphmetric file"
                             $(./graph_analyze.sh -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})

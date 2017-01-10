@@ -59,6 +59,9 @@ struct RunConfig {
 
     std::string clueweb;
 
+    bool snapshots;
+    unsigned int frequency;
+
     RunConfig() 
         : numNodes(10 * IntScale::Mi)
         , minDeg(2)
@@ -74,6 +77,8 @@ struct RunConfig {
         , factorNoSwaps(-1)
         , noRuns(0)
         , clueweb("")
+        , snapshots(false)
+        , frequency(0)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -114,6 +119,10 @@ struct RunConfig {
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
             cp.add_string(CMDLINE_COMP('c', "clueweb", clueweb, "path to clueweb file"));
+
+            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write metis file every frequency-times"));
+            cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots"));
+
 
             if (!cp.process(argc, argv)) {
                 cp.print_usage();
@@ -227,7 +236,7 @@ void benchmark(RunConfig & config) {
 
                 const swapid_t runSize = edge_stream.size() / 8;
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, runSize, config.numNodes, config.internalMem);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, runSize, config.numNodes, config.internalMem, config.snapshots, config.frequency);
                 {
                     IOStatistics swap_report("SwapStats");
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
