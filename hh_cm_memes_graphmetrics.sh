@@ -4,7 +4,7 @@
 RUNS=5
 
 # create parentfolder
-mkdir -p hh_cm_memes_graphmetrics
+mkdir -p hh_cm_memes_graphmetrics_graphmetrics
 
 # create subfolder
 now="$(date +'%d-%m-%Y')"
@@ -36,14 +36,14 @@ do
                         do
                             echo "Doing iteration: ${j}"
                             b=$(($n/$div))
-                            echo num_nodes $n >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.log
-                            echo min_deg $a >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.log
-			                echo max_deg $b >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.log
-                            echo gamma $g >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.log
-                            echo divisor $div >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.log
-                            ./build/cm_emtfp_convergence -a $a -b $b -g $g -n $n >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.log
-                            mv ./graph.metis hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
-                            #python3 hh_demo.py >> hh_cm_memes_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
+                            echo num_nodes $n >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            echo min_deg $a >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+			                echo max_deg $b >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            echo gamma $g >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            echo divisor $div >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            ./build/cm_emtfp_convergence -a $a -b $b -g $g -n $n >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                            mv ./graph.metis hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
+                            #python3 hh_demo.py >> hh_cm_memes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                         done
                         echo "Generating graphmetric file"
                         $(./graph_analyze.sh -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})
@@ -55,6 +55,6 @@ do
 done
 
 # move files
-mv hh_cm_memes_*.log hh_cm_memes_graphmetrics/${foldername}
+mv hh_cm_memes_graphmetrics_*.log hh_cm_memes_graphmetrics/${foldername}
 mv sorted_metrics_*.dat hh_cm_memes_graphmetrics/${foldername}
 echo "[CONVERGENCE] Moved Log Files"

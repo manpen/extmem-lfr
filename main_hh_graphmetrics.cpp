@@ -28,6 +28,7 @@
 #include <ConfigurationModel.h>
 #include <SwapStream.h>
 #include <Utils/export_metis.h>
+#include <Utils/IOStatistics.h>
 
 struct RunConfig {
     stxxl::uint64 numNodes;
@@ -94,13 +95,17 @@ void benchmark(RunConfig & config) {
     EdgeStream edge_stream;
     SwapStream swap_stream;
 
-    // prepare generator
     HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-    MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
-    StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
-    hh_gen.generate();
 
-    std::cout << (stxxl::stats_data(*stats) - stats_begin);
+    {
+        IOStatistics gen_report("GenStats");
+        // prepare generator
+        MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma,
+                                                            config.numNodes);
+        StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
+        hh_gen.generate();
+    }
+
     export_as_metis(hh_gen, "graph.metis");
 }
 
