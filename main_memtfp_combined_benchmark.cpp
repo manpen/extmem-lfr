@@ -223,8 +223,8 @@ void benchmark(RunConfig & config) {
 
     // Build swaps
     // Here m swaps PROBABLY or 2m
-    const int64_t numSwaps = edge_stream.size();
-    SwapGenerator swap_gen(numSwaps, config.edgeSizeFactor * edge_stream.size());
+    const int64_t numSwaps = config.edgeSizeFactor * edge_stream.size();
+    SwapGenerator swap_gen(numSwaps, edge_stream.size());
 
     // Perform edge swaps
     {

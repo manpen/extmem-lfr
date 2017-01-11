@@ -310,7 +310,6 @@ namespace EdgeSwapTFP {
            _swap_directions_pushing.push(swap.direction());
 
            if (UNLIKELY(_next_swap_id_pushing > 2*_run_length)) {
-               _start_processing();
                if (_snapshots)
                    if (++_itcount % _frequency == 0) {
                        _edges.consume();
@@ -322,6 +321,7 @@ namespace EdgeSwapTFP {
 
                        _edges.consume();
                    }
+               _start_processing();
            }
         }
 
