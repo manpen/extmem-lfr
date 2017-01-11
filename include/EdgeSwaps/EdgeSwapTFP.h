@@ -311,7 +311,8 @@ namespace EdgeSwapTFP {
 
            if (UNLIKELY(_next_swap_id_pushing > 2*_run_length)) {
                if (_snapshots)
-                   if (++_itcount % _frequency == 0) {
+                   ++_itcount;
+                   /*if (_itcount % _frequency == 0) {
                        _edges.consume();
 
                        std::ostringstream filename;
@@ -320,7 +321,7 @@ namespace EdgeSwapTFP {
                        export_as_metis_nonpointer(_edges, filename.str());
 
                        _edges.consume();
-                   }
+                   }*/
                _start_processing();
            }
         }
