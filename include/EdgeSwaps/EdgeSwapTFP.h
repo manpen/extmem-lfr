@@ -313,10 +313,13 @@ namespace EdgeSwapTFP {
                _start_processing();
                if (_snapshots)
                    if (++_itcount % _frequency == 0) {
+                       _edges.consume();
+
                        std::ostringstream filename;
                        filename << "graph_snapshot_" << ++_hitcount << ".metis";
                        std::cout << "Exporting Snapshot " << _hitcount << std::endl;
                        export_as_metis_nonpointer(_edges, filename.str());
+
                        _edges.consume();
                    }
            }

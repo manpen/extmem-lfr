@@ -195,6 +195,13 @@ void benchmark(RunConfig & config) {
     edge_stream.consume();
     std::cout << "Generated " << edge_stream.size() << " edges\n";
 
+    if (config.snapshots) {
+        std::cout << "Exporting initial Snapshot" << std::endl;
+        export_as_metis_nonpointer(edge_stream, "graph_snapshot_init.metis");
+
+        edge_stream.consume();
+    }
+
 
     if (config.factorNoSwaps > 0) {
        config.numSwaps = edge_stream.size() * config.factorNoSwaps;
