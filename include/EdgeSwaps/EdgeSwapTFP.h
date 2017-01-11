@@ -317,6 +317,7 @@ namespace EdgeSwapTFP {
                        filename << "graph_snapshot_" << ++_hitcount << ".metis";
                        std::cout << "Exporting Snapshot " << _hitcount << std::endl;
                        export_as_metis_nonpointer(_edges, filename.str());
+                       _edges.consume();
                    }
            }
         }
