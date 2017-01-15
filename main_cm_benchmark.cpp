@@ -38,6 +38,7 @@ struct RunConfig {
     unsigned int end;
     stxxl::uint64 minDeg;
     double ratio;
+    double threshold_div;
     double gamma;
 
     unsigned int randomSeed;
@@ -45,7 +46,12 @@ struct RunConfig {
     unsigned int start;
 
     RunConfig()
-            : end(7), minDeg(2), ratio(10.0), gamma(-2.0), start(2) {
+            : end(5)
+            , minDeg(10)
+            , ratio(10.0)
+            , threshold_div(10.0)
+            , gamma(-2.0)
+            , start(2) {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
         randomSeed = d.count();
@@ -69,6 +75,7 @@ struct RunConfig {
             cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,      "Min. Deg of Powerlaw Deg. Distr."));
             cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,       "Gamma of Powerlaw Deg. Distr."));
             cp.add_double(CMDLINE_COMP('r', "ratio",     ratio,       "Divisor for MaxDegree"));
+            cp.add_double(CMDLINE_COMP('x', "threshold_div", threshold_div, "Thresholddivider"));
             cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,  "Initial seed for PRNG"));
             cp.add_uint  (CMDLINE_COMP('t', "start",     start,       "Start from 10^# nodes, Default: 10^2"));
 
@@ -87,9 +94,11 @@ void benchmark(RunConfig & config) {
 
     // CRC
 
+    std::cout << config.threshold_div << std::endl;
+
     for (node_t n = pow(10, config.start); n <= pow(10, config.end); n *= 10) {
         const degree_t maxDeg = static_cast<degree_t >(n / config.ratio);
-        const degree_t threshold = static_cast<degree_t>(maxDeg / config.ratio); // Here threshold_divisor previously
+        const degree_t threshold = static_cast<degree_t>(maxDeg / config.threshold_div);
 
         HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
         MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, maxDeg, config.gamma, n);

@@ -37,14 +37,24 @@ static inline uint64_t reverse (const uint64_t & a) {
 }
 
 /**
- * chained CRC64 with reverse
+ * chained CRC64
  */
+ /*
 static inline uint64_t crc64 (const uint32_t & seed, const uint32_t & msb, const uint32_t & lsb) {
     const uint32_t hash_msb_p = _mm_crc32_u32(seed, msb);
     const uint32_t hash_lsb_p = _mm_crc32_u32(hash_msb_p, lsb);
     const uint64_t hash = static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p;
    
     return hash;
+}*/
+static inline uint64_t crc64 (const uint32_t & seed, const uint64_t val) {
+     const uint32_t msb = static_cast<uint32_t>(val >> 32);
+     const uint32_t lsb = static_cast<uint32_t>(val);
+     const uint32_t hash_lsb_p = _mm_crc32_u32(seed, msb);
+     const uint32_t hash_msb_p = _mm_crc32_u32(hash_lsb_p, lsb);
+     const uint64_t hash = static_cast<uint64_t>(hash_msb_p) << 32 | hash_lsb_p;
+
+     return hash;
 }
 /**
  * single CRC32 without reverse
@@ -85,6 +95,10 @@ public:
         return static_cast<uint32_t>(_eid_node >> 32);
     }
 
+    uint64_t val() const {
+        return static_cast<uint64_t>(_eid_node);
+    }
+
     // just return the node
     node_t node() const {
         return _eid_node & NODEMASK;
@@ -107,8 +121,8 @@ public:
 
     // invert msb's since lsb = seed then for max_value
     bool operator() (const MultiNodeMsg& a, const MultiNodeMsg& b) const {
-        const uint64_t a_hash = crc64(_seed, a.msb(), a.lsb());
-        const uint64_t b_hash = crc64(_seed, b.msb(), b.lsb());
+        const uint64_t a_hash = crc64(_seed, a.val());
+        const uint64_t b_hash = crc64(_seed, b.val());
         
         return a_hash < b_hash;
     }

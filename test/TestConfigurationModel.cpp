@@ -48,15 +48,11 @@ TEST_F(TestConfigurationModel, crccomps) {
 	 */
 	MultiNodeMsgComparator mnmc(seed);
 	const MultiNodeMsg max = mnmc.max_value();
-	const uint32_t maxm = max.msb();
-	const uint32_t maxl = max.lsb();
 	const MultiNodeMsg min = mnmc.min_value();
-	const uint32_t minm = min.msb();
-	const uint32_t minl = min.lsb();
 	// 64bit matching max_value?
-	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, crc64(seed, maxm, maxl));
+	ASSERT_EQ(0xFFFFFFFFFFFFFFFFu, crc64(seed, max.val()));
 	// 64bit matching min_value?
-	ASSERT_EQ(0x0000000000000000u, crc64(seed, minm, minl));
+	ASSERT_EQ(0x0000000000000000u, crc64(seed, min.val()));
 
 	/*
 	 * TestNodeRandomComparator

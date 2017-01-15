@@ -62,6 +62,8 @@ struct RunConfig {
     bool snapshots;
     unsigned int frequency;
 
+    unsigned int edgeSizeFactor;
+
     RunConfig() 
         : numNodes(10 * IntScale::Mi)
         , minDeg(2)
@@ -79,6 +81,7 @@ struct RunConfig {
         , clueweb("")
         , snapshots(false)
         , frequency(0)
+        , edgeSizeFactor(10)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -122,6 +125,7 @@ struct RunConfig {
 
             cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write metis file every frequency-times"));
             cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots"));
+            cp.add_uint  (CMDLINE_COMP('w', "edge-size-factor",  edgeSizeFactor ,   "Swap number equals # * edge_stream"));
 
 
             if (!cp.process(argc, argv)) {
@@ -214,7 +218,7 @@ void benchmark(RunConfig & config) {
     }
 
     // Build swaps
-    int64_t numSwaps = 10 * edge_stream.size();
+    int64_t numSwaps = config.edgeSizeFactor * edge_stream.size();
     SwapGenerator swap_gen(numSwaps, edge_stream.size());
 
     // Perform edge swaps

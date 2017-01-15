@@ -40,7 +40,7 @@ echo "[BENCHMARK] MAXDEG-DIV-RATIO = ${MAXDEG}"
 echo "[BENCHMARK] THRESHOLD-DIV = ${THRESHOLDDIV}"
 
 # run benchmark
-./build/cm_benchmark -t 6 -n 8 -r 1000 -a 10 #${START} ${RUNS} ${MINDEG} ${MAXDEG} ${THRESHOLDDIV}
+./build/cm_benchmark -t 7 -n 7 -x 100 #-t 3 -n 5 -r 1000 -a 10 #${START} ${RUNS} ${MINDEG} ${MAXDEG} ${THRESHOLDDIV}
 
 # create parentfolder
 mkdir -p measurements
@@ -140,4 +140,5 @@ sort -n $dir/tupr.tmp > $dir/runtime_cm_tupr.dat
 
 cd $dir
 
-gnuplot -e "MIN_DEG = ${MINDEG}; MAX_DEG_RATIO = ${MAXDEG}; THRESHOLD_DIV = ${THRESHOLDDIV}" ../../cm_benchmark_multiplot.gp
+gnuplot -e "MIN_DEG = 10; MAX_DEG_RATIO = 10; THRESHOLD_DIV = 10" ../../cm_benchmark_multiplot.gp
+#gnuplot -e "MIN_DEG = ${MINDEG}; MAX_DEG_RATIO = ${MAXDEG}; THRESHOLD_DIV = ${THRESHOLDDIV}" ../../cm_benchmark_multiplot.gp
