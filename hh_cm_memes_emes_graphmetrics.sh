@@ -74,7 +74,7 @@ do
                                 mv ./graph.metis hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                             done
                             echo "Generating graphmetric file"
-                            $(./graph_analyze.sh -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})
+                            $(./graph_analyze.sh -f=hh_cm_memes_emes_graphmetrics -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})
                             echo "Removing graphdata file"
                             rm *_${a}_${b}_${g}_${div}_${n}*.graphdata
                        done
