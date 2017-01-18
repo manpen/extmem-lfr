@@ -3,6 +3,10 @@
 for i in "$@"
 do
 case $i in
+    -f*)
+	prefix="${i#*=}"
+	shift
+	;;
     -a*)
         a="${i#*=}"
         shift
@@ -84,7 +88,7 @@ do
 done
 
 (echo -e "#Index \t Clustering_Coefficient \t Degree_Assortativity \t Density \t Nodes \t Edges" >> $datafile)
-sort -n $datafile >> sorted_$datafile
+sort -n $datafile >> ${filename}_${a}_${b}_${g}_${d}_${n}.dat
 
 rm $datafile
 rm tmp_*.graphanalyze

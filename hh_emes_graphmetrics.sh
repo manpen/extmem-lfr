@@ -1,5 +1,5 @@
 #!/bin/bash
-RUNS=2
+RUNS=1
 
 SNAPS=0
 FREQUENCY=10
@@ -35,7 +35,7 @@ echo "[standard_ESTFP_graphmetrics] Created Folder: hh_emes_graphmetrics/${folde
 
 gamma=(2.0)
 mindeg=(10)
-nodes=(10000)
+nodes=(1000)
 divisor=(20)
 #gamma=(1.5 2.0)
 #mindeg=(5 10)
@@ -112,7 +112,7 @@ do
                             mv ./graph.metis hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.graphdata
                         done
                         echo "Generating graphmetric file"
-                        $(./graph_analyze.sh -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})
+                        $(./graph_analyze.sh -f=hh_emes_graphmetrics -a=${a} -b=${b} -g=${g} -d=${div} -n=${n})
                         echo "Removing graphdata file"
                         rm *_${a}_${b}_${g}_${div}_${n}*.graphdata
                     done

@@ -40,7 +40,7 @@ echo "[BENCHMARK] MAXDEG-DIV-RATIO = ${MAXDEG}"
 echo "[BENCHMARK] THRESHOLD-DIV = ${THRESHOLDDIV}"
 
 # run benchmark
-./build/cm_benchmark -t 7 -n 7 -x 100 #-t 3 -n 5 -r 1000 -a 10 #${START} ${RUNS} ${MINDEG} ${MAXDEG} ${THRESHOLDDIV}
+./build/cm_benchmark -t 3 -n 6 -r 1000 -a 10 #${START} ${RUNS} ${MINDEG} ${MAXDEG} ${THRESHOLDDIV}
 
 # create parentfolder
 mkdir -p measurements
