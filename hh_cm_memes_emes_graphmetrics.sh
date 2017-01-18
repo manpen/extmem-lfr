@@ -68,6 +68,46 @@ do
                                 if [ $SNAPS -eq 1 ]
                                 then
                                     ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -e TFP -w $EDGESCANS -z -f $FREQUENCY >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                    echo "Processing Snapshots"
+                                    count=$(($(find ./graph_snapshot_*.metis | wc -l) -1))
+                                    echo "Snapshotcount w/o initial: $count"
+                                    python3 ./graph_generic_networkit.py graph_snapshot_init.metis >> tmp_snapshot_0.graph_analyze
+                                    snapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.degass
+                                    echo "Degree Assortativity Datafile: $snapfile"
+                                    $(echo -e "# Snapshot \t Degree_Assortativity" >> $snapfile)
+                                    if [ "$count" -gt "0" ]
+                                    then
+                                        for k in `seq 1 $count`;
+                                        do
+                                            filename=graph_snapshot_${k}.metis
+                                            echo "Processing $filename"
+                                            python3 ./graph_generic_networkit.py $filename >> tmp_snapshot_${k}.graphanalyze
+                                        done
+                                        for z in `seq 0 $count`;
+                                        do
+                                            echo $z
+                                            # Make snapfile
+                                            # Get Degree Assortativity
+                                            while IFS=$'\t' read -r column1 column2 ;
+                                            do
+                                                case $column1 in
+                                                    "degree assortativity")
+                                                        p_da=$column2
+                                                        shift
+                                                        ;;
+                                                    *)
+                                                        ;;
+                                                esac
+                                            done < tmp_snapshot_${z}.graphanalyze
+                                            # Write out
+                                            echo "Current Degree Assortativity: " $p_da
+                                            $(echo -e "$z \t $p_da" >> $snapfile)
+                                        done
+                                     fi    
+                                     # Remove snap files
+                                     rm graph_snapshot_*.metis
+                                     # Remove tmp snap files
+                                     # rm tmp_snapshot_*.graphanalyze
                                 else
                                     ./build/memtfp_combined_benchmark -a $a -b $b -g $g -n $n -e TFP -w $EDGESCANS >> hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                                 fi
@@ -84,5 +124,6 @@ done
 
 # move files
 mv hh_cm_memes_emes_graphmetrics_*.log hh_cm_memes_emes_graphmetrics/${foldername}
+mv hh_emes_graphmetrics_*.degass hh_emes_graphmetrics/${foldername}
 mv sorted_metrics_*.dat hh_cm_memes_emes_graphmetrics/${foldername}
 echo "[combined_ESTFP_graphmetrics] Moved Log Files"
