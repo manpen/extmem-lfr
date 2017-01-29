@@ -71,8 +71,11 @@ do
                                 echo "Snapshotcount w/o initial: $count"
                                 python3 ./graph_generic_networkit.py graph_snapshot_init.metis >> tmp_snapshot_0.graphanalyze
                                 snapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.degass
+                                ccsnapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
                                 echo "Degree Assortativity Datafile: $snapfile"
+                                echo "Clustering Coefficient Datafile: $ccsnapfile"
                                 $(echo -e "# Snapshot \t Degree_Assortativity" >> $snapfile)
+                                $(echo -e "# Snapshot \t Clustering Coefficient" >> $ccsnapfile)
                                 if [ "$count" -gt "0" ]
                                 then
                                     for k in `seq 1 $count`;
@@ -89,6 +92,10 @@ do
                                         while IFS=$'\t' read -r column1 column2 ;
                                         do
                                             case $column1 in
+                                                "clustering coefficient")
+                                                    p_cc=$column2
+                                                    shift
+                                                    ;;
                                                 "degree assortativity")
                                                     p_da=$column2
                                                     shift
@@ -99,7 +106,9 @@ do
                                         done < tmp_snapshot_${z}.graphanalyze
                                         # Write out
                                         echo "Current Degree Assortativity: " $p_da
+                                        echo "Current Clustering Coefficient: " $p_cc
                                         $(echo -e "$z \t $p_da" >> $snapfile)
+                                        $(echo -e "$z \t $p_cc" >> $ccsnapfile)
                                     done
                                  fi    
                                  # Remove snap files
@@ -123,5 +132,6 @@ done
 # move files
 mv hh_emes_graphmetrics_*.log hh_emes_graphmetrics/${foldername}
 mv hh_emes_graphmetrics_*.degass hh_emes_graphmetrics/${foldername}
+mv hh_emes_graphmetrics_*.ccoeff hh_emes_graphmetrics/${foldername}
 mv sorted_metrics_*.dat hh_emes_graphmetrics/${foldername}
 echo "[standard_ESTFP_graphmetrics] Moved Log Files"

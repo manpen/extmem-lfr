@@ -41,8 +41,8 @@ echo "[combined_ESTFP_graphmetrics] Created Folder: hh_cm_memes_emes_graphmetric
 
 gamma=(2.0)
 mindeg=(10)
-nodes=(10000)
-divisor=(10)
+nodes=(1000)
+divisor=(20)
 #gamma=(1.5 2.0)
 #mindeg=(5 10)
 #nodes=(10000 50000 150000)
@@ -73,8 +73,11 @@ do
                                     echo "Snapshotcount w/o initial: $count"
                                     python3 ./graph_generic_networkit.py graph_snapshot_init.metis >> tmp_snapshot_0.graph_analyze
                                     snapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.degass
+                                    ccsnapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
                                     echo "Degree Assortativity Datafile: $snapfile"
+                                    echo "Clustering Coefficient Datafile: $ccsnapefile"
                                     $(echo -e "# Snapshot \t Degree_Assortativity" >> $snapfile)
+                                    $(echo -e "# Snapshot \t Clustering_Coefficient" >> $ccsnapfile)
                                     if [ "$count" -gt "0" ]
                                     then
                                         for k in `seq 1 $count`;
@@ -95,13 +98,19 @@ do
                                                         p_da=$column2
                                                         shift
                                                         ;;
+                                                    "clustering coefficient")
+                                                        p_cc=$column2
+                                                        shift
+                                                        ;;
                                                     *)
                                                         ;;
                                                 esac
                                             done < tmp_snapshot_${z}.graphanalyze
                                             # Write out
                                             echo "Current Degree Assortativity: " $p_da
+                                            echo "Current Clustering Coefficient: " $p_cc
                                             $(echo -e "$z \t $p_da" >> $snapfile)
+                                            $(echo -e "$z \t $p_cc" >> $ccsnapfile)
                                         done
                                      fi    
                                      # Remove snap files
@@ -124,6 +133,7 @@ done
 
 # move files
 mv hh_cm_memes_emes_graphmetrics_*.log hh_cm_memes_emes_graphmetrics/${foldername}
-mv hh_emes_graphmetrics_*.degass hh_emes_graphmetrics/${foldername}
+mv hh_cm_memes_emes_graphmetrics_*.degass hh_cm_memes_emes_graphmetrics/${foldername}
+mv hh_cm_memes_emes_graphmetrics_*.ccoeff hh_cm_memes_emes_graphmetrics/${foldername}
 mv sorted_metrics_*.dat hh_cm_memes_emes_graphmetrics/${foldername}
 echo "[combined_ESTFP_graphmetrics] Moved Log Files"
