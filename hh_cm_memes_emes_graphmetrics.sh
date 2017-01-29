@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RUNS=1
+RUNS=5
 
 SNAPS=0
 FREQUENCY=10
@@ -39,10 +39,10 @@ foldername="log${count}_${now}"
 mkdir -p hh_cm_memes_emes_graphmetrics/${foldername}
 echo "[combined_ESTFP_graphmetrics] Created Folder: hh_cm_memes_emes_graphmetrics/${foldername}"
 
-gamma=(2.0)
-mindeg=(10)
-nodes=(1000)
-divisor=(20)
+gamma=(1.5 2.0)
+mindeg=(5 10)
+nodes=(10000 25000)
+divisor=(10 200)
 #gamma=(1.5 2.0)
 #mindeg=(5 10)
 #nodes=(10000 50000 150000)
