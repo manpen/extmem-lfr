@@ -71,7 +71,7 @@ do
                                     echo "Processing Snapshots"
                                     count=$(($(find ./graph_snapshot_*.metis | wc -l) -1))
                                     echo "Snapshotcount w/o initial: $count"
-                                    python3 ./graph_generic_networkit.py graph_snapshot_init.metis >> tmp_snapshot_0.graph_analyze
+                                    python3 ./graph_generic_networkit.py graph_snapshot_init.metis >> tmp_snapshot_0.graphanalyze
                                     snapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.degass
                                     ccsnapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
                                     echo "Degree Assortativity Datafile: $snapfile"
