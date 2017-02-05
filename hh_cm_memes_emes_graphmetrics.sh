@@ -76,8 +76,8 @@ do
                                     ccsnapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
                                     echo "Degree Assortativity Datafile: $snapfile"
                                     echo "Clustering Coefficient Datafile: $ccsnapefile"
-                                    $(echo -e "# Snapshot \t Degree_Assortativity" >> $snapfile)
-                                    $(echo -e "# Snapshot \t Clustering_Coefficient" >> $ccsnapfile)
+                                    $(echo -e "# Round \t Degree_Assortativity" >> $snapfile)
+                                    $(echo -e "# Round \t Clustering_Coefficient" >> $ccsnapfile)
                                     if [ "$count" -gt "0" ]
                                     then
                                         for k in `seq 1 $count`;
@@ -109,8 +109,8 @@ do
                                             # Write out
                                             echo "Current Degree Assortativity: " $p_da
                                             echo "Current Clustering Coefficient: " $p_cc
-                                            $(echo -e "$z \t $p_da" >> $snapfile)
-                                            $(echo -e "$z \t $p_cc" >> $ccsnapfile)
+					    $(echo -e "$((${z}*${FREQUENCY})) \t $p_da" >> $snapfile)
+					    $(echo -e "$((${z}*${FREQUENCY})) \t $p_cc" >> $ccsnapfile)
                                         done
                                      fi    
                                      # Remove snap files

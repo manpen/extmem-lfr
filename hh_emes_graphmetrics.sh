@@ -34,9 +34,9 @@ mkdir -p hh_emes_graphmetrics/${foldername}
 echo "[standard_ESTFP_graphmetrics] Created Folder: hh_emes_graphmetrics/${foldername}"
 
 gamma=(2.0)
-mindeg=(10)
-nodes=(1000)
-divisor=(20)
+mindeg=(5)
+nodes=(100)
+divisor=(2)
 #gamma=(1.5 2.0)
 #mindeg=(5 10)
 #nodes=(10000 50000 150000)
@@ -55,7 +55,7 @@ do
                             b=$(($n/$div))
                             echo num_nodes $n >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo min_deg $a >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
-			                echo max_deg $b >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+			    echo max_deg $b >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo gamma $g >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo divisor $div >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                             echo swaps $(($n*10)) >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log 
@@ -74,8 +74,8 @@ do
                                 ccsnapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
                                 echo "Degree Assortativity Datafile: $snapfile"
                                 echo "Clustering Coefficient Datafile: $ccsnapfile"
-                                $(echo -e "# Snapshot \t Degree_Assortativity" >> $snapfile)
-                                $(echo -e "# Snapshot \t Clustering Coefficient" >> $ccsnapfile)
+                                $(echo -e "# Round \t Degree_Assortativity" >> $snapfile)
+                                $(echo -e "# Round \t Clustering Coefficient" >> $ccsnapfile)
                                 if [ "$count" -gt "0" ]
                                 then
                                     for k in `seq 1 $count`;
@@ -107,8 +107,8 @@ do
                                         # Write out
                                         echo "Current Degree Assortativity: " $p_da
                                         echo "Current Clustering Coefficient: " $p_cc
-                                        $(echo -e "$z \t $p_da" >> $snapfile)
-                                        $(echo -e "$z \t $p_cc" >> $ccsnapfile)
+					$(echo -e "$((${z}*${FREQUENCY})) \t $p_da" >> $snapfile)
+					$(echo -e "$((${z}*${FREQUENCY})) \t $p_cc" >> $ccsnapfile)
                                     done
                                  fi    
                                  # Remove snap files
