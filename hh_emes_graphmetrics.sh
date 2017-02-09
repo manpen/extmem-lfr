@@ -1,5 +1,5 @@
 #!/bin/bash
-RUNS=1
+RUNS=5
 
 SNAPS=0
 FREQUENCY=10
@@ -33,10 +33,10 @@ foldername="log${count}_${now}"
 mkdir -p hh_emes_graphmetrics/${foldername}
 echo "[standard_ESTFP_graphmetrics] Created Folder: hh_emes_graphmetrics/${foldername}"
 
-gamma=(2.0)
-mindeg=(5)
-nodes=(100)
-divisor=(2)
+gamma=(2.0 2.5 3.0)
+mindeg=(10)
+nodes=(40000)
+divisor=(200)
 #gamma=(1.5 2.0)
 #mindeg=(5 10)
 #nodes=(10000 50000 150000)
@@ -61,7 +61,7 @@ do
                             echo swaps $(($n*10)) >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log 
                             if [ $SNAPS -eq 1 ]
                             then
-                                ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -e TFP -z -f 10 >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
+                                ./build/pa_edge_swaps -a $a -b $b -g $g -n $n -e TFP -z -f $FREQUENCY -w 5 >> hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.log
                                 echo "Processing Snapshots"
                                 # We generated files:
                                 # graph_snapshot_init.metis

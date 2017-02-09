@@ -39,10 +39,10 @@ foldername="log${count}_${now}"
 mkdir -p hh_cm_memes_emes_graphmetrics/${foldername}
 echo "[combined_ESTFP_graphmetrics] Created Folder: hh_cm_memes_emes_graphmetrics/${foldername}"
 
-gamma=(1.5 2.0)
-mindeg=(5 10)
-nodes=(10000 25000)
-divisor=(10 200)
+gamma=(2.0 2.5 3.0)
+mindeg=(10)
+nodes=(40000)
+divisor=(200)
 #gamma=(1.5 2.0)
 #mindeg=(5 10)
 #nodes=(10000 50000 150000)
@@ -72,8 +72,8 @@ do
                                     count=$(($(find ./graph_snapshot_*.metis | wc -l) -1))
                                     echo "Snapshotcount w/o initial: $count"
                                     python3 ./graph_generic_networkit.py graph_snapshot_init.metis >> tmp_snapshot_0.graphanalyze
-                                    snapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.degass
-                                    ccsnapfile=hh_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
+                                    snapfile=hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.degass
+                                    ccsnapfile=hh_cm_memes_emes_graphmetrics_${a}_${b}_${g}_${div}_${n}_${j}.ccoeff
                                     echo "Degree Assortativity Datafile: $snapfile"
                                     echo "Clustering Coefficient Datafile: $ccsnapefile"
                                     $(echo -e "# Round \t Degree_Assortativity" >> $snapfile)
