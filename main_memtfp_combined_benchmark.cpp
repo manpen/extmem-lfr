@@ -285,7 +285,8 @@ void benchmark(RunConfig & config) {
 
                 inter_edges.consume();
 
-                export_as_metis_nonpointer(inter_edges, "graph.metis");
+		if (config.snapshots)
+			export_as_metis_nonpointer(inter_edges, "graph.metis");
 
                 break;
             }
