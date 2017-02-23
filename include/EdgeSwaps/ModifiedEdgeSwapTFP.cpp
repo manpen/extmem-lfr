@@ -540,6 +540,11 @@ namespace ModifiedEdgeSwapTFP {
 
 
         for (; !_swap_directions.empty(); ++_swap_directions, ++sid) {
+            // Test Hedge# size
+            //std::cout << "Hedge# Size: " << edge_quant_map.size() << std::endl;
+            edge_quant_map.clear();
+            //
+
             edge_state_pqsort.update();
 
             // collect the current state of the edge to be swapped

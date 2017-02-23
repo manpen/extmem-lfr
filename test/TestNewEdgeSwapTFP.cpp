@@ -187,19 +187,19 @@ namespace {
 	    ASSERT_EQ(edge_list[5], edge_t(2, 5));
 
    	}
-/*
+
    	TYPED_TEST(TestNewEdgeSwapTFP, manyRandom) {
 
    		bool debug_this_test = true;
    		using EdgeSwapAlgo = TypeParam;
 
-		const degree_t min_deg = 20;
+		const degree_t min_deg = 10;
 		const degree_t max_deg = 10000;
-		const node_t num_nodes = 1000000;
+		const node_t num_nodes = 100000;
 	    const degree_t threshold = min_deg;
 	    
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
-		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2, num_nodes);
+		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -1.5, num_nodes);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();
@@ -311,5 +311,5 @@ namespace {
 
 
         std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
-    }*/
+    }
 }
