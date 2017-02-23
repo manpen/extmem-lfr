@@ -256,7 +256,8 @@ void benchmark(RunConfig & config) {
 
                 edge_stream.consume();
 
-                export_as_metis_nonpointer(edge_stream, "graph.metis");
+                if (config.snapshots) 
+			export_as_metis_nonpointer(edge_stream, "graph.metis");
 
                 //edge_stream.consume();
 
