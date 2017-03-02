@@ -249,12 +249,21 @@ protected:
         // shift multiplier for high degree nodes
         std::uniform_int_distribution<node_t> disShift(_high_degree_shift_bounds.first, _high_degree_shift_bounds.second);
 
+        //std::cout << "MaxDegree: " << _max_degree << std::endl;
+        //std::cout << "Threshold: " << _threshold << std::endl;
+        //std::cout << "NAT: " << _nodes_above_threshold << std::endl;
+
         // do first problematic nodes
         for (node_t count_threshold = 0; (count_threshold < _nodes_above_threshold) && (!_edges.empty()); ++count_threshold) {
             // new code
             // prevent sorter out of bounds
+            //std::cout << "CT: " << count_threshold << std::endl;
+
             if (_threshold > 0) {
                 while((static_cast<node_t>((*_edges).second) < _nodes_above_threshold) && !_edges.empty()) {
+
+                    //std::cout << "Both Problematic" << *_edges << std::endl;
+                    //std::cout << "Problematic Part 1: " << *_edges << std::endl;
                     const node_t random_noise = dis64(gen64);
 
                     const node_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<node_t>((*_edges).first);
@@ -268,9 +277,13 @@ protected:
                         MultiNodeMsg{ (random_noise << 36) | snd_node });
 
                     ++_edges;
+
+                    if ((*_edges).first != count_threshold)
+                        break;
                 }
 
                 while ((static_cast<node_t>((*_edges).first) == count_threshold) && !_edges.empty()) {
+                    //std::cout << "Only Second Problematic" << *_edges << std::endl;
                     const node_t random_noise = dis64(gen64);
                     
                     const node_t fst_node = _node_upperbound + disShift(gen64) * _nodes_above_threshold + static_cast<node_t>((*_edges).first);
@@ -282,11 +295,14 @@ protected:
 
                     ++_edges;
                 }
-            }
+            } else
+                break;
         }
 
         // not so problematic
         for (; !_edges.empty(); ++_edges) {
+
+            //std::cout << "Not Problematic: " << *_edges << std::endl;
 
             const node_t random_noise = dis64(gen64);
 

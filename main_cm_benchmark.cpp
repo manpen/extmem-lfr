@@ -108,10 +108,10 @@ void benchmark(RunConfig & config) {
 
         std::cout << "Max degree fed to HH: " << hh_gen.maxDegree() << std::endl;
         std::cout << "Threshold: " << threshold << std::endl;
-        std::cout << "Nodes with degree above threshold: " << hh_gen.nodesAboveThreshold() << std::endl;
+        std::cout << "Nodes with degree above threshold: " << n - hh_gen.nodesAboveThreshold() << std::endl;
 
         HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator>
-                cmhh(hh_gen, config.randomSeed, n, threshold, hh_gen.maxDegree(), hh_gen.nodesAboveThreshold());
+                cmhh(hh_gen, config.randomSeed, n, threshold, hh_gen.maxDegree(), n - hh_gen.nodesAboveThreshold());
 
         stxxl::stats *stats = stxxl::stats::get_instance();
         stxxl::stats_data stats_begin(*stats);
@@ -188,7 +188,7 @@ void benchmark(RunConfig & config) {
     }
 
     // Random
-
+/*
     for (node_t n = pow(10, config.start); n <= pow(10, config.end); n *= 10) {
         const degree_t maxDeg = static_cast<degree_t >(n / config.ratio);
         const degree_t threshold = static_cast<degree_t>(maxDeg / config.ratio); // Here threshold_divisor previously
@@ -278,7 +278,7 @@ void benchmark(RunConfig & config) {
         cmhh.clear();
 
         cmhh_file.close();
-    }
+    }*/
 }
 
 int main(int argc, char* argv[]) {
