@@ -84,7 +84,7 @@ namespace LFR {
                           << std::endl;
                        
 
-                if (internalNodes && IMGraph::memoryUsage(com_size, degree_sum/2) < std::min<size_t>(1llu<<31, available_memory) && degree_sum/2 < IMGraph::maxEdges()) {
+                if (internalNodes && IMGraph::memoryUsage(com_size, degree_sum/2) < available_memory && degree_sum/2 < IMGraph::maxEdges()) {
                     IMGraph graph(node_degrees);
                     while (!gen.empty()) {
                         graph.addEdge(*gen);
