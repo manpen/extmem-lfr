@@ -129,6 +129,9 @@ add_executable(curveball_benchmark main_curveball_benchmark.cpp)
 target_link_libraries(curveball_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
 
 
+add_executable(compare_graph compare_graph.cpp)
+target_link_libraries(compare_graph ${STXXL_LIBRARIES})
+
 include(CMakeLocal.cmake)
 
 add_subdirectory(test)
