@@ -161,7 +161,7 @@ protected:
      * of community k */
     stxxl::vector<CommunityAssignment> _community_assignments;
 
-    stxxl::vector<CommunityEdge> _intra_community_edges;
+    EdgeStream _intra_community_edges;
     EdgeStream _inter_community_edges;
     EdgeStream _edges;
 
@@ -176,6 +176,7 @@ protected:
     void _compute_community_size();
     void _compute_community_assignments();
     void _correct_community_sizes();
+    template <bool is_disjoint>
     void _generate_community_graphs();
     void _generate_global_graph(int_t swaps_per_iteration);
     void _merge_community_and_global_graph();

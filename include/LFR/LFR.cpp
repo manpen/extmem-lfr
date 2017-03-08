@@ -168,7 +168,12 @@ namespace LFR {
 
             {
                 IOStatistics ios("GenCommGraphs");
-                _generate_community_graphs();
+                const bool is_disjoint = (_overlap_method == OverlapMethod::constDegree && _overlap_config.constDegree.overlappingNodes == 0);
+                if (is_disjoint) {
+                    _generate_community_graphs<true>();
+                } else {
+                    _generate_community_graphs<false>();
+                }
             }
             {
                 IOStatistics ios("GenGlobGraph");

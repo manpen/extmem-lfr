@@ -14,8 +14,40 @@
 #include <Utils/RandomSeed.h>
 
 namespace LFR {
+    namespace {
+            CommunityEdge construct_community_edge_t(community_t com, const edge_t &e, std::false_type)  {
+                return CommunityEdge(com, e);
+            }
+
+            const edge_t& construct_community_edge_t(community_t, const edge_t &e, std::true_type)  {
+                return e;
+            }
+
+            const edge_t& get_edge_from_community_edge_t(const edge_t &e) {
+                return e;
+            }
+
+            const edge_t& get_edge_from_community_edge_t(const CommunityEdge&) {
+                throw std::logic_error("get_edge_from_community_edge_t called with CommunityEdge - this should never happen.");
+            }
+
+            const CommunityEdge get_community_edge(const edge_t) {
+                throw std::logic_error("get_community_edge called with edge - this should never happen.");
+            };
+
+            const CommunityEdge& get_community_edge(const CommunityEdge& e) {
+                return e;
+            };
+    }
+
+    template <bool is_disjoint>
     void LFR::_generate_community_graphs() {
-        stxxl::sorter<CommunityEdge, GenericComparatorStruct<CommunityEdge>::Ascending> edgeSorter(GenericComparatorStruct<CommunityEdge>::Ascending(), SORTER_MEM);
+        using community_edge_t = typename std::conditional<is_disjoint, edge_t, CommunityEdge>::type;
+        using community_edge_comparator_t = typename std::conditional<is_disjoint, GenericComparator<edge_t>::Ascending, GenericComparatorStruct<CommunityEdge>::Ascending>::type;
+        stxxl::sorter<community_edge_t, community_edge_comparator_t> edgeSorter(community_edge_comparator_t(), SORTER_MEM);
+        auto push_com_edge = [&edgeSorter](community_t com, const edge_t &e) {
+            edgeSorter.push(construct_community_edge_t(com, e, std::integral_constant<bool, is_disjoint>()));
+        };
         const uint_t n_threads = omp_get_max_threads();
         const uint_t memory_per_thread = _max_memory_usage / n_threads;
 
@@ -118,7 +150,7 @@ namespace LFR {
                                     assert(!e.is_loop());
                                     last_e = e;
 #endif
-                        edgeSorter.push(CommunityEdge(com, e));
+                        push_com_edge(com, e);
                     }
                 } else {
                     EdgeStream intra_edges;
@@ -150,7 +182,7 @@ namespace LFR {
                         while (!intra_edges.empty()) {
                             edge_t e = {node_ids[intra_edges->first], node_ids[intra_edges->second]};
                             e.normalize();
-                            edgeSorter.push(CommunityEdge(com, e));
+                            push_com_edge(com, e);
                             ++intra_edges;
                         }
                     } else { // external memory mapping with an additional sort step
@@ -185,7 +217,7 @@ namespace LFR {
                                     assert(!e.is_loop());
                                     last_e = e;
 #endif
-                                    edgeSorter.push(CommunityEdge(com, e));
+                                    push_com_edge(com, e);
                                     ++intra_edgeSorter;
                                 }
                             }
@@ -198,12 +230,33 @@ namespace LFR {
 
         edgeSorter.sort();
 
-        _intra_community_edges.resize(edgeSorter.size());
-        stxxl::stream::materialize(edgeSorter, _intra_community_edges.begin());
+        _intra_community_edges.clear();
 
-        if (!(_overlap_method == OverlapMethod::constDegree && _overlap_config.constDegree.overlappingNodes == 0)) {
-            CommunityEdgeRewiringSwaps rewiringSwaps(_intra_community_edges, _intra_community_edges.size() / 3, _community_rewiring_random);
+        if (is_disjoint) {
+            for (; !edgeSorter.empty(); ++edgeSorter) {
+                _intra_community_edges.push(get_edge_from_community_edge_t(*edgeSorter));
+            }
+        } else {
+            stxxl::vector<CommunityEdge> intra_com_edges;
+            intra_com_edges.resize(edgeSorter.size());
+
+            {
+                stxxl::vector<CommunityEdge>::bufwriter_type writer(intra_com_edges);
+                for (; !edgeSorter.empty(); ++edgeSorter) {
+                    writer << get_community_edge(*edgeSorter);
+                }
+                writer.finish();
+            }
+
+            CommunityEdgeRewiringSwaps rewiringSwaps(intra_com_edges, _intra_community_edges.size() / 3, _community_rewiring_random);
             rewiringSwaps.run();
+
+            for (stxxl::vector<CommunityEdge>::bufreader_type reader(intra_com_edges); !reader.empty(); ++reader) {
+                _intra_community_edges.push(reader->edge);
+            }
         }
     }
+
+    template void LFR::_generate_community_graphs<true>();
+    template void LFR::_generate_community_graphs<false>();
 }
