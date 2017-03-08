@@ -174,14 +174,21 @@ namespace LFR {
                 } else {
                     _generate_community_graphs<false>();
                 }
+
+                std::cout << "Current EM allocation after GenCommGraphs: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after GenCommGraphs: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
             }
             {
                 IOStatistics ios("GenGlobGraph");
                 _generate_global_graph(globalSwapsPerIteration);
+                std::cout << "Current EM allocation after GenGlobGraph: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after GenGlobGraph: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
             }
             {
                 IOStatistics ios("MergeGraphs");
                 _merge_community_and_global_graph();
+                std::cout << "Current EM allocation after MergeGraphs: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after MergeGraphs: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
             }
 
             std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " <<
