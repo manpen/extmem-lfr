@@ -147,6 +147,9 @@ namespace EdgeSwapTFP {
         REPORT_SORTER_STATS(_depchain_successor_sorter);
         _depchain_edge_sorter.sort();
         REPORT_SORTER_STATS(_depchain_edge_sorter);
+
+        // Free EM of edge swaps before continuing
+        _edge_swap_sorter->clear();
     }
 
     /*
@@ -466,6 +469,8 @@ namespace EdgeSwapTFP {
             _existence_info_sorter.sort();
         }
 
+        // existence requests are not needed anymore, clear them
+        _existence_request_sorter.clear();
         _edges.rewind();
     }
 
