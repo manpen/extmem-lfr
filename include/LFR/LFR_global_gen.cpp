@@ -47,9 +47,14 @@ namespace LFR {
             // FIXME: This is only necessary, if nodes are not sorted by externalDegree (which happens if we apply ceiling!)
             // We may change the ceiling scheme to avoid it. For the moment, this is the more general solution
 
-            // translate source node id's
-            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter1(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+            // translate target node id's
+            // the sorter is in the outer scope as it is needed for longer
+            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter2(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
             {
+                // translate source node id's
+                stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter1(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
                 extDegree.rewind();
                 for (node_t i = 0; !gen.empty(); ++gen) {
                     const edge_t &orig_edge = *gen;
@@ -57,14 +62,10 @@ namespace LFR {
 
                     edge_sorter1.push({orig_edge.second, (*extDegree).second});
                 }
-            }
 
-            edge_sorter1.sort();
-            extDegree.rewind();
+                edge_sorter1.sort();
+                extDegree.rewind();
 
-            // translate target node id's
-            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter2(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
-            {
                 for (node_t i = 0; !edge_sorter1.empty(); ++edge_sorter1) {
                     const edge_t &orig_edge = *edge_sorter1;
                     for (; i < orig_edge.first; ++extDegree, ++i);
