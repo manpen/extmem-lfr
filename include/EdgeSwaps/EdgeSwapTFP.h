@@ -251,6 +251,8 @@ namespace EdgeSwapTFP {
         int_t _itcount;
         int_t _hitcount;
 
+        node_t _num_nodes;
+
     public:
         EdgeSwapTFP() = delete;
         EdgeSwapTFP(const EdgeSwapTFP &) = delete;
@@ -290,7 +292,8 @@ namespace EdgeSwapTFP {
               _snapshots(snapshots),
               _frequency(frequency),
               _itcount(0),
-              _hitcount(0)
+              _hitcount(0),
+              _num_nodes(num_nodes)
         { }
 
         EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps, swapid_t run_length = 1000000) :

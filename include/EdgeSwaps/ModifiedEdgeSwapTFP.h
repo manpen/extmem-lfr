@@ -350,6 +350,10 @@ namespace ModifiedEdgeSwapTFP {
         void consume() {
             _edges.consume();
         }
+
+        size_t size() {
+            return _edges.size();
+        }
 //! @}
     };
 }

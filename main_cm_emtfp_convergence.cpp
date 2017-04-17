@@ -129,7 +129,7 @@ void benchmark(RunConfig & config) {
             swap_algo.run();
     }
 
-    export_as_metis_nonpointer(swap_algo, "graph.metis");
+    export_as_metis_nonpointer(swap_algo, "graph.metis", config.numNodes, false);
 }
 
 int main(int argc, char* argv[]) {
