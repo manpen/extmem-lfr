@@ -201,7 +201,7 @@ void benchmark(RunConfig & config) {
 
     if (config.snapshots) {
         std::cout << "Exporting initial Snapshot" << std::endl;
-        export_as_thrillbin_sorted(edge_stream, "graph_snapshot_0.metis", config.numNodes);//, true);
+        export_as_thrillbin_sorted(edge_stream, "graph_snapshot_0.thrillbin", config.numNodes);//, true);
 
         edge_stream.consume();
     }
@@ -256,10 +256,10 @@ void benchmark(RunConfig & config) {
 
                 edge_stream.consume();
 
-                if (config.snapshots) {
-			        //export_as_metis_nonpointer(edge_stream, "graph.metis");
-                    export_as_thrillbin_sorted(edge_stream, "graph.metis", config.numNodes);
-                }
+//                if (config.snapshots) {
+//			        //export_as_metis_nonpointer(edge_stream, "graph.metis");
+ //                   export_as_thrillbin_sorted(edge_stream, "graph.metis", config.numNodes);
+//                }
                 //edge_stream.consume();
 
                 //for (; !edge_stream.empty(); ++edge_stream) {

@@ -1,4 +1,5 @@
 #pragma once
+#include <random>
 
 /**
  * Connects a producer implemented as a stream to an consumer which accepts

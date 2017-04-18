@@ -264,7 +264,9 @@ void benchmark(RunConfig & config) {
                 // Write out initial snapshot
                 if (config.snapshots) {
                     std::cout << "Exporting initial Snapshot" << std::endl;
-                    export_as_metis_nonpointer(inter_edges, "graph_snapshot_init.metis");
+//                    export_as_metis_nonpointer(inter_edges, "graph_snapshot_init.metis");
+                    export_as_thrillbin_sorted(inter_edges, "graph_snapshot_0.thrillbin", config.numNodes);
+
                     inter_edges.consume();
                 }
 
@@ -285,8 +287,8 @@ void benchmark(RunConfig & config) {
 
                 inter_edges.consume();
 
-		if (config.snapshots)
-			export_as_metis_nonpointer(inter_edges, "graph.metis");
+//		if (config.snapshots)
+//			export_as_metis_nonpointer(inter_edges, "graph.metis");
 
                 break;
             }
