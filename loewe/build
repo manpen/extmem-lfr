@@ -1,0 +1,80 @@
+#!/bin/bash
+PYTHON=$(type -p python3)
+export CXX=$(type -p g++)
+trap "exit" INT
+
+# check gcc version
+currentver="$(gcc -dumpversion)"
+requiredver="5.0.0"
+if [ "$(printf "$requiredver\n$currentver" | sort -V | head -n1)" == "$currentver" ] && [ "$currentver" != "$requiredver" ]; then 
+    echo "GCC version too old; execute 'module initadd gcc/5.2.0' and log-out"
+    exit
+fi
+
+
+currentver="$(python3 --version | perl -pe 's/[^\d\.]//g')"
+requiredver="3.4.0"
+if [ "$(printf "$requiredver\n$currentver" | sort -V | head -n1)" == "$currentver" ] && [ "$currentver" != "$requiredver" ]; then 
+    echo "PYTHON version too old; execute 'module initadd python/3.4.3' and log-out"
+    exit
+fi
+
+echo "Will use the following enviroment"
+echo " python: $PYTHON"
+echo " g++:    $CXX"
+
+echo "Will build within current directory; Press CTRL+C to abort"
+pause
+
+INST_DIR=$(pwd)
+
+echo -e "\e[31mCheck out repos and build python dependencies \e[39m"
+cd $INST_DIR
+git clone https://github.com/michitux/networkit 
+
+### BUILD PYTHON DEPS
+$PYTHON -m venv $INST_DIR/python-env
+export NPY_NUM_BUILD_JOBS=20
+. $INST_DIR/python-env/bin/activate
+
+type pip3
+pip3 install --upgrade pip
+
+echo -e "\e[31mBuild NetworKIT \e[39m"
+cd networkit
+git checkout thrill_support
+perl -pi -e "s/\{\}/{0}/" SConstruct
+cp build.conf.example build.conf
+perl -pi -e 's/^cpp\s*=.*$/cpp=$ENV{CXX}/' build.conf
+perl -pi -e 's/scons_available = True/scons_available = False/' setup.py
+#perl -pi -e 's/pip.main\(\['"'install'"', package\]\)/pip.main(["install", "--user", package])/g' setup_util.py
+
+python3 setup.py build_ext --inplace --optimize=Opt -j20 
+pip3 install -e ./
+python3 setup.py clean --optimize=Opt
+
+MPL_RC=$(python3 -c 'import matplotlib as mpl; print(mpl.matplotlib_fname())')
+perl -pi -e 's/backend\s*:\s*TkAgg/backend: pdf/' $MPL_RC
+
+cd $INST_DIR
+echo -e "\e[31mCheck out extmem-lfr \e[39m"
+git clone git@git.ae.cs.uni-frankfurt.de:extmem-lfr 
+cd extmem-lfr
+git submodule init
+git submodule update
+
+cd $INST_DIR
+echo -e "\e[31mCheck out em-lfr \e[39m"
+git clone git@git.ae.cs.uni-frankfurt.de:em-lfr 
+cd em-lfr
+git submodule init
+git submodule update
+mkdir release
+cd release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j pa_edge_swaps memtfp_combined_benchmark
+
+echo "--------------"
+echo "Make sure to load the virtual python enviroment before executing a script by"
+echo ". $INST_DIR/python-env/bin/activate"
+echo "--------------"
