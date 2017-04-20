@@ -1,0 +1,44 @@
+# Preparations
+In order to load Python and GCC in a recent version run 
+
+./build_before
+
+This will ensure the appropriate modules are loaded in your ~/.bashrc
+Log-Out and Log-In again to make sure, the module are loaded.
+Check that GCC 5.2+ and Python 3.5+ are enabled by executing
+
+gcc --version
+python3 --version
+
+(The build script will check again, but better be safe than sorry)
+
+# Building stuff
+The build script will download all repositories and python modules needed,
+rewrite some configurations and build the stuff. EVERYTHING takes place
+in one directory. So you can be sure your system remains untouched.
+In order to do so, we will create a virtual Python enviroment (https://docs.python.org/3/library/venv.html)
+that has to be loaded after installation before EVERY execution.
+The required command is displayed in at the end of the installation.
+Watch out for it !
+
+mkdir lfr # or any other name
+cd lfr
+PATH-TO-BUILD-SCRIPT/build
+
+This will result in the following structure:
+lfr
+|- em-lfr        # Old EM-LFR Repo (Bachelor Thesis). 
+|  |- release    # Contains binaries
+|- extmem-lfr    # New Repo. Does contain the experiment scripts
+|- networkit     # NetworKit build dir. Not needed anymore
+|- python-env    # This contains the Python virtual env
+
+To load the Python Env add the following line to your .bashrc (The correct path is displayed by the build script)
+
+. ABSOLUTE-PATH-TO-LFR-DIR/python-env/bin/activate
+
+Make sure to include the ". " at the beginning of the line.
+Log-Out and Log-In. Make sure your bash promt begins with (python-env)
+
+
+

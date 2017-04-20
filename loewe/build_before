@@ -1,0 +1,3 @@
+#!/bin/bash
+module initadd python/3.5.2
+module initadd gcc/5.2.0
