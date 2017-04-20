@@ -123,7 +123,7 @@ struct RunConfig {
 
             cp.add_string(CMDLINE_COMP('c', "clueweb", clueweb, "path to clueweb file"));
 
-            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write metis file every frequency-times"));
+            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write thrillbin file every frequency-times"));
             cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots"));
             cp.add_uint  (CMDLINE_COMP('w', "edge-size-factor",  edgeSizeFactor ,   "Swap number equals # * edge_stream"));
 
@@ -201,7 +201,7 @@ void benchmark(RunConfig & config) {
 
     if (config.snapshots) {
         std::cout << "Exporting initial Snapshot" << std::endl;
-        export_as_thrillbin_sorted(edge_stream, "graph_snapshot_0.metis", config.numNodes);//, true);
+        export_as_thrillbin_sorted(edge_stream, "graph_snapshot_0.thrillbin", config.numNodes);//, true);
 
         edge_stream.consume();
     }
@@ -256,10 +256,10 @@ void benchmark(RunConfig & config) {
 
                 edge_stream.consume();
 
-                if (config.snapshots) {
-			        //export_as_metis_nonpointer(edge_stream, "graph.metis");
-                    export_as_thrillbin_sorted(edge_stream, "graph.metis", config.numNodes);
-                }
+                //if (config.snapshots) {
+			    //    //export_as_metis_nonpointer(edge_stream, "graph.metis");
+                //    export_as_thrillbin_sorted(edge_stream, "graph.metis", config.numNodes);
+                //}
                 //edge_stream.consume();
 
                 //for (; !edge_stream.empty(); ++edge_stream) {

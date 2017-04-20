@@ -128,7 +128,7 @@ struct RunConfig {
 
             cp.add_string(CMDLINE_COMP('c', "clueweb", clueweb, "path to clueweb file"));
 
-            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write metis file every frequency-times"));
+            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write thrillbin file every frequency-times"));
             cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots"));
             cp.add_uint  (CMDLINE_COMP('w', "edge-size-factor",  edgeSizeFactor ,   "Swap number equals # * edge_stream"));
 
@@ -245,7 +245,8 @@ void benchmark(RunConfig & config) {
             }
 
             case TFP: {
-                ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes, config.internalMem);
+                ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes,
+                                                                   config.internalMem);
                 StreamPusher<SwapStream, decltype(init_algo)>(swap_stream, init_algo);
 
                 {
@@ -264,7 +265,7 @@ void benchmark(RunConfig & config) {
                 // Write out initial snapshot
                 if (config.snapshots) {
                     std::cout << "Exporting initial Snapshot" << std::endl;
-                    export_as_metis_nonpointer(inter_edges, "graph_snapshot_init.metis");
+                    export_as_thrillbin_sorted(inter_edges, "graph_snapshot_0.thrillbin", config.numNodes);//, false);
                     inter_edges.consume();
                 }
 
@@ -276,19 +277,13 @@ void benchmark(RunConfig & config) {
 
                 const swapid_t runSize = inter_edges.size() / 8;
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem, config.snapshots, config.frequency);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem,
+                                                   config.snapshots, config.frequency);
                 {
                     IOStatistics swap_report("SwapStats2");
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
                     swap_algo.run();
                 }
-
-                inter_edges.consume();
-
-		if (config.snapshots)
-			export_as_metis_nonpointer(inter_edges, "graph.metis");
-
-                break;
             }
 
             case PTFP: {
