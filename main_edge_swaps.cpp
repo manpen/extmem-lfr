@@ -41,6 +41,7 @@ struct RunConfig {
     stxxl::uint64 minDeg;
     stxxl::uint64 maxDeg;
     double gamma;
+    double scaleDegree;
 
     stxxl::uint64 numSwaps;
     stxxl::uint64 runSize;
@@ -69,6 +70,7 @@ struct RunConfig {
         , minDeg(2)
         , maxDeg(100000)
         , gamma(-2.0)
+        , scaleDegree(1.0)
 
         , numSwaps(numNodes)
         , runSize(numNodes/10)
@@ -106,6 +108,7 @@ struct RunConfig {
             cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,   "Min. Deg of Powerlaw Deg. Distr."));
             cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr."));
             cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr."));
+            cp.add_double(CMDLINE_COMP('d', "scale-degree", scaleDegree, "ScaleDegree of PWL-Distr"));
             cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
 
             cp.add_bytes  (CMDLINE_COMP('m', "num-swaps", numSwaps,   "Number of swaps to perform"));
@@ -156,6 +159,11 @@ struct RunConfig {
            return false;
         }
 
+        if (scaleDegree * minDeg < 1.0) {
+            std::cerr << "Scaling the minimum degree must yield at least 1.0" << std::endl;
+            return false;
+        }
+
 
         cp.print_result();
         return true;
@@ -177,7 +185,7 @@ void benchmark(RunConfig & config) {
 
         // prepare generator
         HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-        MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes);
+        MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree);
         StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
         hh_gen.generate();
 
