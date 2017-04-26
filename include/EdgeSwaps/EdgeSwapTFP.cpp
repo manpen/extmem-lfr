@@ -792,7 +792,7 @@ namespace EdgeSwapTFP {
                 if (_itcount % _frequency == 0) {
                     
                     std::ostringstream filename;
-                    filename << "graph_snapshot_" << ++_hitcount << ".thrillbin";
+                    filename << _snapshot_prefix.data() << "_graph_snapshot_" << ++_hitcount << ".thrillbin";
                     std::cout << "Exporting Snapshot " << _hitcount << std::endl;
                     export_as_thrillbin_sorted(_edges, filename.str(), _num_nodes);//, true);
 

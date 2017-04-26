@@ -273,7 +273,7 @@ void benchmark(RunConfig & config) {
                 if (config.snapshots) {
                     std::cout << "Exporting initial Snapshot" << std::endl;
 //                    export_as_metis_nonpointer(inter_edges, "graph_snapshot_init.metis");
-                    export_as_thrillbin_sorted(inter_edges, "graph_snapshot_0.thrillbin", config.numNodes);
+                    export_as_thrillbin_sorted(inter_edges, "memes_graph_snapshot_0.thrillbin", config.numNodes);
 
                     inter_edges.consume();
                 }
@@ -286,7 +286,7 @@ void benchmark(RunConfig & config) {
 
                 const swapid_t runSize = inter_edges.size() / 8;
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem, config.snapshots, config.frequency);
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(inter_edges, runSize, config.numNodes, config.internalMem, config.snapshots, config.frequency, "memes");
                 {
                     IOStatistics swap_report("SwapStats2");
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
