@@ -32,11 +32,13 @@ protected:
     const degree_t _min_degree;
     const degree_t _max_degree;
     const double _gamma;
+    const double _scale;
 
     const double _normalization;
 
 
     value_type _current;
+    value_type _current_scaled;
     double _current_weight;
 
     double _compute_normalization() {
@@ -58,14 +60,16 @@ protected:
 
             _current_weight += std::pow(double(_current), _gamma) / _normalization;
         }
+        _current_scaled = static_cast<value_type>(_current * _scale);
     }
 
 public:
-    MonotonicPowerlawRandomStream(int_t minDegree, int_t maxDegree, double gamma, int_t numberOfNodes)
+    MonotonicPowerlawRandomStream(int_t minDegree, int_t maxDegree, double gamma, int_t numberOfNodes, double scale = 1.0)
         : _uniform_random(numberOfNodes)
         , _min_degree(minDegree)
         , _max_degree(maxDegree)
         , _gamma(gamma)
+        , _scale(scale)
         , _normalization(_compute_normalization())
         , _current(Increasing ? _min_degree : _max_degree)
         , _current_weight(std::pow(double(_current), _gamma) / _normalization)
@@ -73,6 +77,7 @@ public:
         assert(minDegree > 0);
         assert(minDegree < maxDegree);
         assert(numberOfNodes > 1);
+        assert(scale > 0);
 
         _update();
     }
@@ -86,7 +91,7 @@ public:
     }
 
     const value_type& operator*() const {
-        return _current;
+        return _current_scaled;
     }
 
     MonotonicPowerlawRandomStream&operator++() {
