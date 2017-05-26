@@ -26,7 +26,7 @@
 
 #include <EdgeSwaps/EdgeSwapTFP.h>
 
-#include <ConfigurationModel.h>
+#include <ConfigurationModel/ConfigurationModelRandom.h>
 #include <SwapStream.h>
 #include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 #include <Utils/export_metis.h>
@@ -41,8 +41,12 @@ struct RunConfig {
     enum InputMethod {
         HH,
         CMES,
-        FILE
+        FILE,
+        FILE_CMES
     };
+
+    InputMethod inputMethod;
+    std::string inputFile;
 
     stxxl::uint64 numSwaps;
     stxxl::uint64 runSize;
@@ -50,8 +54,6 @@ struct RunConfig {
 
     stxxl::uint64 internalMem;
 
-    InputMethod inputMethod;
-    std::string inputFile;
 
     unsigned int randomSeed;
 
@@ -74,7 +76,7 @@ struct RunConfig {
             , gamma(-2.0)
             , scaleDegree(1.0)
 
-            , inputMethod(HH),
+            , inputMethod(HH)
 
             , numSwaps(numNodes)
             , runSize(numNodes/10)
@@ -84,7 +86,6 @@ struct RunConfig {
             , verbose(false)
             , factorNoSwaps(-1)
             , noRuns(0)
-            , clueweb("")
             , snapshots(false)
             , frequency(0)
             , edgeSizeFactor(1)
@@ -104,7 +105,10 @@ struct RunConfig {
 
     bool parse_cmdline(int argc, char* argv[]) {
         stxxl::cmdline_parser cp;
-        std::string swap_algo_name;
+        bool input_hh = false;
+        bool input_cm = false;
+        bool input_file = false;
+
 
         // setup and gather parameters
         {
@@ -121,18 +125,14 @@ struct RunConfig {
 
             cp.add_bytes  (CMDLINE_COMP('i', "ram", internalMem, "Internal memory"));
 
-            cp.add_string(CMDLINE_COMP('e', "swap-algo", swap_algo_name, "SwapAlgo to use: IM, SEMI, TFP, PTFP (default)"));
-
             cp.add_flag(CMDLINE_COMP('v', "verbose", verbose, "Include debug information selectable at runtime"));
 
             cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
-            cp.add_string(CMDLINE_COMP('c', "clueweb", clueweb, "path to clueweb file"));
-
-            cp.add_flag(CMDLINE_COMP('z', "snapshots", snapshots, "Write thrillbin file every frequency-times"));
-            cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots"));
-            cp.add_uint  (CMDLINE_COMP('w', "edge-size-factor",  edgeSizeFactor ,   "Swap number equals # * edge_stream"));
+            cp.add_flag(CMDLINE_COMP('h', "input-hh", input_hh, "use Havel Hakimi"));
+            cp.add_flag(CMDLINE_COMP('c', "input-cm", input_cm, "use Configuration Model + Rewiring"));
+            cp.add_string(CMDLINE_COMP('f', "input-file", inputFile, "read edge list from file"));
 
             if (!cp.process(argc, argv)) {
                 cp.print_usage();
@@ -140,22 +140,26 @@ struct RunConfig {
             }
         }
 
-        // select edge swap algo
+        // select input stage
         {
-            std::transform(swap_algo_name.begin(), swap_algo_name.end(), swap_algo_name.begin(), ::toupper);
+            input_file = !inputFile.empty();
 
-            if      (swap_algo_name.empty() ||
-                     0 == swap_algo_name.compare("PTFP")) { edgeSwapAlgo = PTFP; }
-            else if (0 == swap_algo_name.compare("TFP"))  { edgeSwapAlgo = TFP; }
-            else if (0 == swap_algo_name.compare("SEMI")) { edgeSwapAlgo = SEMI; }
-            else if (0 == swap_algo_name.compare("IM"))   { edgeSwapAlgo = IM; }
-            else {
-                std::cerr << "Invalid edge swap algorithm specified: " << swap_algo_name << std::endl;
-                cp.print_usage();
+            if (input_hh && input_cm) {
+                std::cerr << "Can enable either HH or CMES; not both" << std::endl;
                 return false;
             }
-            std::cout << "Using edge swap algo: " << swap_algo_name << std::endl;
+
+            if (input_hh && input_file) {
+                std::cerr << "Can enable either HH or File; not both" << std::endl;
+                return false;
+            }
+
+            if (input_cm && !input_file) {inputMethod = CMES;}
+            else if (input_cm && input_file) {inputMethod = FILE_CMES;}
+            else if (input_file) {inputMethod = FILE;}
+            else {inputMethod = HH;}
         }
+
 
         if (runSize > std::numeric_limits<swapid_t>::max()) {
             std::cerr << "RunSize is limited by swapid_t. Max: " << std::numeric_limits<swapid_t>::max() << std::endl;
@@ -179,10 +183,10 @@ void benchmark(RunConfig & config) {
 
     // Load or generate edge list
     EdgeStream edge_stream;
-    SwapStream swap_stream;
     {
         switch(config.inputMethod) {
-            case HH:
+            case RunConfig::InputMethod::HH: {
+                std::cout << "Graph input: Havel Hakimi" << std::endl;
                 IOStatistics hh_report("HHEdges");
 
                 // prepare generator
@@ -192,46 +196,49 @@ void benchmark(RunConfig & config) {
                 hh_gen.generate();
 
                 StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
+                edge_stream.consume();
 
-            case CMES:
+            }
+            break;
+            case RunConfig::InputMethod::CMES: {
+                std::cout << "Graph input: CMES" << std::endl;
+                IOStatistics hh_report("CMEM");
+
+                // prepare generator
+                HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree);
+                StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
+                hh_gen.generate();
+
+                ConfigurationModelRandom<HavelHakimiIMGenerator> cmhh_gen(hh_gen);
+                cmhh_gen.run();
+
                 {
-                    IOStatistics hh_report("CM");
+                    IOStatistics swap_report("ES for CM");
 
-                    // prepare generator
-                    HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                    MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree);
-                    StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
-                    hh_gen.generate();
-
-                    ConfigurationModelRandom<HavelHakimiIMGenerator, TestNodeRandomComparator> cmhh_gen(hh_gen);
-                    cmhh_gen.run();
-
-                    EdgeToEdgeSwapPusher<decltype(cmhh_gen), EdgeStream, SwapStream>(cmhh_gen, edge_stream, swap_stream);
-
-                    // Perform edge swaps to make graph simple
                     ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes,
                                                                        config.internalMem);
-                    StreamPusher<SwapStream, decltype(init_algo)>(swap_stream, init_algo);
 
-                    {
-                        IOStatistics swap_report("CM-ES");
-                        unsigned int iteration = 0;
-                        while (init_algo.runnable()) {
-                            std::cout << "[CM-ES] Remove illegal edges: Iteration " << ++iteration << std::endl;
-                            init_algo.run();
-                        }
+                    EdgeToEdgeSwapPusher<decltype(cmhh_gen), EdgeStream, ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP> cm_to_emes_pusher(cmhh_gen, edge_stream, init_algo);
+                    edge_stream.consume();
 
-                        std::cout << "[CM-ES] Number of iterations: " << iteration << std::endl;
+                    unsigned int iteration = 0;
+                    while (init_algo.runnable()) {
+                        std::cout << "[CM-ES] Remove illegal edges: Iteration " << ++iteration << std::endl;
+                        std::cout << "Graph contains " << edge_stream.size() << " edges\n"
+                                     "  " << edge_stream.selfloops() << " selfloops\n"
+                                     "  " << edge_stream.multiedges() << " multiedges";
+
+                        init_algo.run();
                     }
 
-                    //StreamPusher<decltype(init_algo), EdgeStream>(init_algo, edge_stream); TODO: Do we need the consume step?
+                    std::cout << "[CM-ES] Number of iterations: " << iteration << std::endl;
                 }
-
-                break;
-
-            case FILE:
+            }
+            break;
+            case RunConfig::InputMethod::FILE: {
                 IOStatistics read_report("Read");
-                stxxl::linuxaio_file file(config.clueweb, stxxl::file::DIRECT | stxxl::file::RDONLY);
+                stxxl::linuxaio_file file(config.inputFile, stxxl::file::DIRECT | stxxl::file::RDONLY);
                 stxxl::vector<edge_t> vector(&file);
                 typename decltype(vector)::bufreader_type reader(vector);
 
@@ -239,47 +246,48 @@ void benchmark(RunConfig & config) {
                     edge_stream.push(*reader);
 
                 edge_stream.consume();
-                break;
+            }
+            break;
+            default:
+                std::cerr << "Unhandled input stage" << std::endl;
+                abort();
         }
 
-        edge_stream.consume();
-        swap_stream.consume();
+
     }
+
+    std::cout << "Graph contains " << edge_stream.size() << " edges\n"
+                 "  " << edge_stream.selfloops() << " selfloops\n"
+                 "  " << edge_stream.multiedges() << " multiedges"
+    << std::endl;
 
     // Randomize with EM-ES
-    std::cout << "Generated " << edge_stream.size() << " edges\n";
-    std::cout << "Generated initial " << swap_stream.size() << " swaps\n";
-
-    if (config.factorNoSwaps > 0) {
-        config.numSwaps = edge_stream.size() * config.factorNoSwaps;
-        std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
-    }
-
-    if (config.noRuns > 0) {
-        config.runSize = config.numSwaps / config.noRuns + 1;
-        std::cout << "Set runSize = " << config.runSize << std::endl;
-    }
-
-    // Build swaps
-    // Here m swaps PROBABLY or 2m
-    const int64_t numSwaps = config.edgeSizeFactor * edge_stream.size();
-    SwapGenerator swap_gen(numSwaps, edge_stream.size());
-
-
-
-
-    edge_stream.consume();
-    std::cout << edge_stream.size() << std::endl;
-
-    const swapid_t runSize = edge_stream.size() / 8;
-
-    EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, runSize, config.numNodes, config.internalMem,
-                                       config.snapshots, config.frequency);
     {
-        IOStatistics swap_report("SwapStats2");
-        StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
-        swap_algo.run();
+        if (config.factorNoSwaps > 0) {
+            config.numSwaps = edge_stream.size() * config.factorNoSwaps;
+            std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
+        }
+
+        if (config.noRuns > 0) {
+            config.runSize = config.numSwaps / config.noRuns + 1;
+            std::cout << "Set runSize = " << config.runSize << std::endl;
+        }
+
+        SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
+
+        EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem,
+                                           config.snapshots, config.frequency);
+        {
+            IOStatistics swap_report("Randomization");
+            StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
+            swap_algo.run();
+        }
     }
+
+    std::cout << "Final graph contains " << edge_stream.size() << " edges\n"
+                 "  " << edge_stream.selfloops() << " selfloops\n"
+                 "  " << edge_stream.multiedges() << " multiedges"
+    << std::endl;
 }
 
 
@@ -316,8 +324,13 @@ int main(int argc, char* argv[]) {
     stxxl::set_seed(config.randomSeed);
 
     benchmark(config);
-    std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
+    {
+        const auto max_alloc = stxxl::block_manager::get_instance()->get_maximum_allocation();
+        std::cout << "Maximum EM allocation: "
+            << max_alloc << "b (" <<  ((max_alloc + (1<<20) - 1) / (1<<20)) << " Mb)"
+            << std::endl;
+    }
 
     return 0;
 }

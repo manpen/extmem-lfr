@@ -140,6 +140,10 @@ target_link_libraries(hh_graphmetrics libextmemgraphgen ${STXXL_LIBRARIES})
 add_executable(memtfp_combined_benchmark main_memtfp_combined_benchmark.cpp)
 target_link_libraries(memtfp_combined_benchmark libextmemgraphgen ${STXXL_LIBRARIES})
 
+add_executable(benchmark main_benchmark.cpp)
+target_link_libraries(benchmark libextmemgraphgen ${STXXL_LIBRARIES})
+
+
 include(CMakeLocal.cmake)
 
 add_subdirectory(test)
