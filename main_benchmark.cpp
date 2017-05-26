@@ -73,7 +73,7 @@ struct RunConfig {
             : numNodes(10 * IntScale::Mi)
             , minDeg(2)
             , maxDeg(100000)
-            , gamma(-2.0)
+            , gamma(2.0)
             , scaleDegree(1.0)
 
             , inputMethod(HH)
@@ -115,7 +115,7 @@ struct RunConfig {
             cp.add_bytes (CMDLINE_COMP('n', "num-nodes", numNodes, "Generate # nodes, Default: 10 Mi"));
             cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,   "Min. Deg of Powerlaw Deg. Distr."));
             cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr."));
-            cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Gamma of Powerlaw Deg. Distr."));
+            cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Minus Gamma of Powerlaw Deg. Distr.; default: 2"));
             cp.add_double(CMDLINE_COMP('d', "scale-degree", scaleDegree, "ScaleDegree of PWL-Distr"));
             cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
 
@@ -171,6 +171,11 @@ struct RunConfig {
             return false;
         }
 
+        if (gamma <= 1.0) {
+            std::cerr << "Gamma has to be at least 1.0" << std::endl;
+            return false;
+        }
+
         cp.print_result();
         return true;
     }
@@ -191,7 +196,7 @@ void benchmark(RunConfig & config) {
 
                 // prepare generator
                 HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree);
                 StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
                 hh_gen.generate();
 
@@ -206,7 +211,7 @@ void benchmark(RunConfig & config) {
 
                 // prepare generator
                 HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree);
                 StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
                 hh_gen.generate();
 
