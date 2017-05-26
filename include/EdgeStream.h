@@ -24,7 +24,10 @@ protected:
 
     // WRITING
     node_t _current_out_node;
-    edgeid_t _number_of_edges;
+    external_size_t _number_of_edges;
+    
+    edgeid_t _number_of_selfloops;
+    edgeid_t _number_of_multiedges;
 
     // READING
     value_type _current;
@@ -58,8 +61,22 @@ public:
 // Write interface
     void push(const edge_t& edge) {
         assert(_mode == WRITING);
-        assert(_allow_loops || edge.first != edge.second);
-        assert(_allow_multi_edges || edge != _current);
+
+        // count selfloops and fail if they are illegal
+        {
+            const bool selfloop = (edge.first == edge.second);
+            _number_of_selfloops += selfloop;
+            assert(_allow_loops || !selfloop);
+        }
+
+        // count multiedges and fail if they are illegal
+        {
+            const bool multiedge = (edge == _current);
+            _number_of_multiedges += multiedge;
+            assert(_allow_multi_edges || !multiedge);
+        }
+
+        // ensure order
         assert(!_number_of_edges || _current <= edge);
 
         em_buffer_t & em_buffer = *_em_buffer;
@@ -96,13 +113,23 @@ public:
         _mode = WRITING;
         _current_out_node = 0;
         _number_of_edges = 0;
+        _number_of_multiedges = 0;
+        _number_of_selfloops = 0;
         _em_reader.reset(nullptr);
         _em_buffer.reset(new em_buffer_t(16, 16));
     }
 
     //! Number of edges available if rewind was called
-    size_t size() const {
-        return static_cast<size_t>(_number_of_edges);
+    const external_size_t& size() const {
+        return _number_of_edges;
+    }
+
+    const edgeid_t& selfloops() const {
+        return _number_of_selfloops;
+    }
+
+    const edgeid_t& multiedges() const {
+        return _number_of_multiedges;
     }
 
 // Consume interface

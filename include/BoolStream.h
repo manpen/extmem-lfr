@@ -21,9 +21,9 @@ class BoolStream  {
     // the big picture
     std::unique_ptr<em_buffer_t> _em_buffer;
     std::unique_ptr<reader_t> _reader;
-    uint64_t _items_stored;
+    external_size_t _items_stored;
 
-    uint64_t _items_consumable;
+    external_size_t _items_consumable;
 
     // word-wise buffer
     T _buffered_word;
@@ -136,7 +136,7 @@ public:
 
     //! Returns the number of bits currently available
     //! (if stream were in consume mode)
-    size_t size() const {
+    const external_size_t& size() const {
         return _items_consumable;
     }
 };
