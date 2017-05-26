@@ -31,15 +31,6 @@ SET(CMAKE_BUILD_TYPE "${TMP_CMAKE_BUILD_TYPE}")
 
 include_directories(include/)
 
-set(BOOST_LIBS "")
-find_package(Boost 1.58.0 COMPONENTS iostreams)
-if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DBOOST_SUPPORT")
-    message("Boost support !")
-    set(BOOST_LIBS "boost_iostreams")
-endif()
-
 
 macro(remove_cxx_flag flag)
     string(REPLACE "${flag}" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
@@ -81,7 +72,7 @@ add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/EdgeSwapInternalSwapsBase.cpp
     include/EdgeSwaps/ModifiedEdgeSwapTFP.cpp
     include/EdgeSwaps/EdgeSwapTFP.cpp
-    include/EdgeSwaps/SemiLoadedEdgeSwapTFP.cpp
+#    include/EdgeSwaps/SemiLoadedEdgeSwapTFP.cpp
     include/EdgeSwaps/EdgeSwapParallelTFP.cpp
     include/EdgeSwaps/IMEdgeSwap.cpp
     include/HavelHakimi/HavelHakimiGenerator.cpp
