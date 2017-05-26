@@ -754,7 +754,7 @@ namespace EdgeSwapTFP {
     void EdgeSwapTFP::_process_swaps() {
         constexpr bool show_stats = true;
 
-        using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
+        using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter), true>;
 
         if (!_edge_swap_sorter->size()) {
             // there are no swaps - let's see whether there are pending updates

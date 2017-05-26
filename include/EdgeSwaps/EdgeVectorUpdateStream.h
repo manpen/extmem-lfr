@@ -21,7 +21,7 @@
  * The number of "false" in the EdgeValidStream is assumed to match the number
  * of elements in the UpdatedEdgeStream.
  */
-template <typename EdgeVector, typename EdgeValidStream, typename UpdatedEdgeStream>
+template <typename EdgeVector, typename EdgeValidStream, typename UpdatedEdgeStream, bool SimpleGraph>
 class EdgeVectorUpdateStream {
 public:
     using value_type = edge_t;
@@ -91,20 +91,6 @@ public:
 
         if (UNLIKELY(_empty)) return *this;
 
-        /*{
-            std::cout << "UpdateStream vector: ";
-            if (_edge_reader.empty())
-                std::cout << "empty";
-            else
-                std::cout << *_edge_reader << " " << *_edge_valid_stream;
-
-            std::cout << " stream: ";
-            if (_updated_edges.empty())
-                std::cout << "empty";
-            else
-                std::cout << *_updated_edges;
-        } */
-
         if (_edge_reader.empty()) {
             _current = *_updated_edges;
             ++_updated_edges;
@@ -120,11 +106,10 @@ public:
             assert(!_edge_valid_stream.empty() && *_edge_valid_stream);
             // check for parallel edges
             #ifndef NDEBUG
-            // Hung: removed this if since multi-edges allowed
-            //if (*_updated_edges == *_edge_reader) {
-            //    std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edge_reader << " / " << *_updated_edges << std::endl;
-            //    assert(*_updated_edges != *_edge_reader);
-            //}
+            if (SimpleGraph && (*_updated_edges == *_edge_reader)) {
+                std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edge_reader << " / " << *_updated_edges << std::endl;
+                assert(*_updated_edges != *_edge_reader);
+            }
             #endif
 
             _current = *_updated_edges;
@@ -168,8 +153,8 @@ public:
     }
 };
 
-template <typename EdgeValidStream, typename UpdatedEdgeStream>
-class EdgeVectorUpdateStream<EdgeStream, EdgeValidStream, UpdatedEdgeStream> {
+template <typename EdgeValidStream, typename UpdatedEdgeStream, bool SimpleGraph>
+class EdgeVectorUpdateStream<EdgeStream, EdgeValidStream, UpdatedEdgeStream, SimpleGraph> {
 public:
     using value_type = edge_t;
 
@@ -245,11 +230,10 @@ public:
             assert(!_edge_valid_stream.empty() && *_edge_valid_stream);
             // check for parallel edges
 #ifndef NDEBUG
-            /* Hung: no need for this, since multi-edges are allowed
-            if (*_updated_edges == *_edges) {
+            if (SimpleGraph && (*_updated_edges == *_edges)) {
                 std::cout << "Duplicate detected before writing eid " << _writer_eid << " values " << *_edges << " / " << *_updated_edges << std::endl;
-                // assert(*_updated_edges != *_edges);
-            }*/
+                assert(*_updated_edges != *_edges);
+            }
 #endif
 
             _current = *_updated_edges;

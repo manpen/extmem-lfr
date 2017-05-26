@@ -863,7 +863,7 @@ namespace ModifiedEdgeSwapTFP {
 
     void ModifiedEdgeSwapTFP::_apply_updates() {
 
-        using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter)>;
+        using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter), false>;
 
         // At this line of code, _edge_swap_sorter will always be empty
 
