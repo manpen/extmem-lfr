@@ -59,6 +59,7 @@ struct RunConfig {
 
 
     unsigned int randomSeed;
+    unsigned int degreeDistrSeed;
 
 
     bool verbose;
@@ -97,6 +98,7 @@ struct RunConfig {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
         randomSeed = d.count();
+        degreeDistrSeed = 123456789 * randomSeed;
     }
 
 #if STXXL_VERSION_INTEGER > 10401
@@ -122,6 +124,7 @@ struct RunConfig {
             cp.add_double(CMDLINE_COMP('g', "gamma",        gamma,           "Minus Gamma of Powerlaw Deg. Distr.; default: 2"));
             cp.add_double(CMDLINE_COMP('d', "scale-degree", scaleDegree,     "ScaleDegree of PWL-Distr"));
             cp.add_uint  (CMDLINE_COMP('s', "seed",         randomSeed,      "Initial seed for PRNG"));
+            cp.add_uint  (CMDLINE_COMP('S', "degree-seed",  degreeDistrSeed, "Initial seed for PRNG of degree distr"));
 
             cp.add_bytes  (CMDLINE_COMP('m', "num-swaps", numSwaps,   "Number of swaps to perform"));
             cp.add_bytes  (CMDLINE_COMP('r', "run-size", runSize, "Number of swaps per graph scan"));
@@ -222,7 +225,7 @@ void benchmark(RunConfig & config) {
 
                 // prepare generator
                 HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree, config.degreeDistrSeed);
                 StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
                 hh_gen.generate();
 
@@ -237,7 +240,7 @@ void benchmark(RunConfig & config) {
 
                 // prepare generator
                 HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree, config.degreeDistrSeed);
                 StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
                 hh_gen.generate();
 
