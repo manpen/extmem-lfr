@@ -130,7 +130,7 @@ struct RunConfig {
             cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
-            cp.add_flag(CMDLINE_COMP('h', "input-hh", input_hh, "use Havel Hakimi"));
+            cp.add_flag(CMDLINE_COMP('H', "input-hh", input_hh, "use Havel Hakimi"));
             cp.add_flag(CMDLINE_COMP('c', "input-cm", input_cm, "use Configuration Model + Rewiring"));
             cp.add_string(CMDLINE_COMP('f', "input-file", inputFile, "read edge list from file"));
 
