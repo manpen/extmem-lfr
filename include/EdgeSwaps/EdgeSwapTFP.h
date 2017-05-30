@@ -246,13 +246,12 @@ namespace EdgeSwapTFP {
         virtual void _start_processing(bool async = true);
         std::thread _process_thread;
 
-        bool _snapshots;
-        int _frequency;
-        int_t _itcount;
-        int_t _hitcount;
+        using ProcessSwapCallback = std::function<void(uint_t)>;
+        ProcessSwapCallback _process_swap_callback;
+
+        uint_t _iteration;
 
         node_t _num_nodes;
-        const std::string _snapshot_prefix;
 
     public:
         EdgeSwapTFP() = delete;
@@ -261,8 +260,12 @@ namespace EdgeSwapTFP {
         //! Swaps are performed during constructor.
         //! @param edges  Edge vector changed in-place
         //! @param swaps  Read-only swap vector
-        EdgeSwapTFP(edge_buffer_t &edges, const swapid_t& run_length, const node_t& num_nodes, const size_t& im_memory,
-                    const bool snapshots = false, const int frequency = 0, const std::string snapshot_prefix = "emes") :
+        EdgeSwapTFP(edge_buffer_t &edges,
+                    const swapid_t& run_length,
+                    const node_t& num_nodes,
+                    const size_t& im_memory,
+                    ProcessSwapCallback cb = [](uint_t) {}
+        ) :
               EdgeSwapBase(),
               _mem_est(im_memory, run_length, edges.size() / num_nodes),
 
@@ -290,12 +293,9 @@ namespace EdgeSwapTFP {
 
               _first_run(true),
 
-              _snapshots(snapshots),
-              _frequency(frequency),
-              _itcount(0),
-              _hitcount(0),
-              _num_nodes(num_nodes),
-              _snapshot_prefix(snapshot_prefix)
+              _process_swap_callback(cb),
+              _iteration(0),
+              _num_nodes(num_nodes)
         { }
 
         EdgeSwapTFP(edge_buffer_t &edges, swap_vector &swaps, swapid_t run_length = 1000000) :
@@ -315,26 +315,11 @@ namespace EdgeSwapTFP {
            _swap_directions_pushing.push(swap.direction());
 
            if (UNLIKELY(_next_swap_id_pushing > 2*_run_length)) {
-               if (_snapshots)
-                   ++_itcount;
-                   /*if (_itcount % _frequency == 0) {
-                       _edges.consume();
-
-                       std::ostringstream filename;
-                       filename << "graph_snapshot_" << ++_hitcount << ".metis";
-                       std::cout << "Exporting Snapshot " << _hitcount << std::endl;
-                       export_as_metis_nonpointer(_edges, filename.str());
-
-                       _edges.consume();
-                   }*/
                _start_processing();
            }
         }
 
-
-
         void run();
-
     };
 };
 

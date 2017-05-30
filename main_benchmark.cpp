@@ -48,6 +48,9 @@ struct RunConfig {
     InputMethod inputMethod;
     std::string inputFile;
 
+    std::string snapFiles;
+
+
     stxxl::uint64 numSwaps;
     stxxl::uint64 runSize;
     stxxl::uint64 batchSize;
@@ -77,6 +80,7 @@ struct RunConfig {
             , scaleDegree(1.0)
 
             , inputMethod(HH)
+            , snapFiles("snapshot%p.bin")
 
             , numSwaps(numNodes)
             , runSize(numNodes/10)
@@ -112,12 +116,12 @@ struct RunConfig {
 
         // setup and gather parameters
         {
-            cp.add_bytes (CMDLINE_COMP('n', "num-nodes", numNodes, "Generate # nodes, Default: 10 Mi"));
-            cp.add_bytes (CMDLINE_COMP('a', "min-deg",   minDeg,   "Min. Deg of Powerlaw Deg. Distr."));
-            cp.add_bytes (CMDLINE_COMP('b', "max-deg",   maxDeg,   "Max. Deg of Powerlaw Deg. Distr."));
-            cp.add_double(CMDLINE_COMP('g', "gamma",     gamma,    "Minus Gamma of Powerlaw Deg. Distr.; default: 2"));
-            cp.add_double(CMDLINE_COMP('d', "scale-degree", scaleDegree, "ScaleDegree of PWL-Distr"));
-            cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
+            cp.add_bytes (CMDLINE_COMP('n', "num-nodes",    numNodes,        "Generate # nodes, Default: 10 Mi"));
+            cp.add_bytes (CMDLINE_COMP('a', "min-deg",      minDeg,          "Min. Deg of Powerlaw Deg. Distr."));
+            cp.add_bytes (CMDLINE_COMP('b', "max-deg",      maxDeg,          "Max. Deg of Powerlaw Deg. Distr."));
+            cp.add_double(CMDLINE_COMP('g', "gamma",        gamma,           "Minus Gamma of Powerlaw Deg. Distr.; default: 2"));
+            cp.add_double(CMDLINE_COMP('d', "scale-degree", scaleDegree,     "ScaleDegree of PWL-Distr"));
+            cp.add_uint  (CMDLINE_COMP('s', "seed",         randomSeed,      "Initial seed for PRNG"));
 
             cp.add_bytes  (CMDLINE_COMP('m', "num-swaps", numSwaps,   "Number of swaps to perform"));
             cp.add_bytes  (CMDLINE_COMP('r', "run-size", runSize, "Number of swaps per graph scan"));
@@ -130,9 +134,14 @@ struct RunConfig {
             cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
-            cp.add_flag(CMDLINE_COMP('H', "input-hh", input_hh, "use Havel Hakimi"));
+            cp.add_flag(CMDLINE_COMP('H', "input-hh", input_hh, "use Havel Hakimi; default"));
             cp.add_flag(CMDLINE_COMP('c', "input-cm", input_cm, "use Configuration Model + Rewiring"));
-            cp.add_string(CMDLINE_COMP('f', "input-file", inputFile, "read edge list from file"));
+
+            cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots; 0=no snaps"));
+
+            cp.add_string(CMDLINE_COMP('I', "input-file", inputFile, "read edge list from file"));
+            cp.add_string(CMDLINE_COMP('o', "snap-files", snapFiles, "path to snapshot files; %p is replace by number of phases"));
+
 
             if (!cp.process(argc, argv)) {
                 cp.print_usage();
@@ -178,6 +187,23 @@ struct RunConfig {
 
         cp.print_result();
         return true;
+    }
+
+    std::string snapshotFile(unsigned int phase) {
+        std::string result(snapFiles);
+        std::string phaseStr = std::to_string(phase);
+
+        size_t index = 0;
+        while (true) {
+            index = result.find("%p", index);
+            if (index == std::string::npos)
+                break;
+
+            result.replace(index, 2, phaseStr);
+            index += phaseStr.length();
+        }
+
+        return result;
     }
 };
 
@@ -281,7 +307,18 @@ void benchmark(RunConfig & config) {
         SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
 
         EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem,
-                                           config.snapshots, config.frequency);
+                                           [&edge_stream, &config] (uint_t it) {
+            std::cout << "Callback for iteration " << it << std::endl;
+            if (!config.frequency)
+                return;
+
+            if (it % config.frequency == 0) {
+                std::cout << "[Export] Store snapshot to " << config.snapshotFile(it) << std::endl;
+                export_as_thrillbin_sorted(edge_stream, config.snapshotFile(it), config.numNodes);
+                edge_stream.rewind();
+            }
+        });
+
         {
             IOStatistics swap_report("Randomization");
             StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);

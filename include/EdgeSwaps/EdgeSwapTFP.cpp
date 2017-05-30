@@ -786,19 +786,13 @@ namespace EdgeSwapTFP {
 
             _edge_update_sorter.clear();
             _edges.rewind();
-
-            // Snapshot code
-            if (_snapshots)
-                if (_itcount % _frequency == 0) {
-                    
-                    std::ostringstream filename;
-                    filename << _snapshot_prefix.data() << "_graph_snapshot_" << ++_hitcount << ".thrillbin";
-                    std::cout << "Exporting Snapshot " << _hitcount << std::endl;
-                    export_as_thrillbin_sorted(_edges, filename.str(), _num_nodes);//, true);
-
-                    _edges.consume();
-                }
         }
+
+
+        if (nullptr != _process_swap_callback) {
+            _process_swap_callback(_iteration);
+        }
+        _iteration++;
 
 #ifndef NDEBUG
         // test that input is lexicographically ordered and loop free
