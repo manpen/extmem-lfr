@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <locale>
 
+#include <string>
+#include <list>
+
 #include <stxxl/cmdline>
 
 #include <stack>
@@ -68,8 +71,7 @@ struct RunConfig {
     unsigned int noRuns;
 
 
-    bool snapshots;
-    unsigned int frequency;
+    std::string snapshotsAt;
 
     unsigned int edgeSizeFactor;
 
@@ -91,8 +93,6 @@ struct RunConfig {
             , verbose(false)
             , factorNoSwaps(-1)
             , noRuns(0)
-            , snapshots(false)
-            , frequency(0)
             , edgeSizeFactor(1)
     {
         using myclock = std::chrono::high_resolution_clock;
@@ -140,7 +140,7 @@ struct RunConfig {
             cp.add_flag(CMDLINE_COMP('H', "input-hh", input_hh, "use Havel Hakimi; default"));
             cp.add_flag(CMDLINE_COMP('c', "input-cm", input_cm, "use Configuration Model + Rewiring"));
 
-            cp.add_uint  (CMDLINE_COMP('f', "frequency",      frequency,   "Frequency for snapshots; 0=no snaps"));
+            cp.add_string(CMDLINE_COMP('A', "snapshots-at", snapshotsAt, "comma-sep list of phases, start:stop:step as in python allows"));
 
             cp.add_string(CMDLINE_COMP('I', "input-file", inputFile, "read edge list from file"));
             cp.add_string(CMDLINE_COMP('o', "snap-files", snapFiles, "path to snapshot files; %p is replace by number of phases"));
@@ -205,6 +205,68 @@ struct RunConfig {
             result.replace(index, 2, phaseStr);
             index += phaseStr.length();
         }
+
+        return result;
+    }
+
+    std::list<uint_t> extractPhases(uint_t maxPhase) const {
+        std::string str = snapshotsAt;
+        str.erase(remove_if(str.begin(), str.end(), isspace), str.end());
+
+        size_t blockBegin = 0;
+        size_t blockEnd = 0;
+
+        std::list<uint_t> result;
+
+        while(true) {
+            // find next block
+            blockBegin = blockEnd;
+            blockEnd = str.find(',', blockBegin+1);
+            std::string block = str.substr(blockBegin, blockEnd-blockBegin);
+
+            // check if we have a range
+            const size_t firstColon = block.find(':');
+            if (firstColon == std::string::npos) {
+                result.push_back(atoll(block.c_str()));
+
+            } else {
+                const size_t secondColon = block.find(':', firstColon+1);
+
+
+                // extract block infos
+                uint_t start = firstColon ?  atoll(block.substr(0, firstColon).c_str()) : 0;
+                uint_t step = (secondColon == std::string::npos)
+                              ? 1
+                              : atoll(block.substr(secondColon+1, std::string::npos).c_str());
+
+                uint_t stop;
+                if (firstColon+1 == secondColon) {
+                    stop = maxPhase;
+                } else {
+                    if (secondColon == std::string::npos) {
+                        if (firstColon+1 == block.size()) {
+                            stop = maxPhase;
+                        } else {
+                            stop = atoll(block.substr(firstColon + 1, std::string::npos).c_str());
+                        }
+                    } else {
+                        stop = atoll(block.substr(firstColon + 1, secondColon - firstColon).c_str());
+                    }
+                }
+
+                for(uint_t i=start; i < stop; i += step)
+                    result.push_back(i);
+            }
+
+            // terminate if done
+            if (!(blockEnd < str.size()))
+                break;
+
+            blockEnd++;
+        }
+
+        result.sort();
+        result.unique();
 
         return result;
     }
@@ -307,17 +369,36 @@ void benchmark(RunConfig & config) {
             std::cout << "Set runSize = " << config.runSize << std::endl;
         }
 
+        auto snapshotPhases =
+                config.extractPhases((config.numSwaps + config.runSize - 1) / config.runSize);
+
+        // report phases
+        {
+            std::cout << "[Snapshots] Will generate file at phases:";
+            if (snapshotPhases.empty()) {
+                std::cout << "None";
+            } else {
+                for (const auto &i : snapshotPhases)
+                    std::cout << " " << i;
+            }
+            std::cout << "\n";
+        }
+
         SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
 
         EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem,
-                                           [&edge_stream, &config] (uint_t it) {
-            std::cout << "Callback for iteration " << it << std::endl;
-            if (!config.frequency)
+                                           [&edge_stream, &config, &snapshotPhases] (uint_t iteration) {
+            std::cout << "Callback for iteration " << iteration << std::endl;
+
+            while(!snapshotPhases.empty() && snapshotPhases.front() < iteration)
+                snapshotPhases.pop_front();
+
+            if (snapshotPhases.empty())
                 return;
 
-            if (it % config.frequency == 0) {
-                std::cout << "[Export] Store snapshot to " << config.snapshotFile(it) << std::endl;
-                export_as_thrillbin_sorted(edge_stream, config.snapshotFile(it), config.numNodes);
+            if (snapshotPhases.front() == iteration) {
+                std::cout << "[Export] Store snapshot to " << config.snapshotFile(iteration) << std::endl;
+                export_as_thrillbin_sorted(edge_stream, config.snapshotFile(iteration), config.numNodes);
                 edge_stream.rewind();
             }
         });
