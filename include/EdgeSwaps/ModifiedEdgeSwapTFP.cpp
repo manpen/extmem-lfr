@@ -730,30 +730,22 @@ namespace ModifiedEdgeSwapTFP {
     }
 
     void ModifiedEdgeSwapTFP::_apply_updates() {
-
         using UpdateStream = EdgeVectorUpdateStream<EdgeStream, BoolStream, decltype(_edge_update_sorter), false>;
 
         // At this line of code, _edge_swap_sorter will always be empty
-
-        SwapStream swap_stream;
+        _next_swap_id_pushing = 0;
+        _edge_swap_sorter_pushing->clear();
+        _swap_directions_pushing.clear();
 
         if (_edge_update_sorter.size()) {
 
-            EdgeStream forward_stream;
             EdgeStream final_stream;
 
             UpdateStream  update_stream(_edges, _last_edge_update_mask, _edge_update_sorter);
-            StreamPusher<UpdateStream, EdgeStream>(update_stream, forward_stream);
+            EdgeToEdgeSwapPusher<UpdateStream, EdgeStream, ModifiedEdgeSwapTFP>(
+                    update_stream, _edges.size(), final_stream, *this);
 
             update_stream.finish();
-            forward_stream.consume();
-
-            //for (; !forward_stream.empty(); ++forward_stream)
-            //    std::cout << *forward_stream << std::endl;
-
-            //forward_stream.consume();
-
-            EdgeToEdgeSwapPusher<EdgeStream, EdgeStream, SwapStream>(forward_stream, final_stream, swap_stream);
             final_stream.consume();
 
             std::swap(final_stream, _edges);
