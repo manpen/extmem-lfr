@@ -13,6 +13,7 @@
 #include <Utils/AsyncPusher.h>
 #include <SwapStream.h>
 #include <Utils/StreamPusher.h>
+#include <Utils/EdgeToEdgeSwapPusher.h>
 
 #define ASYNC_STREAMS
 #define REPORT_SORTER_STATS(X) \
@@ -449,14 +450,10 @@ namespace ModifiedEdgeSwapTFP {
 
             // inform earliest swap whether edge exists
             if (foundTargetEdge) {
-            #ifdef NDEBUG
-                if (exists) {
+                if (_debug || exists) {
                     _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant});
                 }
-            #else
-                _existence_info_sorter.push(ExistenceInfoMsg{last_swap, current_edge, exist_quant, exists});
                 DEBUG_MSG(_display_debug, "Inform swap " << last_swap << " edge " << current_edge << " exists " << exists << " with quantity " << exist_quant);
-            #endif
             }
         }
 
@@ -521,17 +518,17 @@ namespace ModifiedEdgeSwapTFP {
 
         swapid_t sid = 0;
 
-        std::vector<edge_t> existence_infos;
-
-        /*
-         * Hung: We save the quantity in this map
-         */
         std::map<edge_t, degree_t> edge_quant_map;
+        auto get_edge_quant = [&edge_quant_map] (const edge_t& e) {
+            const auto succ_edge_it = edge_quant_map.find(e);
+            return (succ_edge_it == edge_quant_map.end()) ? 0 : succ_edge_it->second;
+        };
 
-
-        #ifndef NDEBUG
-            std::vector<edge_t> missing_infos;
-        #endif
+        auto edge_info_available = [&edge_quant_map] (const edge_t& e) {
+            const auto succ_edge_it = edge_quant_map.find(e);
+            return (succ_edge_it != edge_quant_map.end());
+        };
+        stxxl::STXXL_UNUSED(edge_info_available);
 
         swapid_t counter_performed = 0;
         swapid_t counter_not_performed = 0;
@@ -540,11 +537,7 @@ namespace ModifiedEdgeSwapTFP {
 
 
         for (; !_swap_directions.empty(); ++_swap_directions, ++sid) {
-            // Test Hedge# size
-            //std::cout << "Hedge# Size: " << edge_quant_map.size() << std::endl;
             edge_quant_map.clear();
-            //
-
             edge_state_pqsort.update();
 
             // collect the current state of the edge to be swapped
@@ -555,7 +548,6 @@ namespace ModifiedEdgeSwapTFP {
             for (unsigned int i = 0; i < 2; i++) {
                 assert(!edge_state_pqsort.empty());
 
-                // if the
                 do {
                     const auto & msg = *edge_state_pqsort;
                     assert(msg.swap_id == 2*sid+i);
@@ -575,67 +567,40 @@ namespace ModifiedEdgeSwapTFP {
 
             // in the case of invalid swaps (i.e. one or two edge(s) are invalid) do perform forwarding for the valid edge!
             // Note that we did not produce any existence requests, so we don't need to care about them.
-            bool edge_invalid = false;
-            if (UNLIKELY(edges[0].is_invalid() || edges[1].is_invalid())) {
+            const bool edge_invalid = edges[0].is_invalid() || edges[1].is_invalid();
+            if (UNLIKELY(edge_invalid)) {
                 new_edges[0] = edges[0];
                 new_edges[1] = edges[1];
-                edge_invalid = true;
+
             } else {
                 // compute swapped edges
                 std::tie(new_edges[0], new_edges[1]) = _swap_edges(edges[0], edges[1], *_swap_directions);
             }
 
-            #ifndef NDEBUG
-                if (_display_debug) {
-                    std::cout << "State in " << sid << ": ";
-                    for (unsigned int i = 0; i < 4; i++) {
-                        std::cout << edges[i] << " ";
-                    }
-                    std::cout << std::endl;
+            if (_debug && _display_debug) {
+                std::cout << "State in " << sid << ": ";
+                for (unsigned int i = 0; i < 4; i++) {
+                    std::cout << edges[i] << " ";
                 }
-            #endif
-
-            // gather all edge states that have been sent to this swap
-            {
-                existence_info_pqsort.update();
-                for (; !existence_info_pqsort.empty() && (*existence_info_pqsort).swap_id == sid; ++existence_info_pqsort) {
-                    const auto &msg = *existence_info_pqsort;
-
-                    #ifdef NDEBUG
-                        existence_infos.push_back(msg.edge);
-                        edge_quant_map.insert({msg.edge, msg.quant});
-                    #else
-                        if (msg.exists) {
-                            existence_infos.push_back(msg.edge);
-                            edge_quant_map.insert({msg.edge, msg.quant});
-                            DEBUG_MSG(_display_debug, "Inserted msg.edge " << msg.edge << " and msg.quant " << msg.quant << " into Map");
-                        } else {
-                            missing_infos.push_back(msg.edge);
-                        }
-                    #endif
-                }
-                // when an edge is invalid, there should be no existence information
-                assert(!edge_invalid || (existence_infos.empty() && missing_infos.empty()));
+                std::cout << std::endl;
             }
 
-            #ifndef NDEBUG
-                if (_display_debug) {
-                    for (auto &k : existence_infos)
-                        std::cout << sid << " " << k << " exists" << std::endl;
-                    for (auto &k : missing_infos)
-                        std::cout << sid << " " << k << " is missing" << std::endl;
+            // gather all edge states that have been sent to this swap
+            existence_info_pqsort.update();
+            for (; !existence_info_pqsort.empty() && (*existence_info_pqsort).swap_id == sid; ++existence_info_pqsort) {
+                const auto &msg = *existence_info_pqsort;
+
+                if (_debug || msg.quant) {
+                    edge_quant_map.insert({msg.edge, msg.quant});
+                    DEBUG_MSG(_display_debug, "Inserted msg.edge " << msg.edge << " and msg.quant " << msg.quant << " into Map");
                 }
-            #endif
+            }
 
             // check if there's an conflicting edge
             bool conflict_exists[2];
             for (unsigned int i = 0; (i < 2); i++) {
-                bool exists = std::binary_search(existence_infos.begin(), existence_infos.end(), new_edges[i]);
-                #ifndef NDEBUG
-                    if (!exists && !edge_invalid) {
-                        assert(std::binary_search(missing_infos.begin(), missing_infos.end(), new_edges[i]));
-                    }
-                #endif
+                const bool exists = get_edge_quant(new_edges[i]);
+                assert(exists || edge_invalid || !_debug || edge_info_available(new_edges[i]));
                 conflict_exists[i] = exists;
             }
 
@@ -648,6 +613,16 @@ namespace ModifiedEdgeSwapTFP {
                 counter_not_performed += !perform_swap;
                 counter_loop += loop;
                 counter_invalid += edge_invalid;
+            }
+
+            // update multiplicity
+            if (LIKELY(perform_swap)) {
+                for(unsigned int i=0; i<2; ++i) {
+                    edge_quant_map[new_edges[i]]++;
+                    auto it = edge_quant_map.find(edges[i]);
+                    if (it != edge_quant_map.end())
+                        it->second--;
+                }
             }
 
             // write out debug message if the swap is not invalid
@@ -701,121 +676,14 @@ namespace ModifiedEdgeSwapTFP {
                 auto &succ = *_existence_successor_sorter;
 
                 assert(succ.swap_id >= sid);
-                if (succ.swap_id > sid) break;
+                if (succ.swap_id > sid)
+                    break;
 
-                if ((perform_swap && (succ.edge == new_edges[0] || succ.edge == new_edges[1])) ||
-                    (!perform_swap && (succ.edge == edges[0] || succ.edge == edges[1]))) {
-                    // target edges always exist (or source if no swap has been performed)
-                    #ifdef NDEBUG
-                        const auto succ_edge_it = edge_quant_map.find(succ.edge);
-                        if (succ_edge_it != edge_quant_map.end()) {
-                            const degree_t succ_edge_quant = succ_edge_it->second;
-                            _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, succ_edge_quant});
-                        }
-                    #else
-                        /* Hung: We did not forward the swapped edge (e0, e1) if e0 or e1 was multi-edge
-                         * we have to add e0 and e1 with their quantity decremented here, problem here is to 
-                         * get the previous quantity of e0 and e1. We couldn't access quantity directly, since 
-                         * we only wrap the edge in existence_infos PQ-Sorter. Should additionally save the quantity!
-                         * Possible fixes: 1 extend existence_infos
-                         * Possible fixes: 2 separate data structure, eg. stx::btree_map or std::map
-                         */
-                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, 1, true}); // 1 for clearness sake
-                        DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << true << " to " << succ.successor);
-                    #endif
-                } else if (succ.edge == edges[0] || succ.edge == edges[1]) {
-                    // source edges never exist (if no swap has been performed, this has been handled above)
-                    #ifndef NDEBUG
-                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, 0, false});
-                        DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << false << " to " << succ.successor);
-                    #endif
-                } else {
-                    #ifdef NDEBUG
-                    // Hung
-                        const auto succ_quant_it = edge_quant_map.find(succ.edge);
-                        if (succ_quant_it != edge_quant_map.end())
-                            _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, succ_quant_it->second});
-
-                        //if (std::binary_search(existence_infos.begin(), existence_infos.end(), succ.edge)) {
-                        //    _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge});
-                        //}
-                    #else
-                    bool exists = std::binary_search(existence_infos.begin(), existence_infos.end(), succ.edge);
-                    // const auto succ_edge_it
-                    _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, 0, exists});
-                    if (!exists) {
-                        assert(std::binary_search(missing_infos.begin(), missing_infos.end(), succ.edge));
-                    }
-                    DEBUG_MSG(_display_debug, "Send " << succ.edge << " exists: " << exists << " to " << succ.successor);
-                    #endif
-                }
-
-                // Put it here to generally apply
-                auto e0_quant_it = edge_quant_map.find(edges[0]);
-                DEBUG_MSG(_display_debug, "Before Existence of edges[0] " << edges[0] << " with quant " << e0_quant_it->second);
-                if (e0_quant_it != edge_quant_map.end() && e0_quant_it->second >= 1) {
-                    DEBUG_MSG(_display_debug, "If Existence of edges[0] " << edges[0] << " with quant " << e0_quant_it->second);
-                    if (e0_quant_it->second != 1)
-                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[0]
-                        #ifndef NDEBUG
-                            , e0_quant_it -> second - 1
-                            , true
-                        #else
-                            , e0_quant_it -> second - 1
-                        #endif
-                        });
-                    // UNSURE
-                    if (e0_quant_it->second == 1) {
-                        edge_quant_map.erase(edges[0]);
-                        DEBUG_MSG(_display_debug, "Removed multi-edge " << edges[0]);
-                        #ifndef NDEBUG
-                            auto test = edge_quant_map.find(edges[0]);
-                        #endif
-                        DEBUG_MSG(_display_debug, "Really removed multi-edge " << edges[0] << ": " << (test == edge_quant_map.end()));
-                    }
-                    else {
-                        e0_quant_it -> second--;
-                        DEBUG_MSG(_display_debug, "Reduced multi-edge " << edges[0] << " to " << e0_quant_it->second);
-                    }
-                    DEBUG_MSG(_display_debug, "Send edges[0] " << edges[0] << " exists with quant: " << e0_quant_it->second - 1 << " to " << succ.successor);
-                }
-
-                auto e1_quant_it = edge_quant_map.find(edges[1]);
-                DEBUG_MSG(_display_debug, "Before Existence of edges[1] " << edges[1] << " with quant " << e1_quant_it->second);
-
-                if (e1_quant_it != edge_quant_map.end() && e1_quant_it->second >= 1) {
-                    DEBUG_MSG(_display_debug, "If Existence of edges[1] " << edges[1] << " with quant " << e1_quant_it->second);
-                    if (e1_quant_it->second != 1)
-                        _existence_info_pq.push(ExistenceInfoMsg{succ.successor, edges[1]
-                        #ifndef NDEBUG
-                            , e1_quant_it -> second - 1
-                            , true
-                        #else
-                            , e1_quant_it -> second - 1
-                        #endif
-                        });
-                    // UNSURE
-                    if (e1_quant_it->second == 1) {
-                        edge_quant_map.erase(edges[1]);
-                        DEBUG_MSG(_display_debug, "Removed multi-edge " << edges[1]);
-                        #ifndef NDEBUG
-                            auto test = edge_quant_map.find(edges[1]);
-                        #endif
-                        DEBUG_MSG(_display_debug, "Really removed multi-edge " << edges[1] << ": " << (test == edge_quant_map.end()));
-                    }
-                    else {
-                        e1_quant_it -> second--;
-                        DEBUG_MSG(_display_debug, "Reduced multi-edge " << edges[1] << " to " << e1_quant_it->second);
-                    }
-                    DEBUG_MSG(_display_debug, "Send edges[1]" << edges[1] << " exists with quant: " << e1_quant_it->second - 1 << " to " << succ.successor);
+                const auto quant = get_edge_quant(succ.edge);
+                if (_debug || quant) {
+                    _existence_info_pq.push(ExistenceInfoMsg{succ.successor, succ.edge, quant});
                 }
             }
-
-            existence_infos.clear();
-            #ifndef NDEBUG
-            missing_infos.clear();
-            #endif
-
         }
 
         if (compute_stats) {

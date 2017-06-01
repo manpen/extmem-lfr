@@ -79,30 +79,14 @@ namespace ModifiedEdgeSwapTFP {
         swapid_t swap_id;
         edge_t edge;
         degree_t quant;
-      #ifndef NDEBUG
-        bool exists;
-      #endif
 
         ExistenceInfoMsg() { }
 
-        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_,
-                         const degree_t &quant_ = 1,
-                         const bool &exists_ = true) :
-            swap_id(swap_id_), edge(edge_)
-            #ifdef MODIF
-            , quant(quant_)
-            #endif
-            #ifndef NDEBUG
-            , exists(exists_)
-            #endif
-        { stxxl::STXXL_UNUSED(exists_); }
+        ExistenceInfoMsg(const swapid_t &swap_id_, const edge_t &edge_, const degree_t &quant_ = 1) :
+            swap_id(swap_id_), edge(edge_), quant(quant_)
+        {}
 
-        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge,
-                            quant
-            #ifndef NDEBUG
-            , exists
-            #endif
-        );
+        DECL_LEX_COMPARE_OS(ExistenceInfoMsg, swap_id, edge, quant);
     };
 
     struct ExistenceSuccessorMsg {
@@ -125,8 +109,14 @@ namespace ModifiedEdgeSwapTFP {
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
         constexpr static bool compute_stats = false;
-        constexpr static bool produce_debug_vector=false;
+        constexpr static bool produce_debug_vector = false;
         constexpr static bool _async_processing = false;
+
+#ifdef NDEBUG
+        constexpr static bool _debug = false;
+#else
+        constexpr static bool _debug = true;
+#endif
 
 // memory estimation
         class MemoryEstimation {
@@ -319,7 +309,6 @@ namespace ModifiedEdgeSwapTFP {
            //if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
             //   _start_processing();
         }
-
 
 
         void run();
