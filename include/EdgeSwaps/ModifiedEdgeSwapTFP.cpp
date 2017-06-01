@@ -753,41 +753,23 @@ namespace ModifiedEdgeSwapTFP {
             _edge_update_sorter.clear();
 
         } else {
-            EdgeSwapGenPusher<decltype(_edges), SwapStream>(_edges, swap_stream);
+            EdgeSwapGenPusher<decltype(_edges), ModifiedEdgeSwapTFP>(_edges, *this);
             _edges.rewind();
 
             _edge_update_sorter.clear();
         }
 
-        swap_stream.consume();
+        const auto swapsPushed = _edge_swap_sorter_pushing->size() / 2;
+        std::cout << "Apply updates, swaps: " << swapsPushed << std::endl;
 
-        std::cout << "Apply updates, swaps: " << swap_stream.size() << std::endl;
-
-        if (!swap_stream.size()) {
+        if (!swapsPushed) {
             _runnable = false;
-
-            _next_swap_id_pushing = 0;
-            _edge_swap_sorter_pushing->finish_clear();
-            _swap_directions_pushing.clear();
-
             return;
-        }
-
-        // push these generated swaps into the algorithm
-        _next_swap_id_pushing = 0;
-        _edge_swap_sorter_pushing->clear();
-        _swap_directions_pushing.clear();
-
-        for (; !swap_stream.empty(); ++swap_stream) {
-            auto swap = *swap_stream;
-            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[0], _next_swap_id_pushing++));
-            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
-            _swap_directions_pushing.push(swap.direction());
         }
     }
 
     void ModifiedEdgeSwapTFP::_process_swaps() {
-        constexpr bool show_stats = true;
+        constexpr bool show_stats = false;
 
         if (!_runnable) {
             return;
@@ -800,15 +782,15 @@ namespace ModifiedEdgeSwapTFP {
         _compute_dependency_chain(_edges, _edge_update_mask);
         std::swap(_edge_update_mask, _last_edge_update_mask);
 
-        //_report_stats("_compute_dependency_chain: ", show_stats);
+        _report_stats("_compute_dependency_chain: ", show_stats);
         _simulate_swaps();
-        //_report_stats("_simulate_swaps: ", show_stats);
+        _report_stats("_simulate_swaps: ", show_stats);
         _load_existence();
-        //_report_stats("_load_existence: ", show_stats);
+        _report_stats("_load_existence: ", show_stats);
         _perform_swaps();
-        //_report_stats("_perform_swaps: ", show_stats);
+        _report_stats("_perform_swaps: ", show_stats);
         _apply_updates();
-        //_report_stats("_apply_updates: ", show_stats);
+        _report_stats("_apply_updates: ", show_stats);
 
         _reset();
         _report_stats("_process_swaps: ", show_stats);
