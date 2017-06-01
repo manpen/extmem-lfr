@@ -137,9 +137,6 @@ target_link_libraries(benchmark libextmemgraphgen ${STXXL_LIBRARIES})
 add_executable(count_distribution main_count_distribution.cpp)
 target_link_libraries(count_distribution ${STXXL_LIBRARIES})
 
-add_executable(awty main_arewethereyet.cpp)
-target_link_libraries(awty ${STXXL_LIBRARIES})
-
 
 include(CMakeLocal.cmake)
 
