@@ -343,6 +343,10 @@ namespace ModifiedEdgeSwapTFP {
         size_t size() {
             return _edges.size();
         }
+
+        swapid_t swaps_pushed() const {
+            return _edge_swap_sorter_pushing->size() / 2;
+        }
 //! @}
     };
 }
