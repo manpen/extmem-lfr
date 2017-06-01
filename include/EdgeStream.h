@@ -89,9 +89,7 @@ public:
         em_buffer.push_back(edge.second);
         _number_of_edges++;
 
-#ifndef NDEBUG
         _current = edge;
-#endif
     }
 
     //! see rewind
