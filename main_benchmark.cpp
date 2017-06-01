@@ -18,10 +18,12 @@
 #include <EdgeStream.h>
 
 #include <Utils/IOStatistics.h>
+#include <Utils/ScopedTimer.hpp>
 
 #include <Utils/MonotonicPowerlawRandomStream.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <Utils/StreamPusher.h>
+#include <Utils/EdgeToEdgeSwapPusher.h>
 
 
 #include <DegreeDistributionCheck.h>
@@ -75,6 +77,8 @@ struct RunConfig {
 
     unsigned int edgeSizeFactor;
 
+    double randomSwapsInCMES;
+
     RunConfig()
             : numNodes(10 * IntScale::Mi)
             , minDeg(2)
@@ -85,15 +89,16 @@ struct RunConfig {
             , inputMethod(HH)
             , snapFiles("snapshot%p.bin")
 
-            , numSwaps(numNodes)
+            , numSwaps(0)
             , runSize(numNodes/10)
             , batchSize(IntScale::Mi)
             , internalMem(8 * IntScale::Gi)
 
             , verbose(false)
-            , factorNoSwaps(-1)
-            , noRuns(0)
+            , factorNoSwaps(1)
+            , noRuns(8)
             , edgeSizeFactor(1)
+            , randomSwapsInCMES(0)
     {
         using myclock = std::chrono::high_resolution_clock;
         myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -126,19 +131,20 @@ struct RunConfig {
             cp.add_uint  (CMDLINE_COMP('s', "seed",         randomSeed,      "Initial seed for PRNG"));
             cp.add_uint  (CMDLINE_COMP('S', "degree-seed",  degreeDistrSeed, "Initial seed for PRNG of degree distr"));
 
-            cp.add_bytes  (CMDLINE_COMP('m', "num-swaps", numSwaps,   "Number of swaps to perform"));
-            cp.add_bytes  (CMDLINE_COMP('r', "run-size", runSize, "Number of swaps per graph scan"));
-            cp.add_bytes  (CMDLINE_COMP('k', "batch-size", batchSize, "Batch size of PTFP"));
+            cp.add_bytes (CMDLINE_COMP('m', "num-swaps", numSwaps,   "Number of swaps to perform"));
+            cp.add_bytes (CMDLINE_COMP('r', "run-size", runSize, "Number of swaps per graph scan"));
+            cp.add_bytes (CMDLINE_COMP('k', "batch-size", batchSize, "Batch size of PTFP"));
 
-            cp.add_bytes  (CMDLINE_COMP('i', "ram", internalMem, "Internal memory"));
+            cp.add_bytes (CMDLINE_COMP('i', "ram", internalMem, "Internal memory"));
 
-            cp.add_flag(CMDLINE_COMP('v', "verbose", verbose, "Include debug information selectable at runtime"));
+            cp.add_flag  (CMDLINE_COMP('v', "verbose", verbose, "Include debug information selectable at runtime"));
 
             cp.add_double(CMDLINE_COMP('x', "factor-swaps",     factorNoSwaps,    "Overwrite -m = noEdges * x"));
             cp.add_uint  (CMDLINE_COMP('y', "no-runs",      noRuns,   "Overwrite r = m / y  + 1"));
 
-            cp.add_flag(CMDLINE_COMP('H', "input-hh", input_hh, "use Havel Hakimi; default"));
-            cp.add_flag(CMDLINE_COMP('c', "input-cm", input_cm, "use Configuration Model + Rewiring"));
+            cp.add_flag  (CMDLINE_COMP('H', "input-hh",    input_hh,          "use Havel Hakimi; default"));
+            cp.add_flag  (CMDLINE_COMP('c', "input-cm",    input_cm,          "use Configuration Model + Rewiring"));
+            cp.add_double(CMDLINE_COMP('C', "cmes-random", randomSwapsInCMES, "Include X*|E| random swaps during CMES rewiring steps; default: 0"));
 
             cp.add_string(CMDLINE_COMP('A', "snapshots-at", snapshotsAt, "comma-sep list of phases, start:stop:step as in python allows"));
 
@@ -315,17 +321,38 @@ void benchmark(RunConfig & config) {
                     ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes,
                                                                        config.internalMem);
 
-                    EdgeToEdgeSwapPusher<decltype(cmhh_gen), EdgeStream, ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP> cm_to_emes_pusher(cmhh_gen, edge_stream, init_algo);
+                    EdgeToEdgeSwapPusher<decltype(cmhh_gen), EdgeStream, ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP>
+                            cm_to_emes_pusher(cmhh_gen, edge_stream, init_algo);
                     edge_stream.consume();
+
+
+                    const edgeid_t min_swaps = edge_stream.size() * config.randomSwapsInCMES;
+
 
                     unsigned int iteration = 0;
                     while (init_algo.runnable()) {
                         std::cout << "[CM-ES] Remove illegal edges: Iteration " << ++iteration << std::endl;
                         std::cout << "Graph contains " << edge_stream.size() << " edges\n"
                                      "  " << edge_stream.selfloops() << " selfloops\n"
-                                     "  " << edge_stream.multiedges() << " multiedges";
+                                     "  " << edge_stream.multiedges() << " multiedges"
+                        << std::endl;
 
-                        init_algo.run();
+                        std::cout << "Swaps pending: " << init_algo.swaps_pushed() << std::endl;
+
+                        if (init_algo.swaps_pushed() < min_swaps * 0.75) {
+                            const swapid_t additional_swaps = min_swaps - init_algo.swaps_pushed();
+
+                            SwapGenerator swap_gen(additional_swaps, edge_stream.size());
+                            StreamPusher<decltype(swap_gen), decltype(init_algo)>pusher (swap_gen, init_algo);
+
+                            std::cout << "Added additional swaps: " << additional_swaps << std::endl;
+                        }
+
+
+                        {
+                            ScopedTimer timer("Rewiring run");
+                            init_algo.run();
+                        }
                     }
 
                     std::cout << "[CM-ES] Number of iterations: " << iteration << std::endl;
@@ -357,24 +384,27 @@ void benchmark(RunConfig & config) {
                  "  " << edge_stream.multiedges() << " multiedges"
     << std::endl;
 
+    if (config.factorNoSwaps > 0) {
+        config.numSwaps = edge_stream.size() * config.factorNoSwaps;
+        std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
+    }
+
+    if (config.noRuns > 0) {
+        config.runSize = config.numSwaps / config.noRuns + 1;
+        std::cout << "Set runSize = " << config.runSize << std::endl;
+    }
+
+
+
+
     // Randomize with EM-ES
     {
-        if (config.factorNoSwaps > 0) {
-            config.numSwaps = edge_stream.size() * config.factorNoSwaps;
-            std::cout << "Set numSwaps = " << config.numSwaps << std::endl;
-        }
-
-        if (config.noRuns > 0) {
-            config.runSize = config.numSwaps / config.noRuns + 1;
-            std::cout << "Set runSize = " << config.runSize << std::endl;
-        }
-
         auto snapshotPhases =
                 config.extractPhases((config.numSwaps + config.runSize - 1) / config.runSize);
 
         // report phases
         {
-            std::cout << "[Snapshots] Will generate file at phases:";
+            std::cout << "[Snapshots] Requested snapshots for phases:";
             if (snapshotPhases.empty()) {
                 std::cout << "None";
             } else {
@@ -384,13 +414,10 @@ void benchmark(RunConfig & config) {
             std::cout << "\n";
         }
 
-        SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
-
-        EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem,
-                                           [&edge_stream, &config, &snapshotPhases] (uint_t iteration) {
+        auto writeSnapshots = [&edge_stream, &config, &snapshotPhases] (uint_t iteration) {
             std::cout << "Callback for iteration " << iteration << std::endl;
 
-            while(!snapshotPhases.empty() && snapshotPhases.front() < iteration)
+            while (!snapshotPhases.empty() && snapshotPhases.front() < iteration)
                 snapshotPhases.pop_front();
 
             if (snapshotPhases.empty())
@@ -401,12 +428,21 @@ void benchmark(RunConfig & config) {
                 export_as_thrillbin_sorted(edge_stream, config.snapshotFile(iteration), config.numNodes);
                 edge_stream.rewind();
             }
-        });
+        };
 
-        {
-            IOStatistics swap_report("Randomization");
-            StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
-            swap_algo.run();
+        if (!config.numSwaps) {
+            writeSnapshots(0);
+
+        } else  {
+            SwapGenerator swap_gen(config.numSwaps, edge_stream.size());
+
+            EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, config.runSize, config.numNodes, config.internalMem, writeSnapshots);
+
+            {
+                IOStatistics swap_report("Randomization");
+                StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
+                swap_algo.run();
+            }
         }
     }
 
