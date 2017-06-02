@@ -314,7 +314,10 @@ void benchmark(RunConfig & config) {
                 hh_gen.generate();
 
                 ConfigurationModelRandom<HavelHakimiIMGenerator> cmhh_gen(hh_gen);
-                cmhh_gen.run();
+                {
+                   ScopedTimer timer("CM");
+                   cmhh_gen.run();
+                }
 
                 {
                     IOStatistics swap_report("ES for CM");
