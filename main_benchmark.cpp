@@ -233,7 +233,8 @@ struct RunConfig {
             // check if we have a range
             const size_t firstColon = block.find(':');
             if (firstColon == std::string::npos) {
-                result.push_back(atoll(block.c_str()));
+               if (!block.empty())
+                  result.push_back(atoll(block.c_str()));
 
             } else {
                 const size_t secondColon = block.find(':', firstColon+1);
