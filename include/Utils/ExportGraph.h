@@ -92,7 +92,7 @@ stream& PutVarint(stream& s, uint64_t v) {
 	return s;
 };
 
-void export_as_thrill_binary(EdgeStream &edges, node_t num_nodes, const std::string& filename) {
+void export_as_thrillbin(EdgeStream &edges, node_t num_nodes, const std::string& filename) {
 	edges.rewind();
 
 	std::ofstream out_stream(filename, std::ios::trunc | std::ios::binary);
@@ -115,33 +115,155 @@ void export_as_thrill_binary(EdgeStream &edges, node_t num_nodes, const std::str
 	out_stream.close();
 };
 
-
-void export_as_metis(EdgeStream &edges, node_t num_nodes, const std::string& filename) {
-	edges.rewind();
-	edgeid_t num_edges = edges.size();
-
+template <typename EdgeStream>
+void export_as_metis_sorted(EdgeStream &edges, const std::string& filename) {
 	std::ofstream out_stream(filename, std::ios::trunc);
-	out_stream << num_nodes << " " << num_edges << " " << 0 << std::endl;
 
 	using EdgeComparator = typename GenericComparator<edge_t>::Ascending;
 
 	stxxl::sorter<edge_t, EdgeComparator> edge_sorter(EdgeComparator(), SORTER_MEM);
+	node_t num_nodes = 0;
 	for (; !edges.empty(); ++edges) {
+		edge_sorter.push(edge_t(edges->first, edges->second));
 		edge_sorter.push(edge_t(edges->second, edges->first));
+		num_nodes = std::max(num_nodes, std::max(edges->first, edges->second));
 	}
+	num_nodes++;
 	edge_sorter.sort();
-	edges.rewind();
-
+	const edgeid_t num_edges = edge_sorter.size()/2;
+	out_stream << num_nodes << " " << num_edges << " " << 0 << std::endl;
 
 	for (node_t u = 0; u < num_nodes; ++u) {
 		for (; !edge_sorter.empty() && edge_sorter->first == u; ++edge_sorter) {
 			out_stream << edge_sorter->second + 1 << " ";
 		}
-		for (; !edges.empty() && edges->first == u; ++edges) {
-			out_stream << edges->second + 1 << " ";
+		out_stream << std::endl;
+	}
+
+	std::cout << "[export_as_metis] Wrote " << num_edges << " edges with " << num_nodes << " nodes to file " << filename << std::endl;
+
+	out_stream.close();
+};
+
+template <typename EdgeStream>
+void export_as_metis_nonpointer(EdgeStream &edges, const std::string& filename, node_t num_nodes, bool isSorted = false) {
+	std::ofstream out_stream(filename, std::ios::trunc);
+
+	using EdgeComparator = typename GenericComparator<edge_t>::Ascending;
+
+	edgeid_t num_edges = 0;
+
+	if (!isSorted) {
+		stxxl::sorter<edge_t, EdgeComparator> edge_sorter(EdgeComparator(), SORTER_MEM);
+		node_t num_nodes = 0;
+		for (; !edges.empty(); ++edges) {
+			const auto edge = *edges;
+			edge_sorter.push(edge_t(edge.first, edge.second));
+			edge_sorter.push(edge_t(edge.second, edge.first));
+		}
+		edge_sorter.sort();
+
+		edgeid_t num_edges = edge_sorter.size()/2;
+		out_stream << num_nodes << " " << num_edges << " " << 0 << std::endl;
+
+		for (node_t u = 0; u < num_nodes; ++u) {
+			for (; !edge_sorter.empty() && edge_sorter->first == u; ++edge_sorter) {
+				out_stream << edge_sorter->second + 1 << " ";
+			}
+			out_stream << std::endl;
+		}
+	} else {
+		// sorted already
+		num_edges = edges.size();
+		out_stream << num_nodes << " " << num_edges << " " << 0 << std::endl;
+
+		for (node_t u = 0; u < num_nodes; ++u) {
+			for (; !edges.empty() && (*edges).first == u; ++edges) {
+				out_stream << (*edges).second + 1 << " ";
+			}
+			out_stream << std::endl;
+		}
+	}
+	std::cout << "[export_as_metis] Wrote " << num_edges << " edges with " << num_nodes << " nodes to file " << filename << std::endl;
+
+	out_stream.close();
+};
+
+template <typename EdgeStream>
+void export_as_metis_sorted_nonpointer_with_redirect(EdgeStream &edges, const std::string& filename, EdgeStream &out) {
+	std::ofstream out_stream(filename, std::ios::trunc);
+
+	using EdgeComparator = typename GenericComparator<edge_t>::Ascending;
+
+	stxxl::sorter<edge_t, EdgeComparator> edge_sorter(EdgeComparator(), SORTER_MEM);
+	node_t num_nodes = 0;
+	for (; !edges.empty(); ++edges) {
+		const auto edge = *edges;
+		out.push(edge);
+		edge_sorter.push(edge_t(edge.first, edge.second));
+		edge_sorter.push(edge_t(edge.second, edge.first));
+		num_nodes = std::max(num_nodes, std::max(edge.first, edge.second));
+	}
+	num_nodes++;
+	edge_sorter.sort();
+	const edgeid_t num_edges = edge_sorter.size()/2;
+	out_stream << num_nodes << " " << num_edges << " " << 0 << std::endl;
+
+	for (node_t u = 0; u < num_nodes; ++u) {
+		for (; !edge_sorter.empty() && edge_sorter->first == u; ++edge_sorter) {
+			out_stream << edge_sorter->second + 1 << " ";
 		}
 		out_stream << std::endl;
 	}
+
+	std::cout << "[export_as_metis] Wrote " << num_edges << " edges with " << num_nodes << " nodes to file " << filename << std::endl;
+
+	out_stream.close();
+};
+
+template <typename EdgeStream>
+void export_as_thrillbin_sorted(EdgeStream &edges, const std::string &filename, node_t num_nodes) {
+	std::ofstream out_stream(filename, std::ios::out | std::ios::binary);
+
+	stxxl::vector<degree_t> half_degrees;
+
+	edgeid_t num_edges = 0;
+	for (node_t u = 0; u < num_nodes; ++u) {
+		degree_t count = 0;
+		for (; !edges.empty() && (*edges).first == u; ++edges) {
+			count++;
+			num_edges++;
+		}
+		half_degrees.push_back(count);
+	}
+
+	edges.rewind();
+
+	stxxl::vector<degree_t>::iterator iter = half_degrees.begin();
+
+	for (node_t u = 0; u < num_nodes; ++u) {
+		node_t deg = *iter;
+		if (deg < 128)
+			out_stream.write(reinterpret_cast<const char*>(&deg), 1);
+		else {
+			while (deg > 0) {
+				uint8_t tmp = (deg & 0x7f);
+				tmp |= 0x80;
+				out_stream.write(reinterpret_cast<const char*>(&tmp), sizeof tmp);
+				deg = deg >> 7;
+			}
+			const uint8_t zero = 0;
+			out_stream.write(reinterpret_cast<const char*>(&zero), sizeof zero);
+		}
+		for (; !edges.empty() && (*edges).first == u; ++edges) {
+			out_stream.write(reinterpret_cast<const char*>(&((*edges).second)), 4);
+		}
+		iter++;
+	}
+
+	edges.rewind();
+
+	std::cout << "[export_as_thrillbinary] Wrote " << num_edges << " edges with " << num_nodes << " nodes to file " << filename << std::endl;
 
 	out_stream.close();
 };

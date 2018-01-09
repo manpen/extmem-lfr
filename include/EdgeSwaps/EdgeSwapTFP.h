@@ -16,7 +16,6 @@
 #include <stxxl/priority_queue>
 
 #include <EdgeStream.h>
-#include <Utils/export_metis.h>
 
 namespace EdgeSwapTFP {
     struct EdgeSwapMsg {

@@ -103,14 +103,17 @@ add_library(libextmemgraphgen STATIC
 #add_executable(pa_benchmark benchmark.cpp)
 #target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen ${BOOST_LIBS})
 
-#add_executable(pa_lfr main_lfr.cpp)
-#target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
+add_executable(pa_lfr main_lfr.cpp)
+target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
 
 add_executable(benchmark main_benchmark.cpp)
 target_link_libraries(benchmark libextmemgraphgen ${STXXL_LIBRARIES})
 
 add_executable(count_distribution main_count_distribution.cpp)
 target_link_libraries(count_distribution ${STXXL_LIBRARIES})
+
+add_executable(gen_powerlawgraph main_powerlawgraphgen.cpp)
+target_link_libraries(gen_powerlawgraph libextmemgraphgen ${STXXL_LIBRARIES})
 
 
 include(CMakeLocal.cmake)

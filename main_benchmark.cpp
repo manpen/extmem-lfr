@@ -34,7 +34,7 @@
 #include <ConfigurationModel/ConfigurationModelRandom.h>
 #include <SwapStream.h>
 #include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
-#include <Utils/export_metis.h>
+#include <Utils/ExportGraph.h>
 
 struct RunConfig {
     stxxl::uint64 numNodes;
