@@ -256,7 +256,7 @@ namespace EdgeSwapParallelTFP {
                 }
                 _edges.rewind();
             } else {
-                EdgeVectorUpdateStream<EdgeStream, BoolStream, EdgeUpdateMerger> edge_update_stream(_edges, _valid_edges, _edge_update_merger);
+                EdgeVectorUpdateStream<EdgeStream, BoolStream, EdgeUpdateMerger, true> edge_update_stream(_edges, _valid_edges, _edge_update_merger);
 
                 for (; !edge_update_stream.empty(); ++id, ++edge_update_stream) {
                     use_edge(*edge_update_stream, id);

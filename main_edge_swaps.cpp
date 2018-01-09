@@ -1,7 +1,6 @@
 #include <iostream>
 #include <chrono>
 
-#include <string>
 #include <algorithm>
 #include <locale>
 
@@ -25,9 +24,6 @@
 #include <EdgeSwaps/EdgeSwapInternalSwaps.h>
 #include <EdgeSwaps/EdgeSwapTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
-
-#include <CluewebReader.h>
-#include <Utils/export_metis.h>
 
 enum EdgeSwapAlgo {
     IM,
@@ -248,14 +244,9 @@ void benchmark(RunConfig & config) {
             }
 
             case TFP: {
-                //for (; !edge_stream.empty(); ++edge_stream)
-                //    std::cout << "BgnEdge: " << *edge_stream << std::endl;
-
-                //edge_stream.consume();
-
                 const swapid_t runSize = edge_stream.size() / 8;
 
-                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, runSize, config.numNodes, config.internalMem, config.snapshots, config.frequency, "emes");
+                EdgeSwapTFP::EdgeSwapTFP swap_algo(edge_stream, runSize, config.numNodes, config.internalMem);
                 {
                     IOStatistics swap_report("SwapStats");
                     StreamPusher<decltype(swap_gen), decltype(swap_algo)>(swap_gen, swap_algo);
@@ -263,16 +254,6 @@ void benchmark(RunConfig & config) {
                 }
 
                 edge_stream.consume();
-
-                //if (config.snapshots) {
-			    //    //export_as_metis_nonpointer(edge_stream, "graph.metis");
-                //    export_as_thrillbin_sorted(edge_stream, "graph.metis", config.numNodes);
-                //}
-                //edge_stream.consume();
-
-                //for (; !edge_stream.empty(); ++edge_stream) {
-                //    std::cout << "ResEdge: " << *edge_stream << std::endl;
-                //}
                 break;
             }
 

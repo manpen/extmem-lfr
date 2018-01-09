@@ -17,8 +17,6 @@
 
 #include <EdgeStream.h>
 
-#define MODIF
-
 namespace ModifiedEdgeSwapTFP {
     struct EdgeSwapMsg {
         edgeid_t edge_id;
@@ -304,10 +302,6 @@ namespace ModifiedEdgeSwapTFP {
            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[0], _next_swap_id_pushing++));
            _edge_swap_sorter_pushing->push(EdgeSwapMsg(swap.edges()[1], _next_swap_id_pushing++));
            _swap_directions_pushing.push(swap.direction());
-
-            // we don't need this in modified version
-           //if (UNLIKELY(_next_swap_id_pushing > 2*_run_length))
-            //   _start_processing();
         }
 
 

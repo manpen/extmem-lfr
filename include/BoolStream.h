@@ -6,6 +6,7 @@
  * @copyright to be decided
  */
 
+#include <defs.h>
 #include <memory>
 #include <stxxl/sequence>
 

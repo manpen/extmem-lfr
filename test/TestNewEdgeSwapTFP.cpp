@@ -9,6 +9,8 @@
 #include <Utils/StreamPusher.h>
 #include <EdgeSwaps/MultiEdgeSwapFullyInternal.h>
 #include <DegreeDistributionCheck.h>
+#include <HavelHakimi/HavelHakimiIMGenerator.h>
+#include <Utils/MonotonicPowerlawRandomStream.h>
 
 namespace {
 	using EdgeVector = stxxl::vector<edge_t>;
@@ -204,12 +206,7 @@ namespace {
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();
 
-		ConfigurationModelCRC<HavelHakimiIMGenerator> cmhh(hh_gen,
-                                                            223224, 
-                                                            num_nodes, 
-                                                            threshold, 
-                                                            hh_gen.maxDegree(), 
-                                                            hh_gen.nodesAboveThreshold());
+		ConfigurationModelRandom<HavelHakimiIMGenerator> cmhh(hh_gen, 223224);
 
 		cmhh.run();
 

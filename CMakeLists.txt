@@ -64,7 +64,6 @@ include_directories(${STXXL_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DEDGE_SWAP_DEBUG_VECTOR")
 
 # Declare the library
-
 file(GLOB LFR_SRCS include/LFR/LFR_*.cpp)
 add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/EdgeVectorCache.cpp
@@ -73,17 +72,17 @@ add_library(libextmemgraphgen STATIC
     include/EdgeSwaps/ModifiedEdgeSwapTFP.cpp
     include/EdgeSwaps/EdgeSwapTFP.cpp
     include/EdgeSwaps/SemiLoadedEdgeSwapTFP.cpp
-    #    include/EdgeSwaps/EdgeSwapParallelTFP.cpp
+    include/EdgeSwaps/EdgeSwapParallelTFP.cpp
     include/EdgeSwaps/IMEdgeSwap.cpp
     include/HavelHakimi/HavelHakimiGenerator.cpp
     include/HavelHakimi/HavelHakimiGeneratorRLE.cpp
-    #include/LFR/LFR.cpp
-    #include/LFR/GlobalRewiringSwapGenerator.cpp
-    #include/LFR/CommunityEdgeRewiringSwaps.cpp
-    #include/LFR/LFRCommunityAssignBenchmark.cpp
+    include/LFR/LFR.cpp
+    include/LFR/GlobalRewiringSwapGenerator.cpp
+    include/LFR/CommunityEdgeRewiringSwaps.cpp
+    include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
-    #include/CluewebReader.cpp
-        ${LFR_SRCS}
+    include/CluewebReader.cpp
+    ${LFR_SRCS}
 )
 
 
@@ -98,28 +97,14 @@ add_library(libextmemgraphgen STATIC
 #add_executable(pa_test1 test1.cpp)
 #target_link_libraries(pa_test1 ${STXXL_LIBRARIES} libextmemgraphgen)
 
-add_executable(pa_edge_swaps main_edge_swaps.cpp)
-target_link_libraries(pa_edge_swaps libextmemgraphgen ${STXXL_LIBRARIES} ${Boost_LIBRARIES})
+#add_executable(pa_edge_swaps main_edge_swaps.cpp)
+#target_link_libraries(pa_edge_swaps libextmemgraphgen ${STXXL_LIBRARIES} ${Boost_LIBRARIES})
 
 #add_executable(pa_benchmark benchmark.cpp)
 #target_link_libraries(pa_benchmark ${STXXL_LIBRARIES} libextmemgraphgen ${BOOST_LIBS})
 
-
 #add_executable(pa_lfr main_lfr.cpp)
 #target_link_libraries(pa_lfr libextmemgraphgen ${STXXL_LIBRARIES})
-
-#Hung
-add_executable(cm_benchmark main_cm_benchmark.cpp)
-target_link_libraries(cm_benchmark libextmemgraphgen ${STXXL_LIBRARIES})
-
-add_executable(cm_emtfp_convergence main_cm_emtfp_convergence.cpp)
-target_link_libraries(cm_emtfp_convergence libextmemgraphgen ${STXXL_LIBRARIES})
-
-add_executable(hh_graphmetrics main_hh_graphmetrics.cpp)
-target_link_libraries(hh_graphmetrics libextmemgraphgen ${STXXL_LIBRARIES})
-
-add_executable(memtfp_combined_benchmark main_memtfp_combined_benchmark.cpp)
-target_link_libraries(memtfp_combined_benchmark libextmemgraphgen ${STXXL_LIBRARIES})
 
 add_executable(benchmark main_benchmark.cpp)
 target_link_libraries(benchmark libextmemgraphgen ${STXXL_LIBRARIES})

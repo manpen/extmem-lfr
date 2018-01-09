@@ -3,6 +3,7 @@
 #include <random>
 
 #include <stxxl/bits/common/utils.h>
+#include <stxxl/bits/common/seed.h>
 
 template <bool Increasing = true>
 class MonotonicUniformRandomStream {
