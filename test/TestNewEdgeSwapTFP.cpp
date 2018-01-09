@@ -5,7 +5,7 @@
 #include <EdgeSwaps/ModifiedEdgeSwapTFP.h>
 #include <EdgeSwaps/EdgeSwapParallelTFP.h>
 #include <EdgeSwaps/IMEdgeSwap.h>
-#include <ConfigurationModel.h>
+#include <ConfigurationModel/ConfigurationModelRandom.h>
 #include <Utils/StreamPusher.h>
 #include <EdgeSwaps/MultiEdgeSwapFullyInternal.h>
 #include <DegreeDistributionCheck.h>
@@ -204,7 +204,7 @@ namespace {
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();
 
-		HavelHakimi_ConfigurationModel<HavelHakimiIMGenerator> cmhh(hh_gen, 
+		ConfigurationModelCRC<HavelHakimiIMGenerator> cmhh(hh_gen,
                                                             223224, 
                                                             num_nodes, 
                                                             threshold, 
