@@ -21,6 +21,7 @@ public:
         int_t minDegree;
         int_t maxDegree;
         int_t numberOfNodes;
+        double scale;
 
         double exponent;
     };
@@ -83,7 +84,7 @@ public:
     }
 
     MonotonicPowerlawRandomStream(const Parameters& p, unsigned int seed = stxxl::get_next_seed()) :
-        MonotonicPowerlawRandomStream(p.minDegree, p.maxDegree, p.exponent, p.numberOfNodes, seed)
+        MonotonicPowerlawRandomStream(p.minDegree, p.maxDegree, p.exponent, p.numberOfNodes, p.scale, seed)
     {}
 
     bool empty() const {
