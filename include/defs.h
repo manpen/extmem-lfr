@@ -12,11 +12,15 @@
 #include <limits>
 #include <ostream>
 #include <stxxl/bits/common/uint_types.h>
+#include <random>
 
 #ifndef SEQPAR
     #if 1
         #include <parallel/algorithm>
-        #define SEQPAR __gnu_parallel
+	#include "GenericComparator.h"
+	#include "TupleHelper.h"
+
+	#define SEQPAR __gnu_parallel
     #else
         #define SEQPAR std
     #endif
@@ -151,3 +155,76 @@ constexpr uint_t PQ_POOL_MEM = 128 * IntScale::Mi; // default bytes used for int
 //constexpr uint_t SORTER_MEM = 512 * IntScale::Mi; // default bytes used for interal storage of  sorter
 //constexpr uint_t PQ_INT_MEM = 512 * IntScale::Mi; // default bytes used for internal storage of a PQ
 //constexpr uint_t PQ_POOL_MEM = 256 * IntScale::Mi; // default bytes used for internal storage of a PQ
+
+namespace Curveball {
+	using UIntScale = Scale<uint_t>;
+
+	using tradeid_t = uint32_t;
+	using hnode_t = node_t;
+	using chunkid_t = uint32_t;
+	using msgid_t = edgeid_t;
+
+	constexpr msgid_t DUMMY_LIMIT = std::numeric_limits<msgid_t>::max();
+	constexpr msgid_t DUMMY_INS_BUFFER_SIZE = 128;
+	constexpr uint_t DUMMY_SIZE = 1 * UIntScale::Gi;
+	constexpr uint_t NODE_SORTER_MEM = 2 * UIntScale::Gi;
+	constexpr chunkid_t DUMMY_CHUNKS = 8;
+	constexpr int DUMMY_THREAD_NUM = 1;
+	constexpr int DUMMY_Z = 8;
+	constexpr node_t DUMMY_PRIME = 2147483647;
+
+	struct CurveballParams {
+		const tradeid_t rounds = 0;
+		const chunkid_t macrochunks = 1;
+		const chunkid_t splits = 0;
+		const chunkid_t fanout = 1;
+		const uint_t sorter_mem_size = 0;
+		const msgid_t msg_limit = 0;
+		const int threads = 1;
+		const msgid_t insertion_buffer_size = 0;
+
+		CurveballParams() = default;
+
+		CurveballParams(
+			tradeid_t rounds_,
+			chunkid_t macrochunks_,
+			chunkid_t splits_,
+			chunkid_t fanout_,
+			uint_t sorter_mem_size_,
+			msgid_t msg_limit_,
+			int threads_,
+			msgid_t insertion_buffer_size_
+		) :
+			rounds(rounds_),
+			macrochunks(macrochunks_),
+			splits(splits_),
+			fanout(fanout_),
+			sorter_mem_size(sorter_mem_size_),
+			msg_limit(msg_limit_),
+			threads(threads_),
+			insertion_buffer_size(insertion_buffer_size_) {}
+	};
+
+	struct NeighbourMsg {
+		hnode_t target;
+		node_t neighbour;
+
+		NeighbourMsg() = default;
+
+		NeighbourMsg(const hnode_t target_, const node_t neighbour_) :
+			target(target_), neighbour(neighbour_) { }
+
+		DECL_LEX_COMPARE_OS(NeighbourMsg, target);
+	};
+
+	using NodeComparator = GenericComparator<node_t>::Ascending;
+	using EdgeComparator = GenericComparator<edge_t>::Ascending;
+	using NeighbourMsgComparator = GenericComparatorStruct<NeighbourMsg>::Ascending;
+
+	using msg_vector = std::vector<NeighbourMsg>;
+
+	using STDRandomEngine = std::mt19937_64;
+
+	constexpr degree_t LISTROW_END = std::numeric_limits<degree_t>::max();
+	constexpr degree_t IS_TRADED = std::numeric_limits<degree_t>::max() - 1;
+}

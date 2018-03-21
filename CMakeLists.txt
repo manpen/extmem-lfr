@@ -31,6 +31,7 @@ SET(CMAKE_BUILD_TYPE "${TMP_CMAKE_BUILD_TYPE}")
 
 include_directories(include/)
 
+option(CURVEBALL_RAND "enable randomization with Curveball")
 
 macro(remove_cxx_flag flag)
     string(REPLACE "${flag}" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
@@ -44,11 +45,18 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 # SSE support required for crc-intrinsic
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") #  -mtune=native -msse4")
 
-# enable C++11
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11  -DSTXXL_VERBOSE_LEVEL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_INTERNAL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_EXTERNAL=0") # -DSTXXL_PARALLEL_MODE=1 causes problems?
+# enable C++14
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -DSTXXL_VERBOSE_LEVEL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_INTERNAL=0 -DSTXXL_PARALLEL_PQ_MULTIWAY_MERGE_EXTERNAL=0") # -DSTXXL_PARALLEL_MODE=1 causes problems?
+
+# include curveball if option is set
+if (CURVEBALL_RAND)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCURVEBALL_RAND")
+
+endif(CURVEBALL_RAND)
 
 set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+
 
 # Include STXXL
 message(STATUS "STXXL_CXX_FLAGS: ${STXXL_CXX_FLAGS}")
@@ -66,6 +74,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DEDGE_SWAP_DEBUG_VECTOR")
 # Declare the library
 file(GLOB LFR_SRCS include/LFR/LFR_*.cpp)
 add_library(libextmemgraphgen STATIC
+	include/Curveball/IMAdjacencyList.cpp
     include/EdgeSwaps/EdgeVectorCache.cpp
     include/EdgeSwaps/EdgeSwapInternalSwaps.cpp
     include/EdgeSwaps/EdgeSwapInternalSwapsBase.cpp
