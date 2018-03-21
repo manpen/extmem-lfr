@@ -22,11 +22,13 @@ class RunConfig {
 	  node_distribution_param.minDegree = node_min_degree;
 	  node_distribution_param.maxDegree = node_max_degree;
 	  node_distribution_param.numberOfNodes = number_of_nodes;
+      node_distribution_param.scale = 1.0;
 
 	  community_distribution_param.exponent = community_gamma;
 	  community_distribution_param.minDegree = community_min_members;
 	  community_distribution_param.maxDegree = community_max_members;
 	  community_distribution_param.numberOfNodes = number_of_communities;
+      community_distribution_param.scale = 1.0;
   }
 
 public:

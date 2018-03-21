@@ -69,6 +69,7 @@ namespace LFR {
                 //std::cout << "Node " << i <<  " Degree: " << degree << " Mem: " << memberships << std::endl;
 
                 _node_sorter.push(ndm);
+                memebership_sum += memberships;
             }
 
             std::cout << "Sampled a total degree of " << (total_inter_degree + total_intra_degree) << ". "

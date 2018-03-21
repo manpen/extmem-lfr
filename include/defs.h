@@ -54,6 +54,8 @@ using community_t = int32_t; ///< Type used to address communities
 
 using seed_t = unsigned int;
 
+using STDRandomEngine = std::mt19937_64;
+
 static_assert(sizeof(external_size_t) >= sizeof(edgeid_t), "external_size_t needs to be able to store edgeid_t");
 
 //!Type for every (un)directed edge
