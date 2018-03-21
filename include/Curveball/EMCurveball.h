@@ -195,6 +195,7 @@ public:
 
 			_edge_sorter.sort();
 
+			_out_edges.clear();
 			StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
 		}
 	}
