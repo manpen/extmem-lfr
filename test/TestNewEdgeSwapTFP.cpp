@@ -198,9 +198,8 @@ namespace {
 		const degree_t min_deg = 10;
 		const degree_t max_deg = 10000;
 		const node_t num_nodes = 100000;
-	    const degree_t threshold = min_deg;
 	    
-		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0, threshold);
+		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0);
 		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -1.5, num_nodes);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
@@ -219,7 +218,7 @@ namespace {
 		stxxl::stream::materialize(cmhh, cmhh_list.begin());
 
         // get degree distribution of cmhh
-        using result_t  = stxxl::vector<decltype(hh_gen)::value_type>;
+        using result_t  = stxxl::vector<edge_t>;
 
 		DegreeDistributionCheck<result_t::iterator> cmhh_check(cmhh_list.begin(), cmhh_list.end());
 
@@ -282,7 +281,7 @@ namespace {
 
 
         // get degree distribution of edge_list
-        using result_t  = stxxl::vector<decltype(edge_stream)::value_type>;
+        using result_t  = stxxl::vector<edge_t>;
 
         DegreeDistributionCheck<result_t::iterator> el_check(edge_list.begin(), edge_list.end());
 

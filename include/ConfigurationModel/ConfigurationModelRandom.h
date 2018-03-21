@@ -97,7 +97,7 @@ protected:
     using EdgeSorter = stxxl::sorter<value_type, EdgeComparator>;
 
 
-    EdgeReader _edges;
+    EdgeReader& _edges;
     std::mt19937_64 _random_gen;
 
     NodeMsgSorter _nodemsg_sorter;
