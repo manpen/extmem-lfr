@@ -90,14 +90,8 @@ namespace LFR {
                                                                     _number_of_nodes,
                                                                     20,
                                                                     _inter_community_edges,
-                                                                    16,
-                                                                    8,
-                                                                    1,
-                                                                    1 * Curveball::UIntScale::Gi,
-                                                                    1 * Curveball::UIntScale::Gi,
-                                                                    std::numeric_limits<Curveball::msgid_t>::max(),
-                                                                    4,
-                                                                    32);
+                                                                    omp_get_max_threads(),
+                                                                    _max_memory_usage);
 
                 randAlgo.run();
                 _inter_community_edges.rewind();
