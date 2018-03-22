@@ -59,11 +59,6 @@ namespace Curveball {
 			_init_num_nodes(num_nodes),
 			_init_num_msgs(degree_count) {}
 
-		// Receives the degree_vector to initialize
-		// As trades permute neighbours the degrees don't change
-		IMAdjacencyList(const degree_vector &degrees, const node_t num_nodes,
-						const edgeid_t degree_count);
-
 		void resize(const edgeid_t degree_count);
 
 		void initialize(const degree_vector &degrees,
@@ -105,12 +100,12 @@ namespace Curveball {
 			const node_t partner = (node % 2 == 0 ? node + 1 : node - 1);
 
 			auto tradable_check = [&](node_t smaller, node_t larger) {
-			  const bool shared_edge = !!_edge_to_partner[smaller];
+				const bool shared_edge = !!_edge_to_partner[smaller];
 
-			  if (_offsets[smaller] != degree_at(smaller))
-				  return false;
-			  else
-				  return _offsets[larger] + shared_edge == degree_at(larger);
+				if (_offsets[smaller] != degree_at(smaller))
+					return false;
+				else
+					return _offsets[larger] + shared_edge == degree_at(larger);
 			};
 
 			if (node % 2 == 0)
@@ -153,16 +148,17 @@ namespace Curveball {
 
 			assert(*pos != LISTROW_END || *pos != IS_TRADED);
 
+			if (node_id % 2 == 0) {
+				if (UNLIKELY(neighbour == _partners[node_id])) {
+					_edge_to_partner[node_id] = true;
 
-			if (neighbour == _partners[node_id] && node_id % 2 == 0) {
-				_edge_to_partner[node_id] = true;
-
-				// we set the entry where v would have been to infty
-				// such that sorting that row removes the occurence of v automatically
-				// the existence of that edge is saved by the boolean flag
-				*pos = LISTROW_END;
+					// we set the entry where v would have been to infty
+					// such that sorting that row removes the occurence of v automatically
+					// the existence of that edge is saved by the boolean flag
+					*pos = LISTROW_END;
+				} else
+					*pos = neighbour;
 			} else {
-				// usual insertion here
 				*pos = neighbour;
 			}
 		}

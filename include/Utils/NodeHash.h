@@ -122,7 +122,7 @@ namespace Curveball {
 			return ModHash{dis(gen), dis(gen), next_prime};
 		}
 
-		static ModHash get_identity(const uint_t num_nodes) {
+		static ModHash get_identity(const node_t num_nodes) {
 			return ModHash{1, 0, DUMMY_PRIME};
 		}
 	};

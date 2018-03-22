@@ -336,13 +336,13 @@ namespace Curveball {
 					// =================== load informations into IM ===================
 
 					auto insert_info = [&](node_t mc_node, const TargetMsg &info) {
-					  _mc_degs[mc_node] = info.degree;
-					  _mc_invs[mc_node] = info.inverse;
-					  _mc_hashes[mc_node] = info.target;
+						_mc_degs[mc_node] = info.degree;
+						_mc_invs[mc_node] = info.inverse;
+						_mc_hashes[mc_node] = info.target;
 					};
 
 					auto set_partner = [&](node_t mc_node) {
-					  _mc_clearpartner[mc_node - 1] = _mc_invs[mc_node];
+						_mc_clearpartner[mc_node - 1] = _mc_invs[mc_node];
 					};
 
 					// Loading degrees and inverses into IM
