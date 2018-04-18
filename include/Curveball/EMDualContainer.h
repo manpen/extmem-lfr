@@ -19,6 +19,7 @@
 #include <Utils/ScopedTimer.h>
 #include <Utils/IntSort.h>
 #include <Utils/AlignedRNGs.h>
+#include "CurveballHelper.h"
 
 namespace Curveball {
 
@@ -151,25 +152,31 @@ namespace Curveball {
 		using rng_vector = std::vector<STDRandomEngine>;
 
 	protected:
+		// containers for both current and subsequent global trade round
 		EMMessageContainer<HashFactory, OutReceiver> _active;
 		EMMessageContainer<HashFactory, OutReceiver> _pending;
 
+		// auxiliary data structure providing degree and inverse
 		EMTargetInformation& _target_infos;
 
+		// holds target ranges to determine which container to insert to
 		chunk_upperbound_vector _active_upper_bounds;
 		chunk_upperbound_vector _pending_upper_bounds;
 
+		// parameters of the algorithm
 		const node_t _num_nodes;
 		const chunkid_t _num_chunks;
-
 		const node_t _nodes_per_mc;
 		const node_t _last_mc_nodes;
 
+		// container holding loaded auxiliary data
 		degree_vector _mc_degs;
 		inverse_vector _mc_invs;
 		hash_vector _mc_hashes;
 		inverse_vector _mc_clearpartner;
 
+		// container holding message counts for each node, necessary and used
+		// for the parallel insertion of messages
 		degree_vector _mc_degs_psum;
 		degree_vector _mc_num_inc_msgs;
 		degree_vector _mc_num_inc_msgs_psum;
@@ -177,37 +184,47 @@ namespace Curveball {
 		msgid_t _mc_max_num_msgs;
 		node_t _mc_num_loaded_nodes;
 
+		// numbers used to determine if messages belong to the same batch or
+		// macrochunk
 		hnode_t _b_largest_hnode;
 		hnode_t _mc_largest_hnode;
+
+		// used to determine the ranks of targets in the macrochunk
 		hnode_t _mc_last_largest_hnode;
 		chunkid_t _current_mc_id;
 		degree_t _mc_max_degree;
-
 		node_t _g_num_processed_nodes;
 		node_t _mc_last_hash_offset;
 		node_t _mc_hash_offset;
 
+		// utilities used for synchronisation
 		bool_vector _mc_has_traded;
 		threadcount_vector _active_threads;
 		std::vector<std::mutex> _node_locks;
 
+		// the adjacency list containing a small subset of the graph
 		IMAdjacencyList _mc_adjacency_list;
 
+		// parameters of the algorithm
 		const chunkid_t _num_splits;
 		const chunkid_t _num_fanout;
-
 		const int _num_threads;
 
+		// contains delimiters for the microchunk batch processing
 		ThreadBounds _mc_thread_bounds;
 
+		// the ranks of the currently processed min and max targets in the batch
 		int _b_min_mc_node;
 		int _b_max_mc_node;
 
 		RNGs<std::mt19937_64, 64> _rngs;
 
+		// vectors holding disjoint and common neighbours for each thread
+		// therfore vector of vector
 		std::vector<std::vector<node_t>> _t_common_neighbours;
 		std::vector<std::vector<node_t>> _t_disjoint_neighbours;
 
+		// data structure holding all hash-functions for all rounds
 		Hashfuncs<HashFactory> &_hash_funcs;
 
 		bool _has_run;
@@ -1107,9 +1124,15 @@ namespace Curveball {
 
 			// assign first u_setsize to sc_node_u: to get edge [u, *]
 			// assign  last v_setsize to sc_node_v: to get edge [v, *]
-			std::shuffle(disjoint_neighbours.begin(),
-						 disjoint_neighbours.end(),
-						 _rngs[thread_id]);
+			if (0) {
+				std::shuffle(disjoint_neighbours.begin(),
+							 disjoint_neighbours.end(),
+							 _rngs[thread_id]);
+			} else {
+				CurveballImpl::random_partition(disjoint_neighbours.begin(),
+								 disjoint_neighbours.end(),
+								 u_setsize, _rngs[thread_id]);
+			}
 
 			// distribute disjoint neighbours
 			// send messages for u
