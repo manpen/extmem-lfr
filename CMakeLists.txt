@@ -124,6 +124,9 @@ target_link_libraries(count_distribution ${STXXL_LIBRARIES})
 add_executable(gen_powerlawgraph main_powerlawgraphgen.cpp)
 target_link_libraries(gen_powerlawgraph libextmemgraphgen ${STXXL_LIBRARIES})
 
+add_executable(curveball_benchmark main_curveball_benchmark.cpp)
+target_link_libraries(curveball_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
+
 
 include(CMakeLocal.cmake)
 
