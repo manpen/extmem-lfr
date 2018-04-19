@@ -160,12 +160,17 @@ namespace Curveball {
 
 			EMTargetInformation target_infos(_num_chunks, _num_nodes);
 
+
+			// initialize helper data structure for degree and inverse
+			// of the form <h(u), deg(u), u>.
 			IOStatistics first_fill_report;
 			degree_t max_degree = 0;
-			// initialize helper data structure for inverse and degree
 			for (node_t node = 0; !_degrees.empty(); ++_degrees) {
+				// determine maximum degree while scanning degrees
 				max_degree = std::max(max_degree, *_degrees);
 
+				// in the initialization phase this can be done for both
+				// the current and subsequent round
 				target_infos.push_active(
 					TargetMsg{hash_funcs[0].hash(node), *_degrees, node}
 				);
@@ -200,16 +205,16 @@ namespace Curveball {
 
 			{
 				IOStatistics first_msgs_push_report("InitialMessagePush");
-				// push neighbour messages into datastructure
+				// push neighbour messages into data structure
+				// directed according to earlier trade
 				for (; !_edges.empty(); ++_edges) {
 					const edge_t edge = *_edges;
-
-					// no self-loops
-					assert(edge.first != edge.second);
+					assert(edge.first != edge.second); // no self-loops
 
 					const hnode_t h_fst = hash_funcs.current_hash(edge.first);
 					const hnode_t h_snd = hash_funcs.current_hash(edge.second);
 
+					// compare targets, and direct accordingly
 					if (h_fst < h_snd)
 						msgs_container.push(NeighbourMsg{h_fst, edge.second});
 					else
@@ -218,46 +223,50 @@ namespace Curveball {
 			}
 
 			for (tradeid_t round = 0; round < _num_rounds; round++) {
+				// process the global trade
 				msgs_container.process_active();
 
-				++hash_funcs;
+				++hash_funcs; // move to next hash-function
 
 				// swap pending with active containers
 				msgs_container.swap();
 				target_infos.swap();
 
-				// push new necessary info into helper
+				// push new auxiliary info into helper
 				if (round < _num_rounds - 1) {
-					{
-						IOStatistics next_infos("NextInfos");
+					IOStatistics next_infos("NextInfos");
 
-						target_infos.clear_pending();
+					target_infos.clear_pending(); // clear obsolete containers
 
-						_degrees.rewind();
-						for (node_t node = 0; node < _num_nodes; node++, ++_degrees) {
-							target_infos.push_pending(TargetMsg{hash_funcs.next_hash(node),
-																*_degrees,
-																node});
-						}
-						assert(_degrees.empty());
-
-						const auto new_bounds = target_infos.get_bounds_pending();
-
-						msgs_container.set_new_bounds(new_bounds);
+					// refill obsolete containers
+					_degrees.rewind();
+					for (node_t node = 0; node < _num_nodes; node++, ++_degrees) {
+						target_infos.push_pending(TargetMsg{hash_funcs.next_hash(node),
+															*_degrees,
+															node});
 					}
+					assert(_degrees.empty());
+
+					// compute bounds on the containers for msg insertion
+					const auto new_bounds = target_infos.get_bounds_pending();
+
+					msgs_container.set_new_bounds(new_bounds);
 				}
 			}
+			assert(hash_funcs.at_last()); // all hash-functions are processed
 
+			// clear insertion buffers and finish up
 			msgs_container.finalize();
 
-			assert(hash_funcs.at_last());
-
 			{
+				// provide randomised edge-list in a sorted order
 				IOStatistics get_edges_report("PushEdgeStream");
 
 				msgs_container.get_edges(_edge_sorter);
 
-				_edge_sorter.sort();
+				// retrieve a sorted output (not necessary)
+				if (true)
+					_edge_sorter.sort();
 
 				_out_edges.clear();
 				StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);

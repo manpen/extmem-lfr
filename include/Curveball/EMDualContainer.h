@@ -312,11 +312,10 @@ namespace Curveball {
 					IOStatistics pre_trading_report("PreTrading");
 					_current_mc_id = mc_id;
 
+					// load current sequence/queue into IM
 					msg_vector msgs = _active.get_messages_of(mc_id);
-
-					std::cout << "Received " << msgs.size() << " many messages" << std::endl;
-
 					assert(msgs.size() > 0);
+					std::cout << "Received " << msgs.size() << " many messages" << std::endl;
 
 					// sort messages by comparator provided by GenericComparator
 					{
@@ -342,22 +341,22 @@ namespace Curveball {
 					{
 						// check if sorted
 						assert(std::is_sorted(msgs.cbegin(), msgs.cend(), NeighbourMsgComparator{}));
-
-						// check for duplicates (deprecated, neighbours do not
-						// need to be sorted
-						//const auto msg_iter = std::adjacent_find(msgs.begin(), msgs.end());
-						//assert(msg_iter == msgs.cend());
 					};
 					#endif
 
 					// =================== load informations into IM ===================
 
+					// for a node the auxiliary data is kept in three separate
+					// vectors _mc_degs, _mc_invs, _mc_hashes
 					auto insert_info = [&](node_t mc_node, const TargetMsg &info) {
 						_mc_degs[mc_node] = info.degree;
 						_mc_invs[mc_node] = info.inverse;
 						_mc_hashes[mc_node] = info.target;
 					};
 
+					// for odd positions (by rank) inform node of its trading
+					// partner in order to determine whether edge between them
+					// exists
 					auto set_partner = [&](node_t mc_node) {
 						_mc_clearpartner[mc_node - 1] = _mc_invs[mc_node];
 					};
@@ -397,11 +396,9 @@ namespace Curveball {
 					}
 
 					_mc_largest_hnode = _mc_hashes[_mc_num_loaded_nodes - 1];
-
 					assert(_mc_largest_hnode >= _g_num_processed_nodes + _mc_num_loaded_nodes - 1);
 
 					_mc_hash_offset = _mc_largest_hnode + 1 - _mc_num_loaded_nodes - _g_num_processed_nodes;
-
 					assert(_mc_hash_offset >= _mc_last_hash_offset);
 					assert(static_cast<size_t>(_mc_num_loaded_nodes) <= static_cast<size_t>(_nodes_per_mc) + 2 * _num_chunks);
 
@@ -427,6 +424,7 @@ namespace Curveball {
 												_mc_degs.cbegin() + _mc_num_loaded_nodes,
 												_mc_degs_psum.begin() + 1,
 												std::plus<degree_t>());
+					assert(_mc_degs_psum[_mc_num_loaded_nodes] <= _target_infos.get_active_max_num_msgs());
 
 					// check degree prefix sum computation
 					#ifndef NDEBUG
@@ -443,14 +441,13 @@ namespace Curveball {
 					#endif
 
 					// identify hash-values as indices
+					// initializes bounds of each microchunk/batch
 					_mc_thread_bounds =
 						mc_get_thread_bounds(make_even_by_sub(_mc_num_loaded_nodes),
 											 _num_splits * _num_threads,
 											 _num_fanout);
 
-					assert(_mc_degs_psum[_mc_num_loaded_nodes] <= _target_infos.get_active_max_num_msgs());
-
-					// realloc adjacency list
+					// reallocate memory for adjacency list
 					_mc_adjacency_list.resize(_mc_degs_psum[_mc_num_loaded_nodes]);
 
 					// initalize
@@ -464,6 +461,7 @@ namespace Curveball {
 					std::vector<degree_t> _mc_seq_num_inc_msgs(static_cast<size_t>(_mc_num_loaded_nodes), 0);
 					#endif
 
+					// compute for each node the number of its incoming messages
 					{
 						uint_t index = 0;
 
@@ -493,7 +491,7 @@ namespace Curveball {
 					#endif
 
 					// compute prefix sum of number of incoming messages for
-					// each node
+					// each node, this enables concurrent insertion
 					__gnu_parallel::partial_sum
 						(_mc_num_inc_msgs.cbegin(),
 						 _mc_num_inc_msgs.cbegin() + _mc_num_loaded_nodes,
@@ -589,6 +587,7 @@ namespace Curveball {
 				IOStatistics trading_report;
 
 				// process trades with degrees, inverses (in parallel!)
+				// we iterate over batches of microchunks
 				for (uint32_t batch = 0; batch < _num_splits; batch++) {
 					_b_min_mc_node = batch * _num_threads * _num_fanout;
 					_b_max_mc_node = (batch + 1) * _num_threads * _num_fanout - 1;
@@ -624,6 +623,7 @@ namespace Curveball {
 					// hash value
 					assert(_b_largest_hnode <= _mc_largest_hnode);
 
+					// each processor gets its own microchunk here
 					#pragma omp parallel for num_threads(_num_threads)
 					for (uint32_t bound_ix = batch * _num_threads * _num_fanout;
 						 bound_ix < (batch + 1) * _num_threads * _num_fanout;
