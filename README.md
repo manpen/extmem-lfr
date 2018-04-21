@@ -46,3 +46,25 @@ cd release
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j
 ```
+
+### Curveball Implementations
+Benchmarks can be done for powerlaw graph instances.
+The benchmark file uses the following parameters
+```
+-n	Number of nodes
+-a	Minimum degree
+-b	Maximum degree
+-g	Degree exponent (Use -2 for gamma = 2)
+
+-r	Number of global trades
+-c	Number of macrochunks in a global trade
+-z	Number of batches in a macrochunk
+-t	Number of threads while trading
+-y	Size of insertion buffer for each thread
+
+-i	Block size used by sorters in Byte (default: 2GiB) 
+```
+An exemplary run would be (leaving out block size as default)
+```
+./curveball_benchmark -n 10000 -a 10 -b 200 -g -2 -r 10 -c 4 -z 8 -t 8 -y 16
+```
