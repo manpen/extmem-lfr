@@ -97,7 +97,6 @@ void benchmark(const PowerlawBenchmarkParams& config) {
 	// Build edge list
 	EdgeStream edge_stream;
     EdgeStream out_edge_stream;
-    edgeid_t edge_count;
 
         IOStatistics hh_report;
 
@@ -113,10 +112,6 @@ void benchmark(const PowerlawBenchmarkParams& config) {
         StreamPusher<decltype(degree_sequence), decltype(hh_gen)>(degree_sequence, hh_gen);
         hh_gen.generate();
         StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
-
-        edge_count =
-            hh_gen.maxEdges() - hh_gen.unsatisfiedDegree();
-
         hh_gen.finalize();
         DegreeStream& degree_stream = hh_gen.get_degree_stream();
 
@@ -143,10 +138,10 @@ void benchmark(const PowerlawBenchmarkParams& config) {
         algo.run();
         cb_report.report("CurveballStats");
 
-        std::cout << "Initial edgecount " << edge_count << std::endl;
+        std::cout << "Initial edgecount " << edge_stream.size() << std::endl;
         std::cout << "Output edgecount " << out_edge_stream.size() << std::endl;
 
-        if (edge_count != out_edge_stream.size())
+        if (edge_stream.size() != out_edge_stream.size())
             std::cout << "Error" << std::endl;
 }
 
