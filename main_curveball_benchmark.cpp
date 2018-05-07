@@ -96,6 +96,7 @@ void benchmark(const PowerlawBenchmarkParams& config) {
 
 	// Build edge list
 	EdgeStream edge_stream;
+
 	EdgeStream out_edge_stream;
 
 	IOStatistics hh_report;
@@ -112,7 +113,6 @@ void benchmark(const PowerlawBenchmarkParams& config) {
 	StreamPusher<decltype(degree_sequence), decltype(hh_gen)>(degree_sequence, hh_gen);
 	hh_gen.generate();
 	StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
-
 	hh_gen.finalize();
 	DegreeStream& degree_stream = hh_gen.get_degree_stream();
 
