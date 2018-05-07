@@ -13,19 +13,25 @@
 
 namespace Curveball {
 
-template<typename HashFactory, typename OutReceiver = EdgeStream>
-class EMMessageContainer {
-public:
+	/**
+	 * Data structure for a global trade.
+	 *
+	 * @tparam HashFactory Type of hash-functions.
+	 * @tparam OutReceiver Output edge stream.
+	 */
+	template<typename HashFactory, typename OutReceiver = EdgeStream>
+	class EMMessageContainer {
+	public:
 		using chunk_vector = std::vector<IMMacrochunk<OutReceiver>>;
 		using chunk_upperbound_vector = std::vector<hnode_t>;
 		using bound_tree = stx::btree_map<hnode_t, chunkid_t>;
 		using insertion_buffer_vector =
 		std::vector<std::vector<std::vector<NeighbourMsg>>>;
 		enum Mode {
-				ACTIVE, NEXT
+			ACTIVE, NEXT
 		};
 
-protected:
+	protected:
 		const chunkid_t _num_chunks;
 		chunk_vector _macrochunks;
 		bound_tree _upper_bounds;
@@ -34,11 +40,14 @@ protected:
 		const msgid_t _insertion_buffer_size;
 		insertion_buffer_vector _insertion_buffer_vector;
 
-public:
+	public:
 		EMMessageContainer() = delete;
-
 		EMMessageContainer(const EMMessageContainer &) = delete;
 
+		/**
+		 * Move constructor, needed for swap operations.
+		 * @param other Other global trade container.
+		 */
 		EMMessageContainer(EMMessageContainer &&other) noexcept :
 			_num_chunks(other._num_chunks),
 			_num_threads(other._num_threads),
@@ -52,15 +61,24 @@ public:
 			std::swap(_upper_bounds, other._upper_bounds);
 		}
 
+		/**
+		 * Sets up the data structure for a global trade.
+		 *
+		 * @param upper_bounds Vector of bounds for target forwarding.
+		 * @param msg_limit Maximum number of messages in a macrochunk.
+		 * @param mode Active or next round.
+		 * @param num_threads Number of threads.
+		 * @param insertion_buffer_size Size of insertion buffer.
+		 */
 		EMMessageContainer(const chunk_upperbound_vector &upper_bounds,
-											 const msgid_t msg_limit,
-											 const Mode mode,
-											 const int num_threads,
-											 const msgid_t insertion_buffer_size)
-						: _num_chunks(static_cast<chunkid_t>(upper_bounds.size())),
-						  _mode(mode),
-						  _num_threads(num_threads),
-						  _insertion_buffer_size(insertion_buffer_size) {
+						   const msgid_t msg_limit,
+						   const Mode mode,
+						   const int num_threads,
+						   const msgid_t insertion_buffer_size)
+			: _num_chunks(static_cast<chunkid_t>(upper_bounds.size())),
+			  _mode(mode),
+			  _num_threads(num_threads),
+			  _insertion_buffer_size(insertion_buffer_size) {
 			_macrochunks.reserve(_num_chunks);
 
 			// initialize macrochunks and hashmap (target -> macrochunk_id)
@@ -83,6 +101,12 @@ public:
 			}
 		}
 
+		/**
+		 * Resets the bounds of the old container for the next global trade
+		 * rounds. Is used to determine in which container/queue incoming
+		 * messages have to be forwarded to.
+		 * @param new_bounds Vector of bounds.
+		 */
 		void set_new_bounds(const chunk_upperbound_vector &new_bounds) {
 			assert(new_bounds.size() == _num_chunks);
 
@@ -94,6 +118,10 @@ public:
 			}
 		}
 
+		/**
+		 * Returns whether the currently held number of all messages is zero.
+		 * @return Flag whether all macrochunks are empty.
+		 */
 		bool empty() const {
 			for (auto &&macrochunk : _macrochunks) {
 				if (macrochunk.get_msg_count() == 0)
@@ -103,6 +131,13 @@ public:
 			return false;
 		}
 
+		/**
+		 * Returns the number of messages contained in this macrochunk,
+		 * not containing left-over messages currently still kept in the
+		 * insertion buffers of the processing threads.
+		 * @param chunk_id Macrochunk-id.
+		 * @return Number of messages currently held in the macrochunk.
+		 */
 		msgid_t get_size_of_chunk(const chunkid_t chunk_id) {
 			// check whether expected number of messages arrived
 			#ifndef NDEBUG
@@ -118,6 +153,12 @@ public:
 			return _macrochunks[chunk_id].get_msg_count();
 		}
 
+		/**
+		 * Determines for a hash-value/target in which of the macrochunks a
+		 * message having the given hash-value/target belongs to.
+		 * @param target Hash-value or target.
+		 * @return Correct macrochunk-id for this global trade.
+		 */
 		chunkid_t get_target_chunkid(const hnode_t target) const {
 			auto chunktree_it = _upper_bounds.upper_bound(target);
 
@@ -127,15 +168,24 @@ public:
 			return chunktree_it.data();
 		}
 
-		// used sequentially in the initialization phase (without locks)
+		/**
+		 * Initial insertion of messages into this data structure.
+		 * Can be used without locks, since initial insertion is done
+		 * sequentially.
+		 * @param msg Message.
+		 */
 		void push(const NeighbourMsg &msg) {
 			const chunkid_t target_chunk = get_target_chunkid(msg.target);
 
 			_macrochunks[target_chunk].push_sequential(msg);
 		}
 
-		// is used to force push left over msgs to restart with new macrochunk,
-		// most efficient way is to just do this sequentially
+		/**
+		 * Sequentially flushes the insertion buffers of all threads for a
+		 * certain macrochunk. This is used before processing the next
+		 * macrochunk since left-over messages need to be provided.
+		 * @param mc_id Macrochunk-id.
+		 */
 		void force_push(const chunkid_t mc_id) {
 			for (int thread_id = 0; thread_id < _num_threads; thread_id++) {
 				// bulk push these
@@ -149,7 +199,14 @@ public:
 			}
 		}
 
-		// is used while trading
+		/**
+		 * Inserts messages into the macrochunks.
+		 * First the corresponding insertion buffer of the thread is filled,
+		 * if its full the insertion buffer is flushed into the macrochunk.
+		 * Used while trading neighbourhoods.
+		 * @param msg Message to be inserted.
+		 * @param thread_id Thread-id forwarding this message.
+		 */
 		void push(const NeighbourMsg &msg, const int thread_id) {
 			const chunkid_t target_chunk = get_target_chunkid(msg.target);
 
@@ -170,6 +227,11 @@ public:
 			}
 		}
 
+		/**
+		 * Returns messages of the macrochunk induced by the macrochunk-id.
+		 * @param chunkid Macrochunk-id.
+		 * @return Messages of the macrochunk induced by the macrochunk-id.
+		 */
 		msg_vector get_messages_of(const chunkid_t chunkid) {
 			msg_vector msgs;
 			_macrochunks[chunkid].load_messages(msgs);
@@ -177,12 +239,18 @@ public:
 			return msgs;
 		}
 
+		/**
+		 * Set this container as belonging to an active global trade round.
+		 */
 		void activate() {
 			assert(_mode == NEXT);
 
 			_mode == ACTIVE; // invariants, for code readability
 		}
 
+		/**
+		 * Resets all macrochunks of this global trade round.
+		 */
 		void reset() {
 			assert(_mode == ACTIVE);
 
@@ -192,9 +260,14 @@ public:
 			_mode == NEXT; // invariants, for code readability
 		}
 
-		// note, num_chunks is not swapped, and should be the same for each
-		// it's possible to change this, remove const identifier from _num_chunks
+		/**
+		 * Swaps this active global trade round with the next one.
+		 * @param other Container struct for next global trade round.
+		 */
 		void swap_with_next(EMMessageContainer &other) {
+			// note, num_chunks is not swapped, and should be the same for each
+			// it's possible to change this, remove const identifier from _num_chunks
+
 			//  check if no message remained in the buffers
 			#ifndef NDEBUG
 			{
@@ -218,11 +291,16 @@ public:
 			std::swap(_insertion_buffer_vector, other._insertion_buffer_vector);
 		}
 
+		/**
+		 * Forwards messages contained in this global trade round into the
+		 * given output edge stream.
+		 * @param out_edges Output edge stream.
+		 */
 		void push_into(OutReceiver &out_edges) {
 			for (chunkid_t mc_id = 0; mc_id < _num_chunks; mc_id++) {
 				_macrochunks[mc_id].push_into(out_edges);
 			}
 		}
-};
+	};
 
 }

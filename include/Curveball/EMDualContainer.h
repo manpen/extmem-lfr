@@ -48,6 +48,11 @@ namespace Curveball {
 	}
 #endif
 
+	/**
+	 * If n odd return n - 1 else do nothing.
+	 * @param n
+	 * @return Returns n - 1 if n odd else n.
+	 */
 	static node_t make_even_by_sub(const node_t n) {
 		if (n % 2 == 1)
 			return n - 1;
@@ -55,6 +60,11 @@ namespace Curveball {
 			return n;
 	}
 
+	/**
+	 * If n odd return n + 1 else do nothing.
+	 * @param n
+	 * @return Returns n + 1 if n odd else n.
+	 */
 	static node_t make_even_by_add(const node_t n) {
 		if (n % 2 == 1)
 			return n + 1;
@@ -62,6 +72,10 @@ namespace Curveball {
 			return n;
 	}
 
+	/**
+	 * Holds the bounds for the microchunks that can be addressed by each
+	 * thread.
+	 */
 	struct ThreadBounds {
 		std::vector<hnode_t> l_bounds;
 		std::vector<hnode_t> u_bounds;
@@ -82,6 +96,12 @@ namespace Curveball {
 		}
 	};
 
+	/**
+	 * Returns the number of nodes in the last macrochunk.
+	 * @param num_nodes Number of nodes.
+	 * @param num_chunks Number of macrochunks.
+	 * @return Number of nodes in the last macrochunk.
+	 */
 	static node_t get_last_mc_nodes(const node_t num_nodes,
 									const chunkid_t num_chunks) {
 		const node_t nodes_chunks_rem =
@@ -102,6 +122,14 @@ namespace Curveball {
 			return even_nodes_chunks_div + nodes_chunks_rem + num_chunks;
 	}
 
+	/**
+	 * Returns a struct holding the bounds for the microchunks that can be
+	 * addressed by each thread.
+	 * @param mc_even_num_nodes Evened number of nodes.
+	 * @param num_microchunks Number of microchunks.
+	 * @param fanout Multiplier of microchunks for greedy-processing.
+	 * @return Struct for the microchunk bounds.
+	 */
 	static ThreadBounds mc_get_thread_bounds(const node_t mc_even_num_nodes,
 											 const chunkid_t num_microchunks,
 											 const chunkid_t fanout) {
@@ -140,6 +168,14 @@ namespace Curveball {
 	}
 
 //#define BATCH_DEPS
+	/**
+	 * EM-PGCB's data structure.
+	 * Manages both containers for the active and next global trade round.
+	 * Performs trades and forwards messages.
+	 *
+	 * @tparam HashFactory Type of hash-functions in use.
+	 * @tparam OutReceiver Output edge stream.
+	 */
 	template<typename HashFactory, typename OutReceiver = EdgeStream>
 	class EMDualContainer {
 	public:
@@ -235,9 +271,19 @@ namespace Curveball {
 
 	public:
 		EMDualContainer() = delete;
-
 		EMDualContainer(EMDualContainer &) = delete;
 
+		/**
+		 * Sets all parameter for EM-PGCB's data structure.
+		 *
+		 * @param active_upper_bounds Hash-value bounds for the containers for the active round.
+		 * @param pending_upper_bounds Hash-value bounds for the containers for the next round.
+		 * @param target_infos Auxiliary info sorter.
+		 * @param num_nodes Number of nodes.
+		 * @param max_degree Maximum degree.
+		 * @param hash_funcs Provided uniform random hash-functions.
+		 * @param curveball_params EM-PGCB's internal parameters.
+		 */
 		EMDualContainer(const chunk_upperbound_vector &active_upper_bounds,
 						const chunk_upperbound_vector &pending_upper_bounds,
 						EMTargetInformation& target_infos,
@@ -305,6 +351,10 @@ namespace Curveball {
 			}
 		}
 
+		/**
+		 * Processes the active global trade round, will be recalled when
+		 * reinitialization for next round is done.
+		 */
 		void process_active() {
 			// process macrochunk by macrochunk
 			for (chunkid_t mc_id = 0; mc_id < _num_chunks; mc_id++) {
@@ -766,13 +816,30 @@ namespace Curveball {
 			_has_run = true;
 		}
 
+		/**
+		 * Sorts the adjacency row of node u where the rank of u is given.
+		 * @param mc_node_u Rank of u.
+		 */
 		void inline organize_neighbors(const node_t mc_node_u) {
 			std::sort(_mc_adjacency_list.begin(mc_node_u),
 					  _mc_adjacency_list.end(mc_node_u));
-			//quickSort(_mc_adjacency_list.begin(mc_node_u),
-			//          _mc_adjacency_list.end(mc_node_u));
 		}
 
+		/**
+		 * Forwards a generated message by a trade of neighbourhoods.
+		 * The implementation differentiates between intra-batch,
+		 * intra-macrochunk and inter-macrochunk forwarding.
+		 *
+		 * In case of a intra-batch dependency message forwarding is
+		 * synchornized and work-stealing is resolved.
+		 * Intra- and inter-macrochunk messages are synchronized via simple
+		 * guard-locks where its difference is the insertion in different
+		 * containers. The thread-id is forwarded for synchronization reasons.
+		 *
+		 * @param mc_node_x Rank of forwarded neighbour.
+		 * @param neighbour Neighbour of freshly traded node.
+		 * @param thread_id Thread-ID of processing thread.
+		 */
 		// mc_node_x: mc_node_u or mc_node_v
 		void send_message(const node_t mc_node_x, const node_t neighbour,
 						  const int thread_id) {
@@ -1034,6 +1101,25 @@ namespace Curveball {
 			} // if edge [u, neighbour] not needed in this round
 		} // end send_messages
 
+		/**
+		 * Trades neighbourhoods of nodes u and v which are provided by their
+		 * ranks in the macrochunk respectively.
+		 * Requires the forwarding of whether the edge {u,v} is a shared edge
+		 * between u and v to determine the correct permutation/partition size.
+		 * Requires a flag whether this trade occurs while work-stealing for
+		 * correct synchronisation and deallocation of structures.
+		 * Receives containers where common and disjoint neigbours are stored,
+		 * in order to use correct pre-allocated memory addressed by the
+		 * thread-id.
+		 *
+		 * @param mc_tradenode_u Rank of u in the macrochunk.
+		 * @param mc_tradenode_v Rank of v in the macrochunk.
+		 * @param mc_v_in_mc_u Flag whether the trading nodes share an edge.
+		 * @param work_stealing_flag Flag whether this trade occurs while work-stealing.
+		 * @param common_neighbours Provided container for common neighbours.
+		 * @param disjoint_neighbours Provided container for disjoint neighbours.
+		 * @param thread_id Thread-ID of processing thread.
+		 */
 		void trade(const node_t mc_tradenode_u, const node_t mc_tradenode_v,
 				   const bool mc_v_in_mc_u,
 				   const bool work_stealing_flag,
@@ -1107,7 +1193,8 @@ namespace Curveball {
 										   u_neigh_iter,
 										   u_iter_end);
 
-			// reset both rows, not necessarily needed, sets offsets_vector to 0
+			// reset both rows, not necessarily needed, since deallocation
+			// (sets offsets_vector to 0)
 			//_mc_adjacency_list.reset_row(mc_tradenode_u);
 			//_mc_adjacency_list.reset_row(mc_tradenode_v);
 
@@ -1130,8 +1217,8 @@ namespace Curveball {
 							 _rngs[thread_id]);
 			} else {
 				CurveballImpl::random_partition(disjoint_neighbours.begin(),
-								 disjoint_neighbours.end(),
-								 u_setsize, _rngs[thread_id]);
+												disjoint_neighbours.end(),
+												u_setsize, _rngs[thread_id]);
 			}
 
 			// distribute disjoint neighbours
@@ -1161,7 +1248,7 @@ namespace Curveball {
 				send_message(mc_tradenode_v, common, thread_id);
 			}
 
-			// if edge existed between u and v, send edge [u, v] to next round
+			// if edge existed between u and v, send edge {u,v} to next round
 			if (shared) {
 				const hnode_t hnext_u = _hash_funcs.next_hash(_mc_invs[mc_tradenode_u]);
 				const hnode_t hnext_v = _hash_funcs.next_hash(_mc_invs[mc_tradenode_v]);
@@ -1176,6 +1263,8 @@ namespace Curveball {
 								  thread_id);
 			}
 
+			// if not work-stealing clear vectors, s.t. reuse is possible
+			// not necessary when work-stealing since new vectors were allocated
 			if (!work_stealing_flag) {
 				common_neighbours.clear();
 				disjoint_neighbours.clear();
@@ -1188,6 +1277,10 @@ namespace Curveball {
 			std::atomic_fetch_add(&_active_threads[mc_tradenode_v], 1);
 		} // end auto trade
 
+		/**
+		 * Resets the internal data structures for the next macrocunk in a
+		 * global trade round.
+		 */
 		void reset() {
 			// check whether threadcounter is zero for all
 			#ifndef NDEBUG
@@ -1213,32 +1306,39 @@ namespace Curveball {
 			};
 			#endif
 
+			// reset counters and flags
 			std::fill(_mc_has_traded.begin(), _mc_has_traded.end(), false);
-
 			std::fill(_mc_num_inc_msgs.begin(), _mc_num_inc_msgs.end(), 0);
 
-			// collection of not needed resetting of data structure
-			//std::fill(_mc_degs_psum.begin(), _mc_degs_psum.end(), 0);
-			//std::fill(_mc_num_inc_msgs_psum.begin(), _mc_num_inc_msgs_psum.end(), 0);
-			//std::fill(_mc_degs.begin(), _mc_degs.end(), 0);
-			//std::fill(_mc_invs.begin(), _mc_invs.end(), 0);
-			//std::fill(_mc_hashes.begin(), _mc_hashes.end(), 0);
-			//_b_largest_hnode = 0;
-			//_mc_largest_hnode = 0;
-			//_mc_num_loaded_nodes = 0;
-
+			// deallocates the adjacency list memory such that it can be reused
+			// by the parallel integer sort
 			_mc_adjacency_list.dealloc();
 		}
 
+		/**
+		 * Resets the insertion bounds for the next round which are needed to
+		 * determine where messages belong according to their hash-value.
+		 * @param new_bounds Bounds
+		 */
 		void set_new_bounds(const chunk_upperbound_vector &new_bounds) {
 			_pending_upper_bounds = new_bounds;
 			_pending.set_new_bounds(new_bounds);
 		}
 
+		/**
+		 * Forwards the initial message for the first round into the right
+		 * queue/container.
+		 * @param msg Initial message of input stream.
+		 */
 		void push(const NeighbourMsg &msg) {
 			_active.push(msg);
 		}
 
+		/**
+		 * Swaps active and pending containers.
+		 * Reuses the obsolete containers of the finished active round and
+		 * resets internal parameters for the next round.
+		 */
 		void swap() {
 			// initialize first macrochunk of next round
 			_pending.force_push(0);
@@ -1253,11 +1353,19 @@ namespace Curveball {
 			_active_upper_bounds.swap(_pending_upper_bounds);
 		}
 
+		/**
+		 * Forwards all remaining messages kept in the insertion buffers into
+		 * the containers for the macrochunks.
+		 */
 		void finalize() {
 			for (chunkid_t chunk_id = 0; chunk_id < _num_chunks; chunk_id++)
 				_active.force_push(chunk_id);
 		}
 
+		/**
+		 * Returns the number of messages currently held by the active round.
+		 * @return Number of messages
+		 */
 		size_t size() {
 			size_t sum = 0;
 			for (chunkid_t chunkid = 0; chunkid < _num_chunks; chunkid++) {
@@ -1267,10 +1375,18 @@ namespace Curveball {
 			return sum;
 		}
 
+		/**
+		 * Returns the number of messages that can be kept in the adj. list.
+		 * @return Number of messages
+		 */
 		size_t adjacency_list_size() const {
 			return static_cast<size_t>(_mc_max_num_msgs);
 		}
 
+		/**
+		 * Resets the maximum number of messages the adjacency list can hold.
+		 * @param degree_count New maximum number of messages.
+		 */
 		void resize_adjacency_list(const edgeid_t degree_count) {
 			_mc_adjacency_list.resize(degree_count);
 		}
@@ -1290,6 +1406,10 @@ namespace Curveball {
 		}
 		#endif
 
+		/**
+		 * Pushes all messages kept in the active queue into the output stream.
+		 * @param out_edges Output edge stream
+		 */
 		void get_edges(OutReceiver &out_edges) {
 			_active.push_into(out_edges);
 		}

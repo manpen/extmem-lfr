@@ -13,6 +13,9 @@
 
 namespace Curveball {
 
+	/**
+	 * Data type of auxiliary information messages.
+	 */
 	struct TargetMsg {
 		hnode_t target;
 		degree_t degree;
@@ -21,6 +24,10 @@ namespace Curveball {
 	DECL_LEX_COMPARE_OS(TargetMsg, target);
 	};
 
+	/**
+	 * Holds all auxiliary information in a STXXL container and determines the
+	 * hash-value bounds for the macrochunk message insertions.
+	 */
 	class EMTargetInformation {
 	public:
 		using value_type = TargetMsg;
@@ -48,9 +55,14 @@ namespace Curveball {
 
 	public:
 		EMTargetInformation(EMTargetInformation const &) = delete;
-
 		void operator=(EMTargetInformation const &) = delete;
 
+		/**
+		 * Sets up both auxiliary information containers for the active
+		 * and next round.
+		 * @param num_chunks Number of macrochunks.
+		 * @param num_nodes Number of nodes.
+		 */
 		EMTargetInformation(const chunkid_t num_chunks, const node_t num_nodes)
 			: _mode(WRITING),
 			  _active(new TargetMsgSorter(TargetMsgComparator(), NODE_SORTER_MEM)),
@@ -62,12 +74,18 @@ namespace Curveball {
 			  _pending_num_messages(0),
 			  _pending_max_num_msgs(0) {}
 
+		/**
+		 * Clears the auxiliary information for the active global trade round.
+		 */
 		void clear_active() {
 			_active->clear();
 
 			_mode = WRITING;
 		}
 
+		/**
+		 * Clears the auxiliary information for the next global trade round.
+		 */
 		void clear_pending() {
 			_pending->clear();
 
@@ -91,20 +109,37 @@ namespace Curveball {
 
 #endif
 
+		/**
+		 * Returns the maximum number of messages that occur in a macrochunk
+		 * of the active global trade round.
+		 * @return Maximum number of messages.
+		 */
 		msgid_t get_active_max_num_msgs() const {
 			return _active_max_num_msgs;
 		}
 
+		/**
+		 * Returns the maximum number of messages that occur in a macrochunk
+		 * of the next global trade round.
+		 * @return Maximum number of messages.
+		 */
 		msgid_t get_pending_max_num_msgs() const {
 			return _pending_max_num_msgs;
 		}
 
+		/**
+		 * Swaps active and next round.
+		 */
 		void swap() {
 			_active.swap(_pending);
 			_active_num_messages = _pending_num_messages;
 			_active_max_num_msgs = _pending_max_num_msgs;
 		}
 
+		/**
+		 * Sort the inserted auxiliary information of the active round.
+		 * Enables retrieval in the processing phase.
+		 */
 		void sort() {
 			assert(_mode == WRITING);
 			_mode = READING;
@@ -112,7 +147,10 @@ namespace Curveball {
 			_active->sort();
 		}
 
-		// Writing interface
+		/**
+		 * Push auxiliary information in the active container.
+		 * @param target_msg Target auxiliary information.
+		 */
 		void push_active(const TargetMsg &target_msg) {
 			assert(_mode == WRITING);
 			assert(target_msg.degree > 0);
@@ -122,6 +160,10 @@ namespace Curveball {
 			assert(_active->size() <= static_cast<size_t>(_num_nodes));
 		}
 
+		/**
+		 * Push auxiliary information in the next container.
+		 * @param target_msg Target auxiliary information.
+		 */
 		void push_pending(const TargetMsg &target_msg) {
 			assert(_mode == WRITING);
 			assert(target_msg.degree > 0);
@@ -131,23 +173,35 @@ namespace Curveball {
 			assert(_pending->size() <= static_cast<size_t>(_num_nodes));
 		}
 
-		// Reading interface
+		/**
+		 * Rewinds the auxiliary information stream of the active round.
+		 */
 		void rewind() {
 			assert(_mode == READING);
 
 			_active->rewind();
 		}
 
+		/**
+		 * @return Flag whether active round is completely read.
+		 */
 		bool empty() const {
 			return _active->empty();
 		}
 
+		/**
+		 * @return Current auxiliary target message.
+		 */
 		value_type operator*() const {
 			assert(_mode == READING);
 
 			return _active->operator*();
 		}
 
+		/**
+		 * Forwards the auxiliary information stream by one.
+		 * @return Reference to self.
+		 */
 		EMTargetInformation &operator++() {
 			assert(_mode == READING);
 
@@ -164,6 +218,11 @@ namespace Curveball {
 		}
 #endif
 
+		/**
+		 * Returns the hash-value bounds of the active global trade which are
+		 * used to determine where each message should be inserted to.
+		 * @return Vector of bounds.
+		 */
 		std::vector<hnode_t> get_bounds_active() {
 			_active->sort();
 
@@ -229,6 +288,11 @@ namespace Curveball {
 			return out_bounds;
 		}
 
+		/**
+		 * Returns the hash-value bounds of the next global trade which are
+		 * used to determine where each message should be inserted to.
+		 * @return Vector of bounds.
+		 */
 		std::vector<hnode_t> get_bounds_pending() {
 			_pending->sort();
 

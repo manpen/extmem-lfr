@@ -20,12 +20,41 @@
 
 namespace Curveball {
 
+	/**
+	 * The EM-PGCB algorithm randomizes the incoming edge stream in a sequence
+	 * of global trades provided by the HashFactory.
+	 *
+	 * HashFactory has to support:
+	 * 	- get_random()
+	 * 	- hash()
+	 * 	- min_value(), see STXXL comparator requirements
+	 * 	- max_value(), see STXXL comparator requirements
+	 *
+	 * InputStream has to support a reading streaming interface:
+	 * 	- operator*()
+	 * 	- operator++()
+	 * 	- empty()
+	 *
+	 * OutputStream has to support a writing streaming interface:
+	 * 	- push()
+	 * 	- empty()
+	 *
+	 * @tparam HashFactory
+	 * @tparam InputStream Incoming edges.
+	 * @tparam OutReceiver Randomized edge output
+	 */
 	template<typename HashFactory, typename InputStream = EdgeStream, typename OutReceiver = EdgeStream>
 	class EMCurveball {
 	public:
 		using NodeSorter = stxxl::sorter<node_t, NodeComparator>;
 		using EdgeSorter = stxxl::sorter<edge_t, EdgeComparator>;
 
+		/**
+		 * Given the number of edges, number of nodes, number of global trade
+		 * rounds, the number of threads and the size of the internal memory
+		 * in Byte this class estimates (potentially) suboptimal internal
+		 * parameters.
+		 */
 		class ParameterEstimation {
 		public:
 			chunkid_t num_macrochunks() const {return std::get<0>(_param_est);}
@@ -75,6 +104,7 @@ namespace Curveball {
 		const msgid_t _insertion_buffer_size;
 
 		EdgeSorter _edge_sorter;
+		const bool _sorted_output;
 
 #ifndef NDEBUG
 		NodeSorter _debug_node_tokens;
@@ -87,6 +117,23 @@ namespace Curveball {
 
 		EMCurveball(EMCurveball &) = delete;
 
+		/**
+		 * Sets every parameter of the EM-PGCB algorithm (internal ones too).
+		 *
+		 * @param edges Edges as stream
+		 * @param degrees Degree sequence as stream
+		 * @param num_nodes Number of nodes
+		 * @param num_rounds Number of global trade rounds
+		 * @param out_edges Output edges as stream
+		 * @param num_chunks Number of macrochunks
+		 * @param num_splits Number of batches
+		 * @param num_fanout Multiplier per batch processing
+		 * @param target_sorter_mem_size Block size for aux. info sorter in Byte
+		 * @param token_sorter_mem_size Block size for final edge sorter in Byte
+		 * @param msg_limit Maximum number of messages fitting into main memory
+		 * @param num_threads Number of threads
+		 * @param insertion_buffer_size Size of insertion buffer per thread
+		 */
 		EMCurveball(InputStream &edges,
 					DegreeStream &degrees,
 					const node_t num_nodes,
@@ -99,7 +146,9 @@ namespace Curveball {
 					const uint_t token_sorter_mem_size = DUMMY_SIZE,
 					const msgid_t msg_limit = DUMMY_LIMIT,
 					const int num_threads = DUMMY_THREAD_NUM,
-					const msgid_t insertion_buffer_size = DUMMY_INS_BUFFER_SIZE) :
+					const msgid_t insertion_buffer_size = DUMMY_INS_BUFFER_SIZE,
+					const bool sorted_output = true
+		) :
 			_edges(edges),
 			_degrees(degrees),
 			_num_nodes(num_nodes),
@@ -113,7 +162,8 @@ namespace Curveball {
 			_msg_limit(msg_limit),
 			_num_threads(num_threads),
 			_insertion_buffer_size(insertion_buffer_size),
-			_edge_sorter(EdgeComparator{}, token_sorter_mem_size)
+			_edge_sorter(EdgeComparator{}, token_sorter_mem_size),
+			_sorted_output(sorted_output)
 		#ifndef NDEBUG
 			, _debug_node_tokens(NodeComparator{}, token_sorter_mem_size)
 		#endif
@@ -123,13 +173,26 @@ namespace Curveball {
 			assert(num_rounds > 0);
 		}
 
+		/**
+		 * Sets the essential parameters of the EM-PGCB algorithm, estimates
+		 * internally used implementation aware parameters.
+		 *
+		 * @param edges Edges as stream
+		 * @param degrees Degree sequence as stream
+		 * @param num_nodes Number of nodes
+		 * @param num_rounds Number of global trade rounds
+		 * @param mem Size of main memory in Byte
+		 * @param num_threads Number of threads
+		 */
 		EMCurveball(InputStream &edges,
 					DegreeStream &degrees,
 					const node_t num_nodes,
 					const tradeid_t num_rounds,
 					EdgeStream &out_edges,
 					const int num_threads,
-					size_t mem) :
+					const size_t mem,
+					const bool sorted_output
+		) :
 			_param_est(mem, edges.size(), num_threads),
 			_edges(edges),
 			_degrees(degrees),
@@ -144,7 +207,8 @@ namespace Curveball {
 			_msg_limit(std::numeric_limits<msgid_t>::max()),
 			_num_threads(num_threads),
 			_insertion_buffer_size(_param_est.size_insertionbuffer()),
-			_edge_sorter(EdgeComparator{}, 1 * UIntScale::Gi)
+			_edge_sorter(EdgeComparator{}, 1 * UIntScale::Gi),
+			_sorted_output(sorted_output)
 		#ifndef NDEBUG
 			, _debug_node_tokens(NodeComparator{}, 1 * UIntScale::Gi)
 		#endif
@@ -154,6 +218,10 @@ namespace Curveball {
 			assert(num_rounds > 0);
 		}
 
+		/**
+		 * Runs the algorithm.
+		 * The output is put into the given output edge stream.
+		 */
 		void run() {
 			// initialize k random hash functions and last as identity
 			Hashfuncs<HashFactory> hash_funcs(_num_nodes, _num_rounds);
@@ -201,6 +269,7 @@ namespace Curveball {
 								 _num_threads,
 								 _insertion_buffer_size});
 
+
 			ds_init_report.report("DualContainerInit");
 
 			{
@@ -222,10 +291,12 @@ namespace Curveball {
 				}
 			}
 
+			// process all global trades one by one
 			for (tradeid_t round = 0; round < _num_rounds; round++) {
 				// process the global trade
 				msgs_container.process_active();
 
+				// reinitialize data structures
 				++hash_funcs; // move to next hash-function
 
 				// swap pending with active containers
@@ -236,40 +307,55 @@ namespace Curveball {
 				if (round < _num_rounds - 1) {
 					IOStatistics next_infos("NextInfos");
 
-					target_infos.clear_pending(); // clear obsolete containers
+					// clear obsolete containers
+					target_infos.clear_pending();
 
 					// refill obsolete containers
 					_degrees.rewind();
 					for (node_t node = 0; node < _num_nodes; node++, ++_degrees) {
-						target_infos.push_pending(TargetMsg{hash_funcs.next_hash(node),
-															*_degrees,
-															node});
+						target_infos.push_pending(
+							TargetMsg{hash_funcs.next_hash(node),
+									  *_degrees,
+									  node});
 					}
 					assert(_degrees.empty());
 
-					// compute bounds on the containers for msg insertion
+					// compute new bounds on the containers for msg insertion
 					const auto new_bounds = target_infos.get_bounds_pending();
 
 					msgs_container.set_new_bounds(new_bounds);
 				}
 			}
-			assert(hash_funcs.at_last()); // all hash-functions are processed
+			// check whether all hash-functions have been processed
+			assert(hash_funcs.at_last());
 
 			// clear insertion buffers and finish up
 			msgs_container.finalize();
 
 			{
-				// provide randomised edge-list in a sorted order
-				IOStatistics get_edges_report("PushEdgeStream");
+				_out_edges.clear();
 
-				msgs_container.get_edges(_edge_sorter);
+				if (_sorted_output) {
+					// provide randomised edge-list in a sorted order
+					IOStatistics get_edges_report("PushEdgeStream");
 
-				// retrieve a sorted output (not necessary)
-				if (true)
+					msgs_container.get_edges(_edge_sorter);
+
+					// retrieve a sorted output
 					_edge_sorter.sort();
 
-				_out_edges.clear();
-				StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
+					StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
+				} else {
+					// provide randomised edge-list
+					IOStatistics get_edges_report("PushEdgeStream");
+
+					msgs_container.get_edges(_edge_sorter);
+
+					// retrieve a sorted output
+					_edge_sorter.rewind();
+
+					StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
+				}
 			}
 		}
 	};
