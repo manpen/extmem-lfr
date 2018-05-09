@@ -257,6 +257,20 @@ public:
         }
     }
 
+    /**
+     * This exports the community assignments such that in every line a node id and its community/communities are written (separated by space).
+     * Node ids are 1-based.
+     */
+    template <typename ostream_t>
+    void export_community_assignment_binary(ostream_t & os) {
+        for (const auto& ca : _community_assignments) {
+            static_assert(std::is_same<int32_t, decltype(ca.node_id)>::value, "node id is not longer int32_t");
+            static_assert(std::is_same<int32_t, decltype(ca.community_id)>::value, "node id is not longer int32_t");
+            os.write(reinterpret_cast<const char*>(&ca.node_id), 4);
+            os.write(reinterpret_cast<const char*>(&ca.community_id), 4);
+        }
+    }
+
     void run();
 };
 

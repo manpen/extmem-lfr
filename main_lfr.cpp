@@ -249,9 +249,16 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (!config.partition_filename.empty()) {
-			std::ofstream output_stream(config.partition_filename, std::ios::trunc);
-			lfr.export_community_assignment(output_stream);
-			output_stream.close();
+			if (config.outputFileType == THRILLBIN) {
+				std::ofstream output_stream(config.partition_filename, std::ios::trunc | std::ios::binary);
+				lfr.export_community_assignment_binary(output_stream);
+				output_stream.close();
+			} else {
+				std::ofstream output_stream(config.partition_filename, std::ios::trunc);
+				lfr.export_community_assignment(output_stream);
+				output_stream.close();
+			}
+
 		}
 	}
 
