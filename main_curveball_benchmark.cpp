@@ -85,6 +85,10 @@ struct PowerlawBenchmarkParams {
 			}
 		}
 
+        // correct the degree exponent if necessary
+        if (gamma > 0)
+            gamma = (-1.0) * gamma;
+
 		cp.print_result();
 		return true;
 	}
@@ -103,6 +107,7 @@ void benchmark(const PowerlawBenchmarkParams& config) {
 
 	HavelHakimiIMGeneratorWithDegrees hh_gen(
 		HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
+    assert(config.gamma < 0);
 	MonotonicPowerlawRandomStream<false> degree_sequence(config.min_deg,
 														 config.max_deg,
 														 config.gamma,

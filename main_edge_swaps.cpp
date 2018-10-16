@@ -155,6 +155,9 @@ struct RunConfig {
            return false;
         }
 
+        if (gamma > 0)
+            gamma = (-1.0) * gamma;
+
         if (scaleDegree * minDeg < 1.0) {
             std::cerr << "Scaling the minimum degree must yield at least 1.0" << std::endl;
             return false;

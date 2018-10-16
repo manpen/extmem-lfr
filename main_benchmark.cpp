@@ -83,7 +83,7 @@ struct RunConfig {
             : numNodes(10 * IntScale::Mi)
             , minDeg(2)
             , maxDeg(100000)
-            , gamma(2.0)
+            , gamma(-2.0)
             , scaleDegree(1.0)
 
             , inputMethod(HH)
@@ -158,6 +158,10 @@ struct RunConfig {
             }
         }
 
+        // set the input gamma value to the corresponding negative value
+        if (gamma > 0)
+            gamma = (-1.0) * gamma;
+
         // select input stage
         {
             input_file = !inputFile.empty();
@@ -189,7 +193,7 @@ struct RunConfig {
             return false;
         }
 
-        if (gamma <= 1.0) {
+        if (gamma > -1.0) {
             std::cerr << "Gamma has to be at least 1.0" << std::endl;
             return false;
         }
@@ -294,7 +298,7 @@ void benchmark(RunConfig & config) {
 
                 // prepare generator
                 HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree, config.degreeDistrSeed);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree, config.degreeDistrSeed);
                 StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
                 hh_gen.generate();
 
@@ -309,7 +313,7 @@ void benchmark(RunConfig & config) {
 
                 // prepare generator
                 HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree);
-                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, -1.0 * config.gamma, config.numNodes, config.scaleDegree, config.degreeDistrSeed);
+                MonotonicPowerlawRandomStream<false> degreeSequence(config.minDeg, config.maxDeg, config.gamma, config.numNodes, config.scaleDegree, config.degreeDistrSeed);
                 StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
                 hh_gen.generate();
 
@@ -321,7 +325,6 @@ void benchmark(RunConfig & config) {
 
                 {
                     IOStatistics swap_report("ES for CM");
-
                     ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP init_algo(edge_stream, config.runSize, config.numNodes,
                                                                        config.internalMem);
 
