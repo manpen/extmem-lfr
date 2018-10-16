@@ -253,7 +253,7 @@ namespace Curveball {
 
 			IOStatistics ds_init_report;
 			// initialize message container
-			EMDualContainer<HashFactory, EdgeSorter> msgs_container
+			EMDualContainer<HashFactory> msgs_container
 				(target_infos.get_bounds_active(),
 				 target_infos.get_bounds_pending(),
 				 target_infos,
@@ -339,22 +339,23 @@ namespace Curveball {
 					// provide randomised edge-list in a sorted order
 					IOStatistics get_edges_report("PushEdgeStream");
 
-					msgs_container.get_edges(_edge_sorter);
+					msgs_container.forward_unsorted_edges(_edge_sorter);
 
 					// retrieve a sorted output
 					_edge_sorter.sort();
 
 					StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
 				} else {
+				    // TODO fix EdgeStream only takes sorted edges
 					// provide randomised edge-list
 					IOStatistics get_edges_report("PushEdgeStream");
 
-					msgs_container.get_edges(_edge_sorter);
+					msgs_container.forward_unsorted_edges(_out_edges);
 
 					// retrieve a sorted output
-					_edge_sorter.rewind();
+					//_edge_sorter.rewind();
 
-					StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
+					//StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
 				}
 			}
 		}

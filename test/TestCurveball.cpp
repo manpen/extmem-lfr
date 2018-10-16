@@ -124,7 +124,8 @@ TEST_F(TestCurveball, pld_instance_with_paramest) {
 																num_rounds,
 																out_edge_stream,
 																omp_get_max_threads(),
-																8 * Curveball::UIntScale::Gi);
+																8 * Curveball::UIntScale::Gi,
+																true);
 
 	algo.run();
 

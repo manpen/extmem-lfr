@@ -176,7 +176,7 @@ namespace Curveball {
 	 * @tparam HashFactory Type of hash-functions in use.
 	 * @tparam OutReceiver Output edge stream.
 	 */
-	template<typename HashFactory, typename OutReceiver = EdgeStream>
+	template<typename HashFactory>
 	class EMDualContainer {
 	public:
 		using chunk_upperbound_vector = std::vector<hnode_t>;
@@ -189,8 +189,8 @@ namespace Curveball {
 
 	protected:
 		// containers for both current and subsequent global trade round
-		EMMessageContainer<HashFactory, OutReceiver> _active;
-		EMMessageContainer<HashFactory, OutReceiver> _pending;
+		EMMessageContainer<HashFactory> _active;
+		EMMessageContainer<HashFactory> _pending;
 
 		// auxiliary data structure providing degree and inverse
 		EMTargetInformation& _target_infos;
@@ -250,8 +250,8 @@ namespace Curveball {
 		ThreadBounds _mc_thread_bounds;
 
 		// the ranks of the currently processed min and max targets in the batch
-		int _b_min_mc_node;
-		int _b_max_mc_node;
+		node_t _b_min_mc_node;
+		node_t _b_max_mc_node;
 
 		RNGs<std::mt19937_64, 64> _rngs;
 
@@ -293,12 +293,12 @@ namespace Curveball {
 						const CurveballParams &curveball_params) :
 			_active(active_upper_bounds,
 					curveball_params.msg_limit,
-					EMMessageContainer<HashFactory, OutReceiver>::ACTIVE,
+					EMMessageContainer<HashFactory>::ACTIVE,
 					curveball_params.threads,
 					curveball_params.insertion_buffer_size),
 			_pending(pending_upper_bounds,
 					 curveball_params.msg_limit,
-					 EMMessageContainer<HashFactory, OutReceiver>::NEXT,
+					 EMMessageContainer<HashFactory>::NEXT,
 					 curveball_params.threads,
 					 curveball_params.insertion_buffer_size),
 			_target_infos(target_infos),
@@ -344,6 +344,10 @@ namespace Curveball {
 			_hash_funcs(hash_funcs),
 			_has_run(false)
 		{
+		    assert(_num_chunks > 0);
+		    assert(_num_splits > 0);
+		    assert(_num_fanout > 0);
+
 			// set up common and disjoint vectors for each thread
 			for (int thread_id = 0; thread_id < _num_threads; thread_id++) {
 				_t_common_neighbours[thread_id].reserve(static_cast<size_t>(_mc_max_degree));
@@ -364,7 +368,8 @@ namespace Curveball {
 
 					// load current sequence/queue into IM
 					msg_vector msgs = _active.get_messages_of(mc_id);
-					assert(msgs.size() > 0);
+					assert(!msgs.empty());
+
 					std::cout << "Received " << msgs.size() << " many messages" << std::endl;
 
 					// sort messages by comparator provided by GenericComparator
@@ -1407,11 +1412,13 @@ namespace Curveball {
 		#endif
 
 		/**
-		 * Pushes all messages kept in the active queue into the output stream.
-		 * @param out_edges Output edge stream
+		 * Pushes all messeges kept in the active queue into the output stream.
+		 * @tparam Receiver
+		 * @param out_edges
 		 */
-		void get_edges(OutReceiver &out_edges) {
-			_active.push_into(out_edges);
+		template <typename Receiver>
+		void forward_unsorted_edges(Receiver & out_edges) {
+		    _active.forward_unsorted_edges(out_edges);
 		}
 	};
 

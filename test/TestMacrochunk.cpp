@@ -13,7 +13,7 @@ class TestMacrochunk : public ::testing::Test {
 };
 
 TEST_F(TestMacrochunk, move_constructor) {
-	std::vector<Curveball::IMMacrochunk<>> macrochunks;
+	std::vector<Curveball::IMMacrochunk> macrochunks;
 	macrochunks.reserve(10);
 
 	for (unsigned int i = 0; i < 10; i++) {
@@ -27,7 +27,7 @@ TEST_F(TestMacrochunk, move_constructor) {
 }
 
 TEST_F(TestMacrochunk, insertion) {
-	Curveball::IMMacrochunk<> msg_chunk(0, 200000);
+	Curveball::IMMacrochunk msg_chunk(0, 200000);
 
 	for (unsigned long i = 0; i < 100000; i++) {
 		msg_chunk.push_sequential(Curveball::NeighbourMsg{0, 0});

@@ -20,23 +20,21 @@ namespace Curveball {
 	/**
 	 * Implements a macrochunk by a sequence of STXXL (works similar to queues
 	 * but has better overhead).
-	 * @tparam OutReceiver Output edge stream.
 	 */
-	template<typename OutReceiver = EdgeStream>
 	class IMMacrochunk {
 	public:
 		// messages <trade, neighbour>
 		using value_type = NeighbourMsg;
+
 		// saves bucket bounds pi(u)'s
 		using bounds_vector = std::vector<node_t>;
+
 		// extmem buffer
 		using sequence_type = stxxl::sequence<value_type>;
 
 	protected:
 		// enforcing invariants
-		enum Mode {
-			PENDING, LOADED
-		};
+		enum Mode { PENDING, LOADED };
 		Mode _mode;
 
 		// EM data structure to store
@@ -201,9 +199,11 @@ namespace Curveball {
 
 		/**
 		 * Forwards all contained messages into an output stream.
-		 * @param out_edges Edge output stream.
+		 * @tparam Receiver
+		 * @param out_edges
 		 */
-		void push_into(OutReceiver &out_edges) {
+		template <typename Receiver>
+		void forward_unsorted_edges(Receiver & out_edges) {
 			auto msg_stream = _msg_sequence.get_stream();
 
 			for (; !msg_stream.empty(); ++msg_stream) {
