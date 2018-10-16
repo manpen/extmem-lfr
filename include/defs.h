@@ -147,7 +147,7 @@ using DblScale = Scale<double>;
 #define DEBUG_MSG(show, msg) {}
 #endif
 
-constexpr uint_t SORTER_MEM = 2 * IntScale::Gi; // default bytes used for internal storage of  sorter
+constexpr uint_t SORTER_MEM = 1 * IntScale::Gi; // default bytes used for internal storage of  sorter
 constexpr uint_t PQ_INT_MEM = 128 * IntScale::Mi; // default bytes used for internal storage of a PQ
 constexpr uint_t PQ_POOL_MEM = 128 * IntScale::Mi; // default bytes used for internal storage of a PQ
 

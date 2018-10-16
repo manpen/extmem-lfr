@@ -279,9 +279,16 @@ namespace Curveball {
 				for (; !_edges.empty(); ++_edges) {
 					const edge_t edge = *_edges;
 					assert(edge.first != edge.second); // no self-loops
+                    assert(edge.first >= 0);
+                    assert(edge.first <= _num_nodes);
+                    assert(edge.second >= 0);
+                    assert(edge.second <= _num_nodes);
 
 					const hnode_t h_fst = hash_funcs.current_hash(edge.first);
 					const hnode_t h_snd = hash_funcs.current_hash(edge.second);
+
+                    assert(h_fst >= 0);
+                    assert(h_snd >= 0);
 
 					// compare targets, and direct accordingly
 					if (h_fst < h_snd)
