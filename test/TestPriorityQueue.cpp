@@ -20,7 +20,7 @@ inline std::ostream &operator<<(std::ostream &os, myElement const &m) {
 }
 
 TEST_F(TestPriorityQueue, testEqualRange) {
-    stxxl::int64 numElements = 100 * 1000 * 1000;
+    stxxl::int64 numElements = 100 * 1000;
     stxxl::int64 maxKey = 256;
 
     stxxl::random_number32 rand;

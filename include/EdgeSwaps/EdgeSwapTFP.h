@@ -116,7 +116,11 @@ namespace EdgeSwapTFP {
         constexpr static size_t _sorter_mem = SORTER_MEM;
 
         constexpr static bool compute_stats = false;
-        constexpr static bool produce_debug_vector=false;
+#ifndef EDGE_SWAP_DEBUG_VECTOR
+        constexpr static bool produce_debug_vector = false;
+#else
+        constexpr static bool produce_debug_vector = true;
+#endif
         constexpr static bool _async_processing = false;
 
 // memory estimation
