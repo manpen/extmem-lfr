@@ -76,7 +76,7 @@ TEST_F(TestBoolStream, randomFillAndConsume) {
     BoolStream bs, bs2;
 
     stxxl::random_number32 rand;
-    for(unsigned int round = 0; round < 100; round++) {
+    for(unsigned int round = 0; round < 10; round++) {
         unsigned int write_items = rand(1 << 24);
         unsigned int read_items = rand(write_items);
 

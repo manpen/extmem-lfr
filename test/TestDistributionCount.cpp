@@ -32,7 +32,7 @@ TEST_F(TestDistributionCount, testSimpleCounting) {
 TEST_F(TestDistributionCount, testPowerlawCounting) {
     stxxl::set_seed(42);
     constexpr int_t numNodes = 10*1000*1000;
-    MonotonicPowerlawRandomStream<false> sequence(2, 100000-1, -2, numNodes, 12345);
+    MonotonicPowerlawRandomStream<false> sequence(2, 100000 - 1, 2, numNodes, 1.0, 12345);
 
     // store degree sequence
     stxxl::vector<int_t> degrees(numNodes);
