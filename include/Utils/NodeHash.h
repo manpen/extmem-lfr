@@ -52,8 +52,8 @@ namespace Curveball {
 		return true;
 	}
 
-	static node_t get_next_prime(const node_t num_nodes) {
-		node_t next_prime = num_nodes + 1;
+	static uint32_t get_next_prime(const node_t num_nodes) {
+		uint32_t next_prime = num_nodes + 1;
 
 		if (next_prime <= 2)
 			next_prime = 2;
@@ -63,6 +63,8 @@ namespace Curveball {
 
 		for (; !is_prime(next_prime); next_prime += 2);
 
+		assert(next_prime > num_nodes);
+
 		return next_prime;
 	}
 
@@ -71,7 +73,7 @@ namespace Curveball {
 		node_t _a;
 		node_t _ainv;
 		node_t _b;
-		node_t _p;
+		uint32_t _p;
 	public:
 		ModHash() = default;
 
@@ -83,11 +85,12 @@ namespace Curveball {
 
 		ModHash& operator = (ModHash&&) = default;
 
-		ModHash(const node_t a, const node_t b, const node_t p) :
+		ModHash(const node_t a, const node_t b, const uint32_t p) :
 			_a(a % p),
 			_ainv(inverse_of_in(a, p)),
 			_b(b % p),
 			_p(p) {
+			assert(_ainv > 0);
 			assert(a > 0);
 			assert(b < p);
 		}
@@ -113,7 +116,7 @@ namespace Curveball {
 		}
 
 		static ModHash get_random(const node_t num_nodes) {
-			const node_t next_prime = get_next_prime(num_nodes);
+			const uint32_t next_prime = get_next_prime(num_nodes);
 
 			std::random_device rd;
 			STDRandomEngine gen(rd());
