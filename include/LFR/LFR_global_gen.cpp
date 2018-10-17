@@ -14,11 +14,12 @@
 
 namespace LFR {
     void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {
-		#ifdef CURVEBALL_RAND
-		HavelHakimiIMGeneratorWithDegrees gen(HavelHakimiIMGeneratorWithDegrees::DecreasingDegree);
-		#else
 		HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
-		#endif
+
+        #ifdef CURVEBALL_RAND
+        DegreeStream rewindable_ext_degrees;
+        #endif
+
 		{
             using deg_node_t = std::pair<degree_t, node_t>;
             stxxl::sorter<deg_node_t, GenericComparator<deg_node_t>::Descending> extDegree(GenericComparator<deg_node_t>::Descending(), SORTER_MEM);
@@ -30,6 +31,9 @@ namespace LFR {
 
                 for(node_t nid=0; !_node_sorter.empty(); ++_node_sorter, ++nid) {
                     extDegree.push({_node_sorter->externalDegree(_mixing), nid});
+                    #ifdef CURVEBALL_RAND
+                    rewindable_ext_degrees.push(_node_sorter->externalDegree(_mixing));
+                    #endif
                 }
 
                 extDegree.sort();
@@ -86,33 +90,29 @@ namespace LFR {
 
         {
 			#ifdef CURVEBALL_RAND
-				gen.finalize();
-				DegreeStream& degs = gen.get_degree_stream();
-				degs.rewind();
+				//gen.finalize();
+				//DegreeStream& degs = gen.get_degree_stream();
+				//degs.rewind();
+				rewindable_ext_degrees.rewind();
 
 				Curveball::EMCurveball<Curveball::ModHash> randAlgo(_inter_community_edges,
-                                                                    degs,
+                                                                    rewindable_ext_degrees,
                                                                     _number_of_nodes,
                                                                     20,
                                                                     _inter_community_edges,
                                                                     omp_get_max_threads(),
-                                                                    _max_memory_usage);
+                                                                    _max_memory_usage,
+                                                                    true); // change to false when it is possible
 
-                randAlgo.run();
-                _inter_community_edges.rewind();
+                if (1) {
+                    IOStatistics ios("GlobalGenInitialRandCurveball");
+                    randAlgo.run();
+                    _inter_community_edges.rewind();
+                }
 
-				// regular edge swaps
+                // regular edge swaps in the rewiring
 				EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
-				// Generate swaps
-				uint_t numSwaps = 1*_inter_community_edges.size();
-				SwapGenerator swapGen(numSwaps, _inter_community_edges.size(), RandomSeed::get_instance().get_next_seed());
-
-				if (1) {
-					IOStatistics ios("GlobalGenInitialRand");
-					StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
-					swapAlgo.run();
-				}
-			#else
+            #else
 				// regular edge swaps
 				EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
 				// Generate swaps

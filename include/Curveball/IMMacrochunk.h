@@ -18,7 +18,7 @@
 namespace Curveball {
 
 	/**
-	 * Implements a macrochunk by a sequence of STXXL (works similar to queues
+	 * Implements a macrochunk by a STXXL sequence (works similar to queues
 	 * but has better overhead).
 	 */
 	class IMMacrochunk {

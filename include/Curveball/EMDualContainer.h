@@ -250,8 +250,8 @@ namespace Curveball {
 		ThreadBounds _mc_thread_bounds;
 
 		// the ranks of the currently processed min and max targets in the batch
-		node_t _b_min_mc_node;
-		node_t _b_max_mc_node;
+		int _b_min_mc_node; // TODO dofference node_t and int32_t
+		int _b_max_mc_node;
 
 		RNGs<std::mt19937_64, 64> _rngs;
 
@@ -1223,7 +1223,7 @@ namespace Curveball {
 			} else {
 				CurveballImpl::random_partition(disjoint_neighbours.begin(),
 												disjoint_neighbours.end(),
-												u_setsize, _rngs[thread_id]);
+												static_cast<size_t>(u_setsize), _rngs[thread_id]);
 			}
 
 			// distribute disjoint neighbours
