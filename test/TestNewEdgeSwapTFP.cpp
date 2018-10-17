@@ -194,7 +194,7 @@ namespace {
 		const node_t num_nodes = 10000;
 
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0);
-		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, 2.0, num_nodes, 1.0, 1234);
+		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes, 1.0, 1234);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();

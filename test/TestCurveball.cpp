@@ -39,7 +39,7 @@ TEST_F(TestCurveball, pld_instance_without_paramest) {
 
 	HavelHakimiIMGeneratorWithDegrees hh_gen(
 		HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
-	MonotonicPowerlawRandomStream<false> degree_sequence(min_deg, max_deg, 2, num_nodes, 1.0, stxxl::get_next_seed());
+	MonotonicPowerlawRandomStream<false> degree_sequence(min_deg, max_deg, -2.0, num_nodes, 1.0, stxxl::get_next_seed());
 
 	StreamPusher<decltype(degree_sequence), decltype(hh_gen)>(degree_sequence, hh_gen);
 	hh_gen.generate();
@@ -100,7 +100,7 @@ TEST_F(TestCurveball, pld_instance_with_paramest) {
 
 	HavelHakimiIMGeneratorWithDegrees hh_gen(
 		HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
-	MonotonicPowerlawRandomStream<false> degree_sequence(min_deg, max_deg, 2, num_nodes, 1.0, stxxl::get_next_seed());
+	MonotonicPowerlawRandomStream<false> degree_sequence(min_deg, max_deg, -2.0, num_nodes, 1.0, stxxl::get_next_seed());
 
 	StreamPusher<decltype(degree_sequence), decltype(hh_gen)>(degree_sequence, hh_gen);
 	hh_gen.generate();
