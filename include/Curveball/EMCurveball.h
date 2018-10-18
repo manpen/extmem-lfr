@@ -141,7 +141,7 @@ namespace Curveball {
 					DegreeInputStream &degrees,
 					const node_t num_nodes,
 					const tradeid_t num_rounds,
-					EdgeStream &out_edges,
+					OutReceiver &out_edges,
 					const chunkid_t num_chunks = DUMMY_CHUNKS,
 					const chunkid_t num_splits = DUMMY_Z,
 					const chunkid_t num_fanout = DUMMY_Z,
@@ -191,7 +191,7 @@ namespace Curveball {
 					DegreeInputStream &degrees,
 					const node_t num_nodes,
 					const tradeid_t num_rounds,
-					EdgeStream &out_edges,
+					OutReceiver &out_edges,
 					const int num_threads,
 					const size_t mem,
 					const bool sorted_output
@@ -241,7 +241,7 @@ namespace Curveball {
 			IOStatistics first_fill_report;
 			degree_t max_degree = 0;
 			for (node_t node = 0; !_degrees.empty(); ++_degrees) {
-                const degree_t degree_value = static_cast<degree_t>(*_degrees);
+                const auto degree_value = static_cast<degree_t>(*_degrees);
 				// determine maximum degree while scanning degrees
 				max_degree = std::max(max_degree, *_degrees);
 
@@ -330,7 +330,7 @@ namespace Curveball {
 					// refill obsolete containers
 					_degrees.rewind();
 					for (node_t node = 0; node < _num_nodes; node++, ++_degrees) {
-                        const degree_t degree_value = static_cast<degree_t>(*_degrees);
+                        const auto degree_value = static_cast<degree_t>(*_degrees);
 						target_infos.push_pending(
 							TargetMsg{hash_funcs.next_hash(node),
 									  degree_value,
@@ -364,16 +364,10 @@ namespace Curveball {
 
 					StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
 				} else {
-				    // TODO fix EdgeStream only takes sorted edges
 					// provide randomised edge-list
 					IOStatistics get_edges_report("PushEdgeStream");
 
 					msgs_container.forward_unsorted_edges(_out_edges);
-
-					// retrieve a sorted output
-					//_edge_sorter.rewind();
-
-					//StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
 				}
 			}
 		}

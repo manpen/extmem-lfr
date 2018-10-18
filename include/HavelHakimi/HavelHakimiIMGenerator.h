@@ -11,7 +11,7 @@
 
 namespace detail {
 
-    template <bool DegreesOut>
+    template <bool DegreesOut, bool DeficitsOut = false>
     class HavelHakimiIMGenerator_impl {
     public:
         //! Direction of Input Stream arriving
@@ -38,8 +38,8 @@ namespace detail {
             Block() {}
 
             Block(degree_t degree_, node_t node_lower_, node_t noder_upper_)
-                : degree(degree_), node_lower(node_lower_),
-                  node_upper(noder_upper_) {}
+                    : degree(degree_), node_lower(node_lower_),
+                      node_upper(noder_upper_) {}
 
             node_t size() const {
                 return node_upper - node_lower + 1;
@@ -73,7 +73,8 @@ namespace detail {
         using degree_buffer_t = stxxl::sequence<degree_t>;
         using degree_forward_stream = degree_buffer_t::stream;
 
-        //! Degree output
+        //! Degree outputs
+        std::vector<std::pair<node_t, degree_t>> _node_degree_deficits;
         degree_buffer_t  _input_degrees;
         std::unique_ptr<degree_forward_stream> _input_degrees_forward;
         degree_t _unsatisfied_neighbors = 0;
@@ -155,8 +156,8 @@ namespace detail {
 
                 // test whether stack's block can be merged
                 if (UNLIKELY(
-                    (stack_block.degree == deque_block.degree) &&
-                    (stack_block.node_upper + 1 == deque_block.node_lower)
+                        (stack_block.degree == deque_block.degree) &&
+                        (stack_block.node_upper + 1 == deque_block.node_lower)
                 )) {
                     deque_block.node_lower = stack_block.node_lower;
                 } else {
@@ -175,7 +176,7 @@ namespace detail {
                 // if this new edge is not contained in the current block being consumed
                 // we have to fetch a new one
                 if (UNLIKELY(
-                    _blocks_checkedout.top().node_upper < _current_edge.second)) {
+                        _blocks_checkedout.top().node_upper < _current_edge.second)) {
                     // will get correct id and also decrement _remaining_neighbors
                     _checkout_block();
 
@@ -184,15 +185,20 @@ namespace detail {
                 }
 
             } else {
-                if (DegreesOut) {
+                if (DegreesOut || DeficitsOut) {
                     if (LIKELY(_skipped_first)) {
-                        _output_degrees.push(_input_degrees_forward->operator*() - _unsatisfied_neighbors);
-                        _unsatisfied_neighbors = 0;
+                        if (DegreesOut)
+                            _output_degrees.push(_input_degrees_forward->operator*() - _unsatisfied_neighbors);
+
+                        if (_unsatisfied_neighbors > 0)
+                            _node_degree_deficits.push_back(std::make_pair(_current_edge.first, _unsatisfied_neighbors));
+
                         _input_degrees_forward->operator++();
+                        _unsatisfied_neighbors = 0;
                     } else {
                         _skipped_first = true;
                     }
-				}
+                }
 
                 // move blocks previously "parked" on stack back to queue
                 _restore_blocks();
@@ -243,18 +249,20 @@ namespace detail {
 
     public:
         HavelHakimiIMGenerator_impl(PushDirection push_direction = IncreasingDegree,
-                               node_t initial_node = 0) :
-            _mode(Push),
-            _push_direction(push_direction),
-            _initial_node(initial_node),
-            _push_current_node(initial_node),
-            _max_number_of_edges(0),
-            _unsatisfied_degree(0),
-            _unsatisfied_nodes(0)
+                                    node_t initial_node = 0) :
+                _mode(Push),
+                _push_direction(push_direction),
+                _initial_node(initial_node),
+                _push_current_node(initial_node),
+                _max_number_of_edges(0),
+                _unsatisfied_degree(0),
+                _unsatisfied_nodes(0)
         {}
 
         ~HavelHakimiIMGenerator_impl() {
-            _input_degrees_forward.reset(nullptr);
+            if (DegreesOut || DeficitsOut) {
+                _input_degrees_forward.reset(nullptr);
+            }
         }
 
         //! Push a new vertex -represented by its degree- into degree sequence
@@ -278,21 +286,21 @@ namespace detail {
                     _blocks.front().node_upper = _push_current_node;
                 } else {
                     assert(deg < _blocks.back().degree);
-                    _blocks.push_front(
-                        Block(deg, _push_current_node, _push_current_node));
+                    _blocks.push_front(Block(deg, _push_current_node, _push_current_node));
                 }
             }
 
             ++_push_current_node;
             _max_number_of_edges += deg;
 
-            if (DegreesOut)
+            if (DegreesOut || DeficitsOut)
                 _input_degrees.push_back(deg);
         }
 
         //! Switch to generation mode; the streaming interface become available
         void generate() {
-            _input_degrees_forward.reset(new degree_forward_stream(_input_degrees));
+            if (DegreesOut || DeficitsOut)
+                _input_degrees_forward.reset(new degree_forward_stream(_input_degrees));
 
             assert(_mode == Push);
 
@@ -304,7 +312,7 @@ namespace detail {
                 for (auto &block : _blocks) {
                     auto tmp = _push_current_node - 1 - block.node_lower + _initial_node;
                     block.node_lower =
-                        _push_current_node - 1 - block.node_upper + _initial_node;
+                            _push_current_node - 1 - block.node_upper + _initial_node;
                     block.node_upper = tmp;
                 }
             }
@@ -331,9 +339,15 @@ namespace detail {
 
         //! Push rest of degrees into output degree stream
         void finalize() {
-            for (; !_input_degrees_forward->empty(); _input_degrees_forward->operator++())
-                _output_degrees.push(_input_degrees_forward->operator*());
-            assert(_output_degrees.size() == static_cast<size_t>(_push_current_node - _initial_node));
+            if (DegreesOut) {
+                for (; !_input_degrees_forward->empty(); _input_degrees_forward->operator++())
+                    _output_degrees.push(_input_degrees_forward->operator*());
+                assert(_output_degrees.size() == static_cast<size_t>(_push_current_node - _initial_node));
+            }
+        }
+
+        std::vector<std::pair<node_t, degree_t>> & get_deficits() {
+            return _node_degree_deficits;
         }
 
         DegreeStream& get_degree_stream() {
@@ -378,3 +392,4 @@ namespace detail {
 
 using HavelHakimiIMGenerator = detail::HavelHakimiIMGenerator_impl<false>;
 using HavelHakimiIMGeneratorWithDegrees = detail::HavelHakimiIMGenerator_impl<true>;
+using HavelHakimiIMGeneratorWithDeficits = detail::HavelHakimiIMGenerator_impl<false, true>;

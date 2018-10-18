@@ -1,26 +1,71 @@
+#include <utility>
+
 #include "LFR.h"
 #include "GlobalRewiringSwapGenerator.h"
-#include <LFR/GlobalRewiringSwapGenerator.h>
 #include <HavelHakimi/HavelHakimiIMGenerator.h>
 #include <EdgeSwaps/SemiLoadedEdgeSwapTFP.h>
-#include <SwapGenerator.h>
 #include <Utils/AsyncStream.h>
-#include <Utils/StreamPusher.h>
 #include <Utils/IOStatistics.h>
-#include <DegreeStream.h>
 #include <Utils/NodeHash.h>
 #include <Curveball/EMCurveball.h>
 #include <Utils/RandomSeed.h>
+#include <DistributionCount.h>
 
 namespace LFR {
     void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {
-		HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
-
         #ifdef CURVEBALL_RAND
-        DegreeStream rewindable_ext_degrees;
-        #endif
+        HavelHakimiIMGeneratorWithDeficits gen(HavelHakimiIMGeneratorWithDeficits::DecreasingDegree);
+        DegreeStream temp_rewindable_ext_degrees;
+        class FixedDegreeStreamWrapper {
+        protected:
+            DegreeStream & _unrealisable_degrees;
+            std::vector<std::pair<node_t, degree_t>> & _deficits;
+            std::vector<std::pair<node_t, degree_t>>::const_iterator _deficits_it;
+            node_t _count = 0;
 
-		{
+
+        public:
+            FixedDegreeStreamWrapper(DegreeStream & unrealisable_degrees,
+                                     std::vector<std::pair<node_t, degree_t>> & deficits,
+                                     node_t count = 0)
+                    : _unrealisable_degrees(unrealisable_degrees),
+                      _deficits(deficits),
+                      _deficits_it(deficits.cbegin()),
+                      _count(count)
+            { }
+
+            void rewind() {
+                _unrealisable_degrees.rewind();
+                _count = 0;
+                _deficits_it = _deficits.cbegin();
+            }
+
+            bool empty() const {
+                return _unrealisable_degrees.empty();
+            }
+
+            FixedDegreeStreamWrapper & operator ++() {
+                ++_count;
+                ++_unrealisable_degrees;
+                return *this;
+            }
+
+            degree_t operator * () {
+                if (LIKELY(_deficits_it == _deficits.cend() || _count != (*_deficits_it).first))
+                    return *_unrealisable_degrees;
+                else {
+                    const degree_t unrealised_degree = (*_unrealisable_degrees);
+                    const degree_t deficit = (*_deficits_it).second;
+                    ++_deficits_it;
+
+                    return (unrealised_degree - deficit);
+                }
+            }
+        };
+        #else
+        HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
+        #endif
+        {
             using deg_node_t = std::pair<degree_t, node_t>;
             stxxl::sorter<deg_node_t, GenericComparator<deg_node_t>::Descending> extDegree(GenericComparator<deg_node_t>::Descending(), SORTER_MEM);
 
@@ -29,10 +74,10 @@ namespace LFR {
             { // push node degrees in descending order in generator
                 _node_sorter.rewind();
 
-                for(node_t nid=0; !_node_sorter.empty(); ++_node_sorter, ++nid) {
+                for(node_t nid = 0; !_node_sorter.empty(); ++_node_sorter, ++nid) {
                     extDegree.push({_node_sorter->externalDegree(_mixing), nid});
                     #ifdef CURVEBALL_RAND
-                    rewindable_ext_degrees.push(_node_sorter->externalDegree(_mixing));
+                    temp_rewindable_ext_degrees.push(_node_sorter->externalDegree(_mixing));
                     #endif
                 }
 
@@ -61,21 +106,58 @@ namespace LFR {
 
                 extDegree.rewind();
                 for (node_t i = 0; !gen.empty(); ++gen) {
-                    const edge_t &orig_edge = *gen;
+                    const edge_t & orig_edge = *gen;
+
+                    // this for loop only does something if the current run of nodes,
+                    // which was i to this point is no longer i, when that run ends,
+                    // we have to forward the external degree stream until we hit the
+                    // next node of the next run
                     for (; i < orig_edge.first; ++extDegree, ++i);
 
+                    // the first entry of the generated Havel-Hakimi edge not necessarily
+                    // matches the second entry of the current external degree stream, since
+                    // it was sorted previously and just mapped 1-1 starting from 0,
+                    // additionally it may not have the same degree, in a Havel-Hakimi
+                    // materialisation unsatisfied nodes and edges can occur
                     edge_sorter1.push({orig_edge.second, (*extDegree).second});
                 }
+                assert(gen.unsatisfiedNodes() == static_cast<node_t>(gen.get_deficits().size()));
 
                 edge_sorter1.sort();
                 extDegree.rewind();
 
+                #ifdef CURVEBALL_RAND
+                bool check_deficits = (gen.unsatisfiedNodes() > 0);
+                auto & deficits = gen.get_deficits();
+                auto deficits_it = deficits.begin();
                 for (node_t i = 0; !edge_sorter1.empty(); ++edge_sorter1) {
                     const edge_t &orig_edge = *edge_sorter1;
                     for (; i < orig_edge.first; ++extDegree, ++i);
 
+                    if (check_deficits) {
+                        auto & node_deficit_pair = *deficits_it;
+                        if (i == node_deficit_pair.first) {
+                            node_deficit_pair.first = (*extDegree).second;
+                            assert(node_deficit_pair.first == (*extDegree).second);
+
+                            ++deficits_it;
+                            if (deficits_it == deficits.end())
+                                check_deficits = false;
+                        }
+                    }
+
+                    assert(orig_edge.second != (*extDegree).second);
                     edge_sorter2.push({orig_edge.second, (*extDegree).second});
                 }
+                #else
+                for (node_t i = 0; !edge_sorter1.empty(); ++edge_sorter1) {
+                    const edge_t &orig_edge = *edge_sorter1;
+                    for (; i < orig_edge.first; ++extDegree, ++i);
+
+                    assert(orig_edge.second != (*extDegree).second);
+                    edge_sorter2.push({orig_edge.second, (*extDegree).second});
+                }
+                #endif
             }
 
             edge_sorter2.sort();
@@ -89,42 +171,55 @@ namespace LFR {
         std::cout << "Maximum EM allocation after InitialGlobalGen: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
         {
-			#ifdef CURVEBALL_RAND
-				//gen.finalize();
-				//DegreeStream& degs = gen.get_degree_stream();
-				//degs.rewind();
-				rewindable_ext_degrees.rewind();
+            #ifdef CURVEBALL_RAND
+            temp_rewindable_ext_degrees.rewind();
 
-				Curveball::EMCurveball<Curveball::ModHash> randAlgo(_inter_community_edges,
-                                                                    rewindable_ext_degrees,
-                                                                    _number_of_nodes,
-                                                                    20,
-                                                                    _inter_community_edges,
-                                                                    omp_get_max_threads(),
-                                                                    _max_memory_usage,
-                                                                    true); // change to false when it is possible
-
-                if (1) {
-                    IOStatistics ios("GlobalGenInitialRandCurveball");
+            if (1) {
+                IOStatistics ios("GlobalGenInitialRandCurveball");
+                if (gen.unsatisfiedNodes() == 0) {
+                    using CurveballType = Curveball::EMCurveball<Curveball::ModHash>;
+                    CurveballType randAlgo(_inter_community_edges,
+                                           temp_rewindable_ext_degrees,
+                                           _number_of_nodes,
+                                           20,
+                                           _inter_community_edges,
+                                           omp_get_max_threads(),
+                                           _max_memory_usage,
+                                           true); // change to false when it is possible
                     randAlgo.run();
-                    _inter_community_edges.rewind();
+                } else if (gen.unsatisfiedNodes() > 0){
+                    FixedDegreeStreamWrapper rewindable_ext_degrees(temp_rewindable_ext_degrees, gen.get_deficits());
+
+                    using CurveballType = Curveball::EMCurveball<Curveball::ModHash, FixedDegreeStreamWrapper>;
+                    CurveballType randAlgo(_inter_community_edges,
+                                           rewindable_ext_degrees,
+                                           _number_of_nodes,
+                                           20,
+                                           _inter_community_edges,
+                                           omp_get_max_threads(),
+                                           _max_memory_usage,
+                                           true); // change to false when it is possible
+                    randAlgo.run();
                 }
+            }
 
-                // regular edge swaps in the rewiring
-				EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
+            _inter_community_edges.rewind();
+
+            // regular edge swaps in the rewiring
+            EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
             #else
-				// regular edge swaps
-				EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
-				// Generate swaps
-				uint_t numSwaps = 10*_inter_community_edges.size();
-				SwapGenerator swapGen(numSwaps, _inter_community_edges.size(), RandomSeed::get_instance().get_next_seed());
+            // regular edge swaps
+            EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
+            // Generate swaps
+            uint_t numSwaps = 10*_inter_community_edges.size();
+            SwapGenerator swapGen(numSwaps, _inter_community_edges.size(), RandomSeed::get_instance().get_next_seed());
 
-				if (1) {
-					IOStatistics ios("GlobalGenInitialRand");
-					StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
-					swapAlgo.run();
-				}
-			#endif
+            if (1) {
+                IOStatistics ios("GlobalGenInitialRand");
+                StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
+                swapAlgo.run();
+            }
+            #endif
 
             std::cout << "Current EM allocation after GlobalGenInitialRand: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
             std::cout << "Maximum EM allocation after GlobalGenInitialRand: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
