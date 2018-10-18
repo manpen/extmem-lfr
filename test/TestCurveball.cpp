@@ -38,7 +38,7 @@ TEST_F(TestCurveball, pld_instance_without_paramest) {
 	EdgeStream out_edge_stream;
 
 	HavelHakimiIMGeneratorWithDegrees hh_gen(
-		HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
+			HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
 	MonotonicPowerlawRandomStream<false> degree_sequence(min_deg, max_deg, -2.0, num_nodes, 1.0, stxxl::get_next_seed());
 
 	StreamPusher<decltype(degree_sequence), decltype(hh_gen)>(degree_sequence, hh_gen);
@@ -51,19 +51,19 @@ TEST_F(TestCurveball, pld_instance_without_paramest) {
 	// Run algorithm
 	edge_stream.rewind();
 	degree_stream.rewind();
-	Curveball::EMCurveball<Curveball::ModHash, EdgeStream> algo(edge_stream,
-																degree_stream,
-																num_nodes,
-																num_rounds,
-																out_edge_stream,
-																num_macrochunks,
-																num_batches,
-																num_fanout,
-																2 * Curveball::UIntScale::Gi,
-																2 * Curveball::UIntScale::Gi,
-																num_max_msgs,
-																num_threads,
-																insertion_buffer_size);
+	Curveball::EMCurveball<Curveball::ModHash> algo(edge_stream,
+													degree_stream,
+													num_nodes,
+													num_rounds,
+													out_edge_stream,
+													num_macrochunks,
+													num_batches,
+													num_fanout,
+													2 * Curveball::UIntScale::Gi,
+													2 * Curveball::UIntScale::Gi,
+													num_max_msgs,
+													num_threads,
+													insertion_buffer_size);
 
 	algo.run();
 
@@ -99,7 +99,7 @@ TEST_F(TestCurveball, pld_instance_with_paramest) {
 	EdgeStream out_edge_stream;
 
 	HavelHakimiIMGeneratorWithDegrees hh_gen(
-		HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
+			HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
 	MonotonicPowerlawRandomStream<false> degree_sequence(min_deg, max_deg, -2.0, num_nodes, 1.0, stxxl::get_next_seed());
 
 	StreamPusher<decltype(degree_sequence), decltype(hh_gen)>(degree_sequence, hh_gen);
@@ -112,14 +112,14 @@ TEST_F(TestCurveball, pld_instance_with_paramest) {
 	// Run algorithm
 	edge_stream.rewind();
 	degree_stream.rewind();
-	Curveball::EMCurveball<Curveball::ModHash, EdgeStream> algo(edge_stream,
-																degree_stream,
-																num_nodes,
-																num_rounds,
-																out_edge_stream,
-																omp_get_max_threads(),
-																8 * Curveball::UIntScale::Gi,
-																true);
+	Curveball::EMCurveball<Curveball::ModHash> algo(edge_stream,
+													degree_stream,
+													num_nodes,
+													num_rounds,
+													out_edge_stream,
+													omp_get_max_threads(),
+													8 * Curveball::UIntScale::Gi,
+													true);
 
 	algo.run();
 
