@@ -57,9 +57,9 @@ namespace Curveball {
 		 */
 		class ParameterEstimation {
 		public:
-			chunkid_t num_macrochunks() const {return std::get<0>(_param_est);}
-			chunkid_t num_batches() const {return std::get<1>(_param_est);}
-			chunkid_t num_fanout() const {return std::get<2>(_param_est);}
+			chunkid_t num_macrochunks() const   {return std::get<0>(_param_est);}
+			chunkid_t num_batches() const       {return std::get<1>(_param_est);}
+			chunkid_t num_fanout() const        {return std::get<2>(_param_est);}
 			size_t size_insertionbuffer() const {return std::get<3>(_param_est);}
 
 			ParameterEstimation() = default;

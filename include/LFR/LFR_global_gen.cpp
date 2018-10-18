@@ -6,10 +6,10 @@
 #include <EdgeSwaps/SemiLoadedEdgeSwapTFP.h>
 #include <Utils/AsyncStream.h>
 #include <Utils/IOStatistics.h>
+#include <SwapGenerator.h>
 #include <Utils/NodeHash.h>
 #include <Curveball/EMCurveball.h>
 #include <Utils/RandomSeed.h>
-#include <DistributionCount.h>
 
 namespace LFR {
     void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {

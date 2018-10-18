@@ -48,7 +48,7 @@ namespace LFR {
         auto push_com_edge = [&edgeSorter](community_t com, const edge_t &e) {
             edgeSorter.push(construct_community_edge_t(com, e, std::integral_constant<bool, is_disjoint>()));
         };
-        const uint_t n_threads = omp_get_max_threads();
+        const auto n_threads = static_cast<uint_t>(omp_get_max_threads());
         const uint_t memory_per_thread = _max_memory_usage / n_threads;
 
         #pragma omp parallel shared(edgeSorter), num_threads(n_threads)
@@ -72,7 +72,7 @@ namespace LFR {
                 uint_t available_memory = memory_per_thread;
 
                 HavelHakimiIMGenerator gen(HavelHakimiIMGenerator::DecreasingDegree);
-                bool internalNodes = (com_size * 2 * sizeof(node_t) < available_memory / 10 ); // use up to ten percent of the memory for internal node ids
+                bool internalNodes = (com_size * 2 * sizeof(node_t) < available_memory / 10); // use up to ten percent of the memory for internal node ids
 
                 if (internalNodes) {
                     available_memory -= (com_size * 2 * sizeof(node_t));
@@ -137,19 +137,21 @@ namespace LFR {
                         swapAlgo.run();
                     }
 
-#ifndef NDEBUG
+                    #ifndef NDEBUG
                     edge_t last_e(edge_t::invalid());
-#endif
+                    #endif
 
                     #pragma omp critical (_edgeSorter)
                     for (auto it = graph.getEdges(); !it.empty(); ++it) {
                         edge_t e = {node_ids[it->first], node_ids[it->second]};
                         e.normalize();
-#ifndef NDEBUG
-                                    assert(e != last_e);
-                                    assert(!e.is_loop());
-                                    last_e = e;
-#endif
+
+                        #ifndef NDEBUG
+                        assert(e != last_e);
+                        assert(!e.is_loop());
+                        last_e = e;
+                        #endif
+
                         push_com_edge(com, e);
                     }
                 } else {
@@ -163,7 +165,7 @@ namespace LFR {
                     intra_edges.consume();
 
                     // Generate swaps
-                    uint_t numSwaps = 10*intra_edges.size();
+                    uint_t numSwaps = 10 * intra_edges.size();
                     SwapGenerator swap_gen(numSwaps, intra_edges.size(), RandomSeed::get_instance().get_seed(com));
 
                     uint_t run_length = intra_edges.size() / 8;
@@ -204,19 +206,22 @@ namespace LFR {
                         {
                             decltype(external_node_ids)::bufreader_type node_id_reader(external_node_ids);
 
-#ifndef NDEBUG
+                            #ifndef NDEBUG
                             edge_t last_e(edge_t::invalid());
-#endif
+                            #endif
+
                             #pragma omp critical (_edgeSorter)
                             for (node_t u = 0; !node_id_reader.empty(); ++u, ++node_id_reader) {
                                 while (!intra_edgeSorter.empty() && intra_edgeSorter->first == u) {
                                     edge_t e(intra_edgeSorter->second, *node_id_reader);
                                     e.normalize();
-#ifndef NDEBUG
+
+                                    #ifndef NDEBUG
                                     assert(e != last_e);
                                     assert(!e.is_loop());
                                     last_e = e;
-#endif
+                                    #endif
+
                                     push_com_edge(com, e);
                                     ++intra_edgeSorter;
                                 }
