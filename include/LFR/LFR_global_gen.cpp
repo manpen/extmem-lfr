@@ -136,7 +136,7 @@ namespace LFR {
 
                     if (check_deficits) {
                         auto & node_deficit_pair = *deficits_it;
-                        if (i == node_deficit_pair.first) {
+                        if (UNLIKELY(i == node_deficit_pair.first)) {
                             node_deficit_pair.first = (*extDegree).second;
                             assert(node_deficit_pair.first == (*extDegree).second);
 
@@ -171,6 +171,10 @@ namespace LFR {
         std::cout << "Maximum EM allocation after InitialGlobalGen: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
         {
+            #ifndef NDEBUG
+            const size_t num_inter_community_edges = _inter_community_edges.size();
+            #endif
+
             #ifdef CURVEBALL_RAND
             temp_rewindable_ext_degrees.rewind();
 
@@ -219,6 +223,10 @@ namespace LFR {
                 StreamPusher<decltype(swapGen), decltype(swapAlgo)>(swapGen, swapAlgo);
                 swapAlgo.run();
             }
+            #endif
+
+            #ifndef NDEBUG
+            assert(_inter_community_edges.size() == num_inter_community_edges);
             #endif
 
             std::cout << "Current EM allocation after GlobalGenInitialRand: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;

@@ -96,7 +96,7 @@ namespace Curveball {
 		}
 
 		hnode_t hash(const node_t node) const {
-			return (_a * node + _b) % _p;
+			return static_cast<hnode_t>((static_cast<uint64_t>(_a) * node + _b) % _p);
 		}
 
 		node_t invert(const hnode_t hnode) const {
