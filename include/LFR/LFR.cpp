@@ -2,13 +2,16 @@
 #include <Utils/IOStatistics.h>
 #include <random>
 #include <stxxl/random>
+#include <Swaps.h>
+
+#include <Utils/RandomSeed.h>
 
 namespace LFR {
 
     void LFR::_compute_node_distributions() {
         // setup distributions
-        NodeDegreeDistribution ndd(_degree_distribution_params);
-        std::default_random_engine generator( stxxl::get_next_seed() );
+        NodeDegreeDistribution ndd(_degree_distribution_params, RandomSeed::get_instance().get_next_seed());
+        std::mt19937 generator(RandomSeed::get_instance().get_next_seed());
         std::geometric_distribution<int> geo_dist(0.1);
 
         _degree_sum = 0;
@@ -73,9 +76,12 @@ namespace LFR {
             }
 
             std::cout << "Sampled a total degree of " << (total_inter_degree + total_intra_degree) << ". "
-                      << "Intra: " << total_intra_degree << " Inter: " << total_inter_degree
-                      << "Mixing: " << (static_cast<double>(total_inter_degree) / (total_inter_degree+total_intra_degree))
-                      << std::endl;
+                         "Avg-Degree: " << (1.0 * (total_inter_degree + total_intra_degree) / _number_of_nodes) << ". "
+                         "Intra: " << total_intra_degree << ". "
+                         "Inter: " << total_inter_degree << ". "
+                         "Mixing: " << (static_cast<double>(total_inter_degree) / (total_inter_degree+total_intra_degree))
+            << std::endl;
+
             std::cout << "Nodes ceiled: " << total_ceils << std::endl;
 
             if (_overlap_config.constDegree.overlappingNodes)
@@ -93,13 +99,12 @@ namespace LFR {
         _community_cumulative_sizes.clear();
         _community_cumulative_sizes.reserve(_number_of_communities+1);
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        std::mt19937 gen(RandomSeed::get_instance().get_next_seed());
 
         uint_t needed_memberships = (_number_of_nodes + (_overlap_config.constDegree.overlappingNodes * (_overlap_config.constDegree.multiCommunityDegree - 1)));
 
         // generate prefix sum of random powerlaw degree distribution
-        CommunityDistribution cdd(_community_distribution_params);
+        CommunityDistribution cdd(_community_distribution_params, RandomSeed::get_instance().get_next_seed());
         uint_t members_sum = 0;
         for(community_t c = 0; !cdd.empty(); ++cdd, ++c) {
             assert(static_cast<community_t>(_community_cumulative_sizes.size()) == c);
@@ -157,20 +162,33 @@ namespace LFR {
             STXXL_MSG("Degree sum is " << _degree_sum);
 
             int_t globalSwapsPerIteration = std::max<int_t>(std::min<int_t>(1<<0, _degree_sum/ 2 * _mixing), (_degree_sum / 2 * _mixing) / 4);
+            globalSwapsPerIteration = std::min<int_t>(globalSwapsPerIteration, std::numeric_limits<swapid_t>::max() / 2);
             STXXL_MSG("Doing " << globalSwapsPerIteration << " swaps per iteration for global swaps");
             // subtract actually used amount of memory (so more memory is possibly available for communities)
 
             {
                 IOStatistics ios("GenCommGraphs");
-                _generate_community_graphs();
+                const bool is_disjoint = (_overlap_method == OverlapMethod::constDegree && _overlap_config.constDegree.overlappingNodes == 0);
+                if (is_disjoint) {
+                    _generate_community_graphs<true>();
+                } else {
+                    _generate_community_graphs<false>();
+                }
+
+                std::cout << "Current EM allocation after GenCommGraphs: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after GenCommGraphs: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
             }
             {
                 IOStatistics ios("GenGlobGraph");
                 _generate_global_graph(globalSwapsPerIteration);
+                std::cout << "Current EM allocation after GenGlobGraph: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after GenGlobGraph: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
             }
             {
                 IOStatistics ios("MergeGraphs");
                 _merge_community_and_global_graph();
+                std::cout << "Current EM allocation after MergeGraphs: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after MergeGraphs: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
             }
 
             std::cout << "Resulting graph has " << _edges.size() << " edges, " << _intra_community_edges.size() << " of them are intra-community edges and " <<

@@ -222,8 +222,17 @@ void export_as_metis_sorted_nonpointer_with_redirect(EdgeStream &edges, const st
 };
 
 template <typename EdgeStream>
-void export_as_thrillbin_sorted(EdgeStream &edges, const std::string &filename, node_t num_nodes) {
-	std::ofstream out_stream(filename, std::ios::out | std::ios::binary);
+void export_as_thrillbin_sorted(EdgeStream &edges, const std::string &filename, node_t num_nodes, stxxl::external_size_type max_bytes = (1ul<<30)) {
+	size_t file_number = 0;
+
+	auto next_filename = [&]() {
+	    std::stringstream ss;
+	    ss << filename << ".part-" << std::setw(5) << std::setfill('0') << file_number;
+	    ++file_number;
+	    return ss.str();
+	};
+
+	std::ofstream out_stream(next_filename(), std::ios::trunc | std::ios::binary);
 
 	stxxl::vector<degree_t> half_degrees;
 
@@ -241,20 +250,37 @@ void export_as_thrillbin_sorted(EdgeStream &edges, const std::string &filename, 
 
 	stxxl::vector<degree_t>::iterator iter = half_degrees.begin();
 
+	stxxl::external_size_type bytes_written = 0;
+
 	for (node_t u = 0; u < num_nodes; ++u) {
 		node_t deg = *iter;
-		if (deg < 128)
+
+		// assume the size of the neighbors needs 4 bytes
+		if (bytes_written > 0 && bytes_written + deg * 4 + 4 > max_bytes) {
+		    out_stream.close();
+		    // This does not compile with GCC < 5 because of a missing move assignment operator!
+		    // see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316 for a related issue
+		    out_stream = std::ofstream(next_filename(), std::ios::trunc | std::ios::binary);
+		    bytes_written = 0;
+		}
+
+		if (deg < 128) {
 			out_stream.write(reinterpret_cast<const char*>(&deg), 1);
-		else {
+			++bytes_written;
+		} else {
 			while (deg > 0) {
 				uint8_t tmp = (deg & 0x7f);
 				tmp |= 0x80;
 				out_stream.write(reinterpret_cast<const char*>(&tmp), sizeof tmp);
+				++bytes_written;
 				deg = deg >> 7;
 			}
 			const uint8_t zero = 0;
 			out_stream.write(reinterpret_cast<const char*>(&zero), sizeof zero);
+			++bytes_written;
 		}
+
+		bytes_written += 4llu * deg;
 		for (; !edges.empty() && (*edges).first == u; ++edges) {
 			out_stream.write(reinterpret_cast<const char*>(&((*edges).second)), 4);
 		}

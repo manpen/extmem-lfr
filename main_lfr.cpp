@@ -16,6 +16,9 @@ enum OutputFileType {
 	SNAP
 };
 
+#include <Utils/RandomSeed.h>
+
+
 class RunConfig {
   void _update_structs() {
 	  node_distribution_param.exponent = node_gamma;
@@ -63,6 +66,8 @@ public:
   bool lfr_bench_comassign;
   bool lfr_bench_comassign_retry;
 
+  double community_rewiring_random;
+
   RunConfig() :
 	  number_of_nodes      (100000),
 	  number_of_communities( 10000),
@@ -74,12 +79,13 @@ public:
 	  overlapping_nodes(0),
 	  community_min_members(  25),
 	  community_max_members(1000),
-	  community_gamma(-2.0),
+	  community_gamma(-1.0),
 	  mixing(0.5),
 	  max_bytes(10*UIntScale::Gi),
 	  lfr_bench_rounds(100),
 	  lfr_bench_comassign(false),
-	  lfr_bench_comassign_retry(false)
+	  lfr_bench_comassign_retry(false),
+	  community_rewiring_random(1.0)
   {
 	  using myclock = std::chrono::high_resolution_clock;
 	  myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -108,6 +114,7 @@ public:
 	  cp.add_bytes (CMDLINE_COMP('x', "community-min-members",   community_min_members,   "Minumum community size"));
 	  cp.add_bytes (CMDLINE_COMP('y', "community-max-members",   community_max_members,   "Maximum community size"));
 	  cp.add_double(CMDLINE_COMP('z', "community-gamma",         community_gamma,         "Exponent of community size distribution"));
+	  cp.add_double(CMDLINE_COMP('r', "community-rewiring-random", community_rewiring_random, "Fraction of addition random swaps to duplicate swaps"));
 
 	  cp.add_uint  (CMDLINE_COMP('s', "seed",      randomSeed,   "Initial seed for PRNG"));
 
@@ -128,7 +135,6 @@ public:
 	  assert(number_of_communities < std::numeric_limits<community_t>::max());
 
 	  if (!cp.process(argc, argv)) {
-		  cp.print_usage();
 		  return false;
 	  }
 
@@ -154,6 +160,22 @@ public:
 		  std::cout << "Using filetype: " << output_filetype << std::endl;
 	  }
 
+        if (community_rewiring_random < 0) {
+            std::cerr << "community-rewiring-random has to be non-negative" << std::endl;
+            return false;
+        }
+
+        if (community_gamma > -1.0) {
+            std::cerr << "community-gamma has to be at most -1" << std::endl;
+            return false;
+        }
+
+        if (node_gamma > -1.0) {
+            std::cerr << "node-gamma has to be at most -1" << std::endl;
+            return false;
+	}
+
+
 	  cp.print_result();
 
 	  _update_structs();
@@ -167,8 +189,13 @@ int main(int argc, char* argv[]) {
 	std::cout << "[build with assertions]" << std::endl;
 #endif
 
+	// output argument string
+	for(int i=0; i < argc; i++)
+		std::cout << argv[i] << " ";
+	std::cout << std::endl;
+
 	omp_set_nested(1);
-	omp_set_num_threads(1);
+	//omp_set_num_threads(1);
 
 	RunConfig config;
 	if (!config.parse_cmdline(argc, argv))
@@ -176,6 +203,7 @@ int main(int argc, char* argv[]) {
 
 	stxxl::srandom_number32(config.randomSeed);
 	stxxl::set_seed(config.randomSeed);
+	RandomSeed::get_instance().seed(config.randomSeed);
 
 	LFR::LFR lfr(config.node_distribution_param,
 				 config.community_distribution_param,
@@ -187,6 +215,8 @@ int main(int argc, char* argv[]) {
 	oconfig.constDegree.overlappingNodes = config.overlapping_nodes;
 
 	lfr.setOverlap(LFR::OverlapMethod::constDegree, oconfig);
+
+	lfr.setCommunityRewiringRandom(config.community_rewiring_random);
 
 	if (config.lfr_bench_comassign) {
 		LFR::LFRCommunityAssignBenchmark bench(lfr);
@@ -219,13 +249,20 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (!config.partition_filename.empty()) {
-			std::ofstream output_stream(config.partition_filename, std::ios::trunc);
-			lfr.export_community_assignment(output_stream);
-			output_stream.close();
+			if (config.outputFileType == THRILLBIN) {
+				std::ofstream output_stream(config.partition_filename, std::ios::trunc | std::ios::binary);
+				lfr.export_community_assignment_binary(output_stream);
+				output_stream.close();
+			} else {
+				std::ofstream output_stream(config.partition_filename, std::ios::trunc);
+				lfr.export_community_assignment(output_stream);
+				output_stream.close();
+			}
+
 		}
 	}
 
-	std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_total_allocation() << std::endl;
+    std::cout << "Maximum EM allocation: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
 	return 0;
 }

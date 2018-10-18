@@ -14,7 +14,7 @@ TEST_F(TestCommunityRewiring, testTwoCommunities) {
 	edges.push_back(LFR::CommunityEdge(1, edge_t(3, 4)));
 	edges.push_back(LFR::CommunityEdge(0, edge_t(5, 6)));
 
-	CommunityEdgeRewiringSwaps rewiring(edges, 200);
+	CommunityEdgeRewiringSwaps rewiring(edges, 200, 0);
 	rewiring.run();
 
 	LFR::CommunityEdge prev = LFR::CommunityEdge(0, edge_t::invalid());

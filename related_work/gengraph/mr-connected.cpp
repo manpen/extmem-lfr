@@ -3,6 +3,7 @@
 #include "include/graph_molloy_hash.h"
 #include "include/degree_sequence.h"
 #include "include/random.h"
+#include <ctime>
 
 // return negative number if program should exit
 int parse_options(int &argc, char** &argv);
@@ -17,6 +18,10 @@ static FILE *Fdeg = stdin;
 int main(int argc, char** argv) {
   printf("sizeof(int) == %ld\n", sizeof(int));
 
+  time_t start;
+  time_t current;
+
+  time(&start);
 
   // options
   SET_VERBOSE(VERBOSE_NONE);
@@ -49,16 +54,24 @@ int main(int argc, char** argv) {
     }
  }
 #endif
+
+  time(&current);
+  fprintf(stderr, "HavelHakimi took %f s\n", difftime(current, start));
+
   //Convert graph_molloy_opt to graph_molloy_hash
   if(VERBOSE()) fprintf(stderr,"Convert adjacency lists into hash tables...");
   int *hc = g->hard_copy();
   delete g;
 
+
+  time(&current);
+  fprintf(stderr, "Start es after %f s\n", difftime(current, start));
+
   graph_molloy_hash gh(hc);
   delete[] hc;
   if(VERBOSE()) fprintf(stderr,"Done\n");
   //Shuffle
-  gh.shuffle(5*gh.nbarcs(), SHUFFLE_TYPE);
+  gh.shuffle(gh.nbarcs()/2, SHUFFLE_TYPE);
   //Output
   gh.print();
   if(MONITOR_TIME) {

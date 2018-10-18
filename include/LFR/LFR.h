@@ -143,6 +143,8 @@ protected:
     uint_t _max_memory_usage;
     uint_t _degree_sum;
 
+    double _community_rewiring_random {0.0};
+
     // model materialization
     stxxl::sorter<NodeDegreeMembership, NodeDegreeMembershipInternalDegComparator> _node_sorter;
 
@@ -159,9 +161,10 @@ protected:
      * of community k */
     stxxl::vector<CommunityAssignment> _community_assignments;
 
-    stxxl::vector<CommunityEdge> _intra_community_edges;
+    EdgeStream _intra_community_edges;
     EdgeStream _inter_community_edges;
     EdgeStream _edges;
+
 
     /// Get community size based on _community_cumulative_sizes
     node_t _community_size(community_t com) const {
@@ -173,6 +176,7 @@ protected:
     void _compute_community_size();
     void _compute_community_assignments();
     void _correct_community_sizes();
+    template <bool is_disjoint>
     void _generate_community_graphs();
     void _generate_global_graph(int_t swaps_per_iteration);
     void _merge_community_and_global_graph();
@@ -184,7 +188,8 @@ public:
     LFR(const NodeDegreeDistribution::Parameters & node_degree_dist,
         const NodeDegreeDistribution::Parameters & community_degree_dist,
         double mixing_parameter,
-        uint_t max_memory_usage) :
+        uint_t max_memory_usage
+    ) :
         _number_of_nodes(node_degree_dist.numberOfNodes),
         _degree_distribution_params(node_degree_dist),
         _number_of_communities((community_t)community_degree_dist.numberOfNodes),
@@ -219,6 +224,11 @@ public:
         return _edges;
     }
 
+    void setCommunityRewiringRandom(const double& v) {
+        assert(v >= 0);
+        _community_rewiring_random = v;
+    }
+
     /**
      * This exports the community assignments such that in every line a node id and its community/communities are written (separated by space).
      * Node ids are 1-based.
@@ -245,6 +255,20 @@ public:
             }
 
             os << " " << std::get<1>(*output_sorter);
+        }
+    }
+
+    /**
+     * This exports the community assignments such that in every line a node id and its community/communities are written (separated by space).
+     * Node ids are 1-based.
+     */
+    template <typename ostream_t>
+    void export_community_assignment_binary(ostream_t & os) {
+        for (const auto& ca : _community_assignments) {
+            static_assert(std::is_same<int32_t, decltype(ca.node_id)>::value, "node id is not longer int32_t");
+            static_assert(std::is_same<int32_t, decltype(ca.community_id)>::value, "node id is not longer int32_t");
+            os.write(reinterpret_cast<const char*>(&ca.node_id), 4);
+            os.write(reinterpret_cast<const char*>(&ca.community_id), 4);
         }
     }
 

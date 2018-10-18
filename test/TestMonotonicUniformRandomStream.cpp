@@ -7,7 +7,7 @@ class TestMonotonicUniformRandomStream : public ::testing::TestWithParam<std::tu
 TEST_P(TestMonotonicUniformRandomStream, basicProperties) {
     const uint_t length = std::get<0>(GetParam());
     const bool   increasing = std::get<1>(GetParam());
-    MonotonicUniformRandomStream<true> rs(length);
+    MonotonicUniformRandomStream<true> rs(length, 1234*length);
 
     double last_rv = increasing ? 0.0 : 1.0;
     double sum = 0.0;

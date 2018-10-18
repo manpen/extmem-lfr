@@ -1,8 +1,14 @@
 #include <LFR/GlobalRewiringSwapGenerator.h>
 #include <stxxl/priority_queue>
 
-GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LFR::CommunityAssignment > &communityAssignment, edgeid_t numEdges)
-    : _edge_community_input_sorter(new edge_community_sorter_t(GenericComparatorStruct<EdgeCommunity>::Ascending(), SORTER_MEM)), _num_edges(numEdges), _empty(true) {
+GlobalRewiringSwapGenerator::GlobalRewiringSwapGenerator(const stxxl::vector< LFR::CommunityAssignment > &communityAssignment, edgeid_t numEdges, seed_t seed)
+    : _edge_community_input_sorter(new edge_community_sorter_t(GenericComparatorStruct<EdgeCommunity>::Ascending(), SORTER_MEM)),
+      _num_edges(numEdges),
+      _empty(true),
+      _rand_gen(seed),
+      _rand_distr(0, numEdges-1),
+      _bool_stream(_rand_gen())
+    {
 
     stxxl::sorter<NodeCommunity, GenericComparatorStruct<NodeCommunity>::Ascending> node_community_sorter(GenericComparatorStruct<NodeCommunity>::Ascending(), SORTER_MEM);
     #pragma omp critical (_community_assignment)
@@ -60,7 +66,7 @@ GlobalRewiringSwapGenerator &GlobalRewiringSwapGenerator::operator++() {
 
                 if ((*_edge_community_output_sorter)->tail_community == com) {
                     // generate swap with random partner
-                    edgeid_t eid1 = _random_integer(_num_edges);
+                    edgeid_t eid1 = _rand_distr(_rand_gen);
 
                     _swap = SemiLoadedSwapDescriptor {edge_t {(*_edge_community_output_sorter)->tail, (*_edge_community_output_sorter)->head}, eid1, *_bool_stream};
                     ++_bool_stream;

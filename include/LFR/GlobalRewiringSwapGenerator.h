@@ -6,6 +6,7 @@
 #include <memory>
 #include <stxxl/sequence>
 #include <Utils/RandomBoolStream.h>
+#include <random>
 
 class GlobalRewiringSwapGenerator {
 public:
@@ -32,14 +33,17 @@ private:
     std::unique_ptr<edge_community_sorter_t> _edge_community_output_sorter;
     edgeid_t _num_edges;
 
-    RandomBoolStream _bool_stream;
-    stxxl::random_number64 _random_integer;
     std::vector<community_t> _current_communities;
     node_t _current_node;
     SemiLoadedSwapDescriptor _swap;
     bool _empty;
+
+    STDRandomEngine _rand_gen;
+    std::uniform_int_distribution<edgeid_t> _rand_distr;
+    RandomBoolStream _bool_stream;
+
 public:
-    GlobalRewiringSwapGenerator(const stxxl::vector<LFR::CommunityAssignment> &communityAssignment, edgeid_t numEdges);
+    GlobalRewiringSwapGenerator(const stxxl::vector<LFR::CommunityAssignment> &communityAssignment, edgeid_t numEdges, seed_t seed);
 
     /**
      * Add edges that shall be checked for conflicts by providing an STXXL stream interface to the edges.

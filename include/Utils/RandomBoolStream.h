@@ -1,26 +1,30 @@
 #pragma once
 #include <defs.h>
-#include <stxxl/random>
-#include <memory>
+#include <random>
 
 class RandomBoolStream {
 private:
     unsigned int _flag_bits_remaining = 0;
     uint64_t _flag_bits;
-    std::unique_ptr<stxxl::random_number64> _random_integer_value_ptr;
-    stxxl::random_number64& _random_integer;
+
+    std::mt19937_64 _rand_gen;
+
+
 public:
-    RandomBoolStream() : _random_integer_value_ptr(new stxxl::random_number64), _random_integer(*_random_integer_value_ptr) { operator++(); }
-    RandomBoolStream(stxxl::random_number64& generator) : _random_integer(generator) { operator++(); }
+    RandomBoolStream(seed_t seed)
+          : _rand_gen(seed)
+    {
+       operator++();
+    }
 
     bool empty() const { return false; }
 
     bool operator *() const { return _flag_bits & 1; }
 
     RandomBoolStream& operator++() {
-        if (!_flag_bits_remaining) {
+        if (UNLIKELY(!_flag_bits_remaining)) {
             _flag_bits_remaining = 8 * sizeof(_flag_bits);
-            _flag_bits = _random_integer();
+            _flag_bits = _rand_gen();
         } else {
             _flag_bits >>= 1;
             --_flag_bits_remaining;

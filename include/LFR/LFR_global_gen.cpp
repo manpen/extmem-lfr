@@ -10,6 +10,7 @@
 #include <DegreeStream.h>
 #include <Utils/NodeHash.h>
 #include <Curveball/EMCurveball.h>
+#include <Utils/RandomSeed.h>
 
 namespace LFR {
     void LFR::_generate_global_graph(int_t globalSwapsPerIteration) {
@@ -46,9 +47,14 @@ namespace LFR {
             // FIXME: This is only necessary, if nodes are not sorted by externalDegree (which happens if we apply ceiling!)
             // We may change the ceiling scheme to avoid it. For the moment, this is the more general solution
 
-            // translate source node id's
-            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter1(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+            // translate target node id's
+            // the sorter is in the outer scope as it is needed for longer
+            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter2(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
             {
+                // translate source node id's
+                stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter1(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
+
                 extDegree.rewind();
                 for (node_t i = 0; !gen.empty(); ++gen) {
                     const edge_t &orig_edge = *gen;
@@ -56,14 +62,10 @@ namespace LFR {
 
                     edge_sorter1.push({orig_edge.second, (*extDegree).second});
                 }
-            }
 
-            edge_sorter1.sort();
-            extDegree.rewind();
+                edge_sorter1.sort();
+                extDegree.rewind();
 
-            // translate target node id's
-            stxxl::sorter<edge_t, GenericComparator<edge_t>::Ascending> edge_sorter2(GenericComparator<edge_t>::Ascending(), SORTER_MEM);
-            {
                 for (node_t i = 0; !edge_sorter1.empty(); ++edge_sorter1) {
                     const edge_t &orig_edge = *edge_sorter1;
                     for (; i < orig_edge.first; ++extDegree, ++i);
@@ -78,6 +80,9 @@ namespace LFR {
             StreamPusher<decltype(edge_sorter2), decltype(_inter_community_edges)> (edge_sorter2, _inter_community_edges);
             _inter_community_edges.consume();
         }
+
+        std::cout << "Current EM allocation after InitialGlobalGen: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+        std::cout << "Maximum EM allocation after InitialGlobalGen: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
         {
 			#ifdef CURVEBALL_RAND
@@ -100,7 +105,7 @@ namespace LFR {
 				EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
 				// Generate swaps
 				uint_t numSwaps = 1*_inter_community_edges.size();
-				SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
+				SwapGenerator swapGen(numSwaps, _inter_community_edges.size(), RandomSeed::get_instance().get_next_seed());
 
 				if (1) {
 					IOStatistics ios("GlobalGenInitialRand");
@@ -112,7 +117,7 @@ namespace LFR {
 				EdgeSwapTFP::SemiLoadedEdgeSwapTFP swapAlgo(_inter_community_edges, globalSwapsPerIteration, _number_of_nodes, _max_memory_usage);
 				// Generate swaps
 				uint_t numSwaps = 10*_inter_community_edges.size();
-				SwapGenerator swapGen(numSwaps, _inter_community_edges.size());
+				SwapGenerator swapGen(numSwaps, _inter_community_edges.size(), RandomSeed::get_instance().get_next_seed());
 
 				if (1) {
 					IOStatistics ios("GlobalGenInitialRand");
@@ -121,15 +126,21 @@ namespace LFR {
 				}
 			#endif
 
+            std::cout << "Current EM allocation after GlobalGenInitialRand: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+            std::cout << "Maximum EM allocation after GlobalGenInitialRand: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
+
             {
                 IOStatistics ios("GlobalGenRewire");
 
                 // rewiring in order to not to generate new intra-community edges
-                GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, _inter_community_edges.size());
+                GlobalRewiringSwapGenerator rewiringSwapGenerator(_community_assignments, _inter_community_edges.size(), RandomSeed::get_instance().get_next_seed());
                 _inter_community_edges.rewind();
                 rewiringSwapGenerator.pushEdges(_inter_community_edges);
                 _inter_community_edges.rewind();
                 rewiringSwapGenerator.generate();
+
+                std::cout << "Current EM allocation after GlobalGenRewireInit: " <<  stxxl::block_manager::get_instance()->get_current_allocation() << std::endl;
+                std::cout << "Maximum EM allocation after GlobalGenRewireInit: " <<  stxxl::block_manager::get_instance()->get_maximum_allocation() << std::endl;
 
                 swapAlgo.setUpdatedEdgesCallback([&rewiringSwapGenerator](EdgeSwapTFP::SemiLoadedEdgeSwapTFP::edge_update_sorter_t &updatedEdges) {
                     rewiringSwapGenerator.pushEdges(updatedEdges);

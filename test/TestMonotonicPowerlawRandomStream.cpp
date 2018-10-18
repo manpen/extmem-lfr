@@ -12,7 +12,7 @@ TEST_P(TestMonotonicPowerlawRandomStream, basicProperties) {
 
     const degree_t max = 10000;
 
-    MonotonicPowerlawRandomStream<true> rs(min, max, -2.0, length);
+    MonotonicPowerlawRandomStream<true> rs(min, max, -2.0, length, 1234*length);
 
     degree_t last_rv = increasing ? min : max;
     for(degree_t i=0; i<length; i++, ++rs) {

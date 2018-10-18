@@ -91,6 +91,7 @@ add_library(libextmemgraphgen STATIC
     include/LFR/LFRCommunityAssignBenchmark.cpp
     include/IMGraph.cpp
     include/CluewebReader.cpp
+    include/Utils/RandomSeed.cpp
     ${LFR_SRCS}
 )
 
@@ -127,6 +128,9 @@ target_link_libraries(gen_powerlawgraph libextmemgraphgen ${STXXL_LIBRARIES})
 add_executable(curveball_benchmark main_curveball_benchmark.cpp)
 target_link_libraries(curveball_benchmark ${STXXL_LIBRARIES} libextmemgraphgen)
 
+
+add_executable(compare_graph compare_graph.cpp)
+target_link_libraries(compare_graph ${STXXL_LIBRARIES})
 
 include(CMakeLocal.cmake)
 

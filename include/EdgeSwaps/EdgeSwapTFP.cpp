@@ -147,6 +147,9 @@ namespace EdgeSwapTFP {
         REPORT_SORTER_STATS(_depchain_successor_sorter);
         _depchain_edge_sorter.sort();
         REPORT_SORTER_STATS(_depchain_edge_sorter);
+
+        // Free EM of edge swaps before continuing
+        _edge_swap_sorter->clear();
     }
 
     /*
@@ -214,7 +217,7 @@ namespace EdgeSwapTFP {
                     const auto & msg = *depchain_pqsort;
 
                     assert(msg.swap_id >= 2*sid+i);
-                    
+
                     if (msg.swap_id != 2*sid+i)
                         break;
 
@@ -375,7 +378,7 @@ namespace EdgeSwapTFP {
         uint64_t stat_forward_only = 0;
         uint64_t stat_dropped_dep = 0;
         stx::btree_map<uint_t, swapid_t> stat_hist_requests_per_edge;
-        
+
         #ifdef ASYNC_STREAMS
             AsyncStream<ExistenceRequestSorter> existence_request_sorter(_existence_request_sorter);
         #else
@@ -466,6 +469,8 @@ namespace EdgeSwapTFP {
             _existence_info_sorter.sort();
         }
 
+        // existence requests are not needed anymore, clear them
+        _existence_request_sorter.clear();
         _edges.rewind();
     }
 
@@ -493,7 +498,7 @@ namespace EdgeSwapTFP {
              auto & depchain_edge_sorter = _depchain_edge_sorter;
              auto & depchain_successor_sorter = _depchain_successor_sorter;
              auto & existence_info_sorter = _existence_info_sorter;
-        #endif       
+        #endif
 
         assert(_dependency_chain_pq.empty());
         PQSorterMerger<DependencyChainEdgePQ, decltype(depchain_edge_sorter), compute_stats> edge_state_pqsort(_dependency_chain_pq, depchain_edge_sorter);
@@ -739,7 +744,7 @@ namespace EdgeSwapTFP {
 
         assert(_existence_info_pq.empty());
         //_existence_info_sorter.finish_clear();
-        
+
         REPORT_SORTER_STATS(_edge_update_sorter);
 
         if (_async_processing) {
@@ -846,7 +851,7 @@ namespace EdgeSwapTFP {
         // swap staging and processing area
         std::swap(_edge_swap_sorter_pushing, _edge_swap_sorter);
         std::swap(_swap_directions_pushing, _swap_directions);
-        
+
         REPORT_SORTER_STATS(*_edge_swap_sorter);
 
         if (async) {
