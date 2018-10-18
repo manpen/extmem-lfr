@@ -12,6 +12,29 @@
 class TestHashing : public ::testing::Test {
 };
 
+TEST_F(TestHashing, negative_modulo) {
+	const node_t n = 33727;
+	const node_t a = 63672;
+	const node_t b = 55762;
+	const node_t p = 100003;
+}
+
+TEST_F(TestHashing, negative_modulo_2) {
+	const uint32_t n = 33727u;
+	const uint32_t a = 63672u;
+	const uint32_t b = 55762u;
+	const uint32_t p = 100003u;
+	ASSERT_GE((n * a + b) % p, 0);
+}
+
+TEST_F(TestHashing, negative_modulo_3) {
+	const node_t n = 33727;
+	const node_t a = 63672;
+	const node_t b = 55762;
+	const uint32_t p = 100003u;
+	ASSERT_GE((n * a + b) % p, 0);
+}
+
 TEST_F(TestHashing, inverse_in_Z3) {
 	ASSERT_EQ(Curveball::inverse_of_in(1, 3), 1ul);
 	ASSERT_EQ(Curveball::inverse_of_in(2, 3), 2ul);

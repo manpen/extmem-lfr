@@ -176,7 +176,7 @@ namespace Curveball {
 	struct CurveballParams {
 		const tradeid_t rounds = 0;
 		const chunkid_t macrochunks = 1;
-		const chunkid_t splits = 0;
+		const chunkid_t splits = 1;
 		const chunkid_t fanout = 1;
 		const uint_t sorter_mem_size = 0;
 		const msgid_t msg_limit = 0;

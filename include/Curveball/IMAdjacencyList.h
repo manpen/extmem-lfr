@@ -71,7 +71,7 @@ namespace Curveball {
 		 * Resizes the vector holding the neighbours.
 		 * @param degree_count
 		 */
-		void resize(const edgeid_t degree_count);
+		void resize(edgeid_t degree_count);
 
 		/**
 		 * Resets the pointers setting and indicating neighbours.
@@ -82,8 +82,8 @@ namespace Curveball {
 		 */
 		void initialize(const degree_vector &degrees,
 						const neighbour_vector &partners,
-						const node_t num_nodes,
-						const edgeid_t degree_count);
+						node_t num_nodes,
+						edgeid_t degree_count);
 
 		/**
 		 * Deallocates the vector holding the neighbours.
@@ -122,6 +122,11 @@ namespace Curveball {
 		 */
 		nodepair_vector get_edges() const;
 
+		/**
+		 * Inserts a neighbour in the desired row.
+		 * @param node_id
+		 * @param neighbour
+		 */
 		void insert_neighbour(const node_t node_id, const node_t neighbour) {
 			const auto pos = begin(node_id) + _offsets[node_id];
 

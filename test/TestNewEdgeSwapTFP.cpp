@@ -42,13 +42,8 @@ namespace {
 	       }
 	};
 
-	using TestNewEdgeSwapTFPImplementations = ::testing::Types <
-	  // EdgeSwapFullyInternal<EdgeVector, SwapVector>,
-
-      //EdgeSwapInternalSwaps,
-      ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP, IMEdgeSwap
-      //EdgeSwapParallelTFP::EdgeSwapParallelTFP,
-   	>;
+	using TestNewEdgeSwapTFPImplementations = ::testing::Types
+        <ModifiedEdgeSwapTFP::ModifiedEdgeSwapTFP, IMEdgeSwap>;
 
     TYPED_TEST_CASE(TestNewEdgeSwapTFP, TestNewEdgeSwapTFPImplementations);
 
@@ -121,7 +116,6 @@ namespace {
    		swap_list.push_back({3, 4, false});
    		swap_list.push_back({2, 7, false});
    		swap_list.push_back({3, 4, false});
-		//swap_list.push_back({3, 4, false});
 
 	    EdgeSwapAlgo algo(edge_stream, swap_list);
 	    algo.setDisplayDebug(debug_this_test);
@@ -196,11 +190,11 @@ namespace {
    		using EdgeSwapAlgo = TypeParam;
 
 		const degree_t min_deg = 10;
-		const degree_t max_deg = 10000;
-		const node_t num_nodes = 100000;
-	    
+		const degree_t max_deg = 1000;
+		const node_t num_nodes = 10000;
+
 		HavelHakimiIMGenerator hh_gen(HavelHakimiIMGenerator::PushDirection::DecreasingDegree, 0);
-		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -1.5, num_nodes);
+		MonotonicPowerlawRandomStream<false> degreeSequence(min_deg, max_deg, -2.0, num_nodes, 1.0, 1234);
 
 		StreamPusher<decltype(degreeSequence), decltype(hh_gen)>(degreeSequence, hh_gen);
 		hh_gen.generate();

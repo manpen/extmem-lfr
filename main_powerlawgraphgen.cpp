@@ -86,7 +86,7 @@ struct RunConfig {
 			: numNodes(10 * IntScale::Mi)
 			, minDeg(2)
 			, maxDeg(100000)
-			, gamma(2.0)
+			, gamma(-2.0)
 			, scaleDegree(1.0)
 
 			, inputMethod(HH)
@@ -205,7 +205,11 @@ struct RunConfig {
 				return false;
 			}
 
-			if (gamma <= 1.0) {
+            // assign correct sign to gamma
+            if (gamma > 0)
+                gamma = (-1.0) * gamma;
+
+			if (gamma > -1.0) {
 				std::cerr << "Gamma has to be at least 1.0" << std::endl;
 				return false;
 			}

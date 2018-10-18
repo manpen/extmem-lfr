@@ -17,12 +17,11 @@ namespace Curveball {
 	 * Data structure for a global trade.
 	 *
 	 * @tparam HashFactory Type of hash-functions.
-	 * @tparam OutReceiver Output edge stream.
 	 */
-	template<typename HashFactory, typename OutReceiver = EdgeStream>
+	template<typename HashFactory>
 	class EMMessageContainer {
 	public:
-		using chunk_vector = std::vector<IMMacrochunk<OutReceiver>>;
+		using chunk_vector = std::vector<IMMacrochunk>;
 		using chunk_upperbound_vector = std::vector<hnode_t>;
 		using bound_tree = stx::btree_map<hnode_t, chunkid_t>;
 		using insertion_buffer_vector =
@@ -294,11 +293,13 @@ namespace Curveball {
 		/**
 		 * Forwards messages contained in this global trade round into the
 		 * given output edge stream.
-		 * @param out_edges Output edge stream.
+		 * @tparam Receiver
+		 * @param out_edges
 		 */
-		void push_into(OutReceiver &out_edges) {
+		template <typename Receiver>
+		void forward_unsorted_edges(Receiver & out_edges) {
 			for (chunkid_t mc_id = 0; mc_id < _num_chunks; mc_id++) {
-				_macrochunks[mc_id].push_into(out_edges);
+				_macrochunks[mc_id].forward_unsorted_edges(out_edges);
 			}
 		}
 	};

@@ -16,8 +16,8 @@ class TestHavelHakimiGenerator : public ::testing::Test {
 
 
 TEST_F(TestHavelHakimiGenerator, testClique) {
-    constexpr int_t numNodes = 10000;
-    std::vector<degree_t> degrees(numNodes, 9999);
+    constexpr int_t numNodes = 1000;
+    std::vector<degree_t> degrees(numNodes, numNodes - 1);
     using iterator_t = std::vector<degree_t>::iterator;
     using InputStream = stxxl::stream::iterator2stream<iterator_t>;
     InputStream inputStream(degrees.begin(), degrees.end());
@@ -34,21 +34,21 @@ TEST_F(TestHavelHakimiGenerator, testClique) {
 
     DegreeDistributionCheck<result_t::const_iterator> check {edges.begin(), edges.end()};
     for (const auto &deg : check.getDegrees()) {
-        EXPECT_EQ(9999, deg);
+        EXPECT_EQ(numNodes - 1, deg);
     }
 
     auto dist = check.getDistribution();
 
-    EXPECT_EQ(9999, dist->value);
-    EXPECT_EQ(10000u, dist->count);
+    EXPECT_EQ(numNodes - 1, dist->value);
+    EXPECT_EQ(static_cast<uint_t>(numNodes), dist->count);
 
     ++dist;
     EXPECT_TRUE(dist.empty());
 }
 
 TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
-    constexpr int_t numNodes = 10 * IntScale::Mi;
-    MonotonicPowerlawRandomStream<> sequence(2, 100000, -2, numNodes, 1234);
+    constexpr int_t numNodes = 10 * IntScale::Ki;
+    MonotonicPowerlawRandomStream<> sequence(2, numNodes / 10, 2, numNodes, 1.0, 1234);
 
     // store degree sequence
     stxxl::vector<degree_t> degrees(numNodes);
@@ -96,7 +96,7 @@ TEST_F(TestHavelHakimiGenerator, testPowerLaw) {
 }
 
 TEST_F(TestHavelHakimiGenerator, testFixedDegree) {
-    constexpr int_t numNodes = 100 * 1000;
+    constexpr int_t numNodes = 3 * IntScale::Ki;
     constexpr degree_t degree = 500;
     stxxl::vector<degree_t> degrees(numNodes);
     {
@@ -108,7 +108,7 @@ TEST_F(TestHavelHakimiGenerator, testFixedDegree) {
 
     auto inputStream = stxxl::stream::streamify(degrees.begin(), degrees.end());
 
-    HavelHakimiPrioQueueExt<16 * IntScale::Mi, numNodes> prio_queue;
+    HavelHakimiPrioQueueExt<256 * IntScale::Mi, numNodes> prio_queue;
     stxxl::STACK_GENERATOR<HavelHakimiNodeDegree, stxxl::external, stxxl::grow_shrink>::result stack;
     HavelHakimiGenerator<decltype(prio_queue), decltype(stack)> gen{prio_queue, stack, inputStream};
 
@@ -134,7 +134,7 @@ TEST_F(TestHavelHakimiGenerator, testFixedDegree) {
 }
 
 TEST_F(TestHavelHakimiGenerator, testTwoDegrees) {
-    constexpr int_t numNodes = 1*100*1000;
+    constexpr int_t numNodes = 1*10*1000;
     int_t highDegree = 500;
     int_t lowDegree = 2;
     stxxl::vector<degree_t> degrees(numNodes);
@@ -151,7 +151,7 @@ TEST_F(TestHavelHakimiGenerator, testTwoDegrees) {
     }
 
     auto inputStream = stxxl::stream::streamify(degrees.begin(), degrees.end());
-    HavelHakimiPrioQueueExt<16 * IntScale::Mi, numNodes> prio_queue;
+    HavelHakimiPrioQueueExt<256 * IntScale::Mi, numNodes> prio_queue;
     stxxl::STACK_GENERATOR<HavelHakimiNodeDegree, stxxl::external, stxxl::grow_shrink>::result stack;
     HavelHakimiGenerator<decltype(prio_queue), decltype(stack)> gen{prio_queue, stack, inputStream};
 

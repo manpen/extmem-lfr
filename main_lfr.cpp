@@ -22,12 +22,14 @@ enum OutputFileType {
 class RunConfig {
   void _update_structs() {
 	  node_distribution_param.exponent = node_gamma;
+      assert(node_gamma < 0);
 	  node_distribution_param.minDegree = node_min_degree;
 	  node_distribution_param.maxDegree = node_max_degree;
 	  node_distribution_param.numberOfNodes = number_of_nodes;
       node_distribution_param.scale = 1.0;
 
 	  community_distribution_param.exponent = community_gamma;
+      assert(community_gamma < 0);
 	  community_distribution_param.minDegree = community_min_members;
 	  community_distribution_param.maxDegree = community_max_members;
 	  community_distribution_param.numberOfNodes = number_of_communities;
@@ -66,13 +68,13 @@ public:
   bool lfr_bench_comassign;
   bool lfr_bench_comassign_retry;
 
-  double community_rewiring_random;
+  double community_rewiring_random = 1.0;
 
   RunConfig() :
 	  number_of_nodes      (100000),
 	  number_of_communities( 10000),
 	  node_min_degree(10),
-	  node_max_degree(number_of_nodes/10),
+	  node_max_degree(number_of_nodes / 10),
 	  max_degree_within_community(node_max_degree),
 	  node_gamma(-2.0),
 	  overlap_degree(0),
@@ -81,11 +83,10 @@ public:
 	  community_max_members(1000),
 	  community_gamma(-1.0),
 	  mixing(0.5),
-	  max_bytes(10*UIntScale::Gi),
+	  max_bytes(10 * UIntScale::Gi),
 	  lfr_bench_rounds(100),
 	  lfr_bench_comassign(false),
-	  lfr_bench_comassign_retry(false),
-	  community_rewiring_random(1.0)
+	  lfr_bench_comassign_retry(false)
   {
 	  using myclock = std::chrono::high_resolution_clock;
 	  myclock::duration d = myclock::now() - myclock::time_point::min();
@@ -160,18 +161,24 @@ public:
 		  std::cout << "Using filetype: " << output_filetype << std::endl;
 	  }
 
+        // set community and node gamma to corresponding negative value
+        if (community_gamma > 0)
+            community_gamma = (-1.0) * community_gamma;
+        if (node_gamma > 0)
+            node_gamma = (-1.0) * node_gamma;
+
         if (community_rewiring_random < 0) {
             std::cerr << "community-rewiring-random has to be non-negative" << std::endl;
             return false;
         }
 
         if (community_gamma > -1.0) {
-            std::cerr << "community-gamma has to be at most -1" << std::endl;
+            std::cerr << "community-gamma has to be at least 1" << std::endl;
             return false;
         }
 
         if (node_gamma > -1.0) {
-            std::cerr << "node-gamma has to be at most -1" << std::endl;
+            std::cerr << "node-gamma has to be at least 1" << std::endl;
             return false;
 	}
 

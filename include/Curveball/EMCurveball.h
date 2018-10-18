@@ -43,7 +43,7 @@ namespace Curveball {
 	 * @tparam InputStream Incoming edges.
 	 * @tparam OutReceiver Randomized edge output
 	 */
-	template<typename HashFactory, typename InputStream = EdgeStream, typename OutReceiver = EdgeStream>
+	template<typename HashFactory, typename DegreeInputStream = DegreeStream, typename InputStream = EdgeStream, typename OutReceiver = EdgeStream>
 	class EMCurveball {
 	public:
 		using NodeSorter = stxxl::sorter<node_t, NodeComparator>;
@@ -57,9 +57,9 @@ namespace Curveball {
 		 */
 		class ParameterEstimation {
 		public:
-			chunkid_t num_macrochunks() const {return std::get<0>(_param_est);}
-			chunkid_t num_batches() const {return std::get<1>(_param_est);}
-			chunkid_t num_fanout() const {return std::get<2>(_param_est);}
+			chunkid_t num_macrochunks() const   {return std::get<0>(_param_est);}
+			chunkid_t num_batches() const       {return std::get<1>(_param_est);}
+			chunkid_t num_fanout() const        {return std::get<2>(_param_est);}
 			size_t size_insertionbuffer() const {return std::get<3>(_param_est);}
 
 			ParameterEstimation() = default;
@@ -77,6 +77,9 @@ namespace Curveball {
 				const chunkid_t num_batches = num_macrochunks*32;
 				const chunkid_t num_fanout = 1;
 				const size_t size_insertionbuffer = std::max(32ul, static_cast<size_t>(num_threads*16));
+				
+				assert(num_batches < num_edges);
+				
 				std::cout << "Using the following estimated parameters for Curveball:\n"
 						  << "num_macrochunks:     \t" << num_macrochunks << "\n"
 						  << "num batches:         \t" << num_batches << "\n"
@@ -90,7 +93,7 @@ namespace Curveball {
 		ParameterEstimation _param_est;
 
 		InputStream &_edges;
-		DegreeStream &_degrees;
+		DegreeInputStream &_degrees;
 		node_t _num_nodes;
 		const tradeid_t _num_rounds;
 		OutReceiver &_out_edges;
@@ -135,10 +138,10 @@ namespace Curveball {
 		 * @param insertion_buffer_size Size of insertion buffer per thread
 		 */
 		EMCurveball(InputStream &edges,
-					DegreeStream &degrees,
+					DegreeInputStream &degrees,
 					const node_t num_nodes,
 					const tradeid_t num_rounds,
-					EdgeStream &out_edges,
+					OutReceiver &out_edges,
 					const chunkid_t num_chunks = DUMMY_CHUNKS,
 					const chunkid_t num_splits = DUMMY_Z,
 					const chunkid_t num_fanout = DUMMY_Z,
@@ -185,10 +188,10 @@ namespace Curveball {
 		 * @param num_threads Number of threads
 		 */
 		EMCurveball(InputStream &edges,
-					DegreeStream &degrees,
+					DegreeInputStream &degrees,
 					const node_t num_nodes,
 					const tradeid_t num_rounds,
-					EdgeStream &out_edges,
+					OutReceiver &out_edges,
 					const int num_threads,
 					const size_t mem,
 					const bool sorted_output
@@ -216,6 +219,10 @@ namespace Curveball {
 			// this assert needs a rewound stream, maybe use edges.size() > 0
 			assert(!_edges.empty());
 			assert(num_rounds > 0);
+            assert(_num_chunks > 0);
+            assert(_num_splits > 0);
+            assert(_num_fanout > 0);
+            assert(_num_splits < _edges.size());
 		}
 
 		/**
@@ -234,26 +241,28 @@ namespace Curveball {
 			IOStatistics first_fill_report;
 			degree_t max_degree = 0;
 			for (node_t node = 0; !_degrees.empty(); ++_degrees) {
+                const auto degree_value = static_cast<degree_t>(*_degrees);
 				// determine maximum degree while scanning degrees
 				max_degree = std::max(max_degree, *_degrees);
 
 				// in the initialization phase this can be done for both
 				// the current and subsequent round
 				target_infos.push_active(
-					TargetMsg{hash_funcs[0].hash(node), *_degrees, node}
+					TargetMsg{hash_funcs[0].hash(node), degree_value, node}
 				);
 
 				target_infos.push_pending(
-					TargetMsg{hash_funcs[1].hash(node), *_degrees, node}
+					TargetMsg{hash_funcs[1].hash(node), degree_value, node}
 				);
 
 				node++;
 			}
 			first_fill_report.report("FirstFill");
 
+            assert(_num_splits < _edges.size());
 			IOStatistics ds_init_report;
 			// initialize message container
-			EMDualContainer<HashFactory, EdgeSorter> msgs_container
+			EMDualContainer<HashFactory> msgs_container
 				(target_infos.get_bounds_active(),
 				 target_infos.get_bounds_pending(),
 				 target_infos,
@@ -278,10 +287,18 @@ namespace Curveball {
 				// directed according to earlier trade
 				for (; !_edges.empty(); ++_edges) {
 					const edge_t edge = *_edges;
+
 					assert(edge.first != edge.second); // no self-loops
+                    assert(edge.first >= 0);
+                    assert(edge.first <= _num_nodes);
+                    assert(edge.second >= 0);
+                    assert(edge.second <= _num_nodes);
 
 					const hnode_t h_fst = hash_funcs.current_hash(edge.first);
 					const hnode_t h_snd = hash_funcs.current_hash(edge.second);
+
+                    assert(h_fst >= 0);
+                    assert(h_snd >= 0);
 
 					// compare targets, and direct accordingly
 					if (h_fst < h_snd)
@@ -313,9 +330,10 @@ namespace Curveball {
 					// refill obsolete containers
 					_degrees.rewind();
 					for (node_t node = 0; node < _num_nodes; node++, ++_degrees) {
+                        const auto degree_value = static_cast<degree_t>(*_degrees);
 						target_infos.push_pending(
 							TargetMsg{hash_funcs.next_hash(node),
-									  *_degrees,
+									  degree_value,
 									  node});
 					}
 					assert(_degrees.empty());
@@ -339,7 +357,7 @@ namespace Curveball {
 					// provide randomised edge-list in a sorted order
 					IOStatistics get_edges_report("PushEdgeStream");
 
-					msgs_container.get_edges(_edge_sorter);
+					msgs_container.forward_unsorted_edges(_edge_sorter);
 
 					// retrieve a sorted output
 					_edge_sorter.sort();
@@ -349,12 +367,7 @@ namespace Curveball {
 					// provide randomised edge-list
 					IOStatistics get_edges_report("PushEdgeStream");
 
-					msgs_container.get_edges(_edge_sorter);
-
-					// retrieve a sorted output
-					_edge_sorter.rewind();
-
-					StreamPusher<EdgeSorter, OutReceiver>(_edge_sorter, _out_edges);
+					msgs_container.forward_unsorted_edges(_out_edges);
 				}
 			}
 		}
