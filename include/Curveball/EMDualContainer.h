@@ -24,7 +24,7 @@
 namespace Curveball {
 
     // methods that can be used in debug (checks for traded/non-traded nodes)
-#ifndef NDEBUG
+    #ifndef NDEBUG
     static std::vector<size_t> get_zero_entries(const std::vector<int>& vec) {
         std::vector<size_t> output;
         for (size_t node = 0; node < vec.size(); node++) {
@@ -46,7 +46,7 @@ namespace Curveball {
 
         return output;
     }
-#endif
+    #endif
 
     /**
      * If n odd return n - 1 else do nothing.
@@ -54,7 +54,7 @@ namespace Curveball {
      * @return Returns n - 1 if n odd else n.
      */
     static node_t make_even_by_sub(const node_t n) {
-        if (n % 2 == 1)
+        if (n % 2)
             return n - 1;
         else
             return n;
@@ -66,7 +66,7 @@ namespace Curveball {
      * @return Returns n + 1 if n odd else n.
      */
     static node_t make_even_by_add(const node_t n) {
-        if (n % 2 == 1)
+        if (n % 2)
             return n + 1;
         else
             return n;
@@ -425,7 +425,7 @@ namespace Curveball {
 
                             const TargetMsg info = *_target_infos;
                             insert_info(mc_nodeid, info);
-                            if (mc_nodeid % 2 == 1)
+                            if (mc_nodeid % 2)
                                 set_partner(mc_nodeid);
                         }
 
@@ -441,7 +441,7 @@ namespace Curveball {
 
                             const TargetMsg info = *_target_infos;
                             insert_info(mc_nodeid, info);
-                            if (mc_nodeid % 2 == 1)
+                            if (mc_nodeid % 2)
                                 set_partner(mc_nodeid);
 
                             _mc_last_num_nodes++;
@@ -585,7 +585,7 @@ namespace Curveball {
 
                     // if odd number of nodes, insert those messages too
                     // these are later forwarded but not used
-                    if (_mc_num_loaded_nodes % 2 == 1) {
+                    if (_mc_num_loaded_nodes % 2) {
                         const node_t mc_last_node = _mc_num_loaded_nodes - 1;
 
                         for (degree_t inc_msg_id = 0;
@@ -771,7 +771,7 @@ namespace Curveball {
                 // this can only happen at last macrochunk
                 // this node must have received all messages
                 // since its hash is maximal
-                if (_mc_num_loaded_nodes % 2 == 1) {
+                if (_mc_num_loaded_nodes % 2) {
                     const node_t mc_last_node = _mc_num_loaded_nodes - 1;
 
                     assert(mc_id == _num_chunks - 1);

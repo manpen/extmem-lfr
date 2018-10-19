@@ -74,7 +74,7 @@ namespace Curveball {
 		protected:
 			parameter_type _compute(const size_t mem, const edgeid_t num_edges, const int num_threads) const {
 				const chunkid_t num_macrochunks = std::max(2u, static_cast<chunkid_t>(2*num_edges/mem));
-				const chunkid_t num_batches = num_macrochunks*32;
+				const chunkid_t num_batches = 8 * num_macrochunks * num_threads;
 				const chunkid_t num_fanout = 1;
 				const size_t size_insertionbuffer = std::max(32ul, static_cast<size_t>(num_threads*16));
 				
