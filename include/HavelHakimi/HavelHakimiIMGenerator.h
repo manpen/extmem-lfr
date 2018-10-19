@@ -70,13 +70,13 @@ namespace detail {
         edgeid_t _unsatisfied_degree;
         node_t _unsatisfied_nodes;
 
-        using degree_buffer_t = stxxl::sequence<degree_t>;
-        using degree_forward_stream = degree_buffer_t::stream;
-
         //! Degree outputs
+        using degree_count_t = std::pair<degree_t, degree_t>;
+        std::vector<degree_count_t> _input_degree_blocks;
+        std::vector<degree_count_t>::const_iterator _input_degree_blocks_it;
+        degree_t _input_degree_counter = 0;
+
         std::vector<std::pair<node_t, degree_t>> _node_degree_deficits;
-        degree_buffer_t  _input_degrees;
-        std::unique_ptr<degree_forward_stream> _input_degrees_forward;
         degree_t _unsatisfied_neighbors = 0;
 
         DegreeStream _output_degrees;
@@ -187,13 +187,21 @@ namespace detail {
             } else {
                 if (DegreesOut || DeficitsOut) {
                     if (LIKELY(_skipped_first)) {
-                        if (DegreesOut)
-                            _output_degrees.push(_input_degrees_forward->operator*() - _unsatisfied_neighbors);
+                        if (DegreesOut) {
+                            _output_degrees.push((*_input_degree_blocks_it).first - _unsatisfied_neighbors);
+                        }
 
                         if (_unsatisfied_neighbors > 0)
-                            _node_degree_deficits.push_back(std::make_pair(_current_edge.first, _unsatisfied_neighbors));
+                            _node_degree_deficits.emplace_back(_current_edge.first, _unsatisfied_neighbors);
 
-                        _input_degrees_forward->operator++();
+                        // increase count of used nodes with that degree, if all have been used up move to the next
+                        // degree block
+                        _input_degree_counter++;
+                        if (_input_degree_counter == (*_input_degree_blocks_it).second) {
+                            _input_degree_counter = 0;
+                            ++_input_degree_blocks_it;
+                        }
+
                         _unsatisfied_neighbors = 0;
                     } else {
                         _skipped_first = true;
@@ -259,12 +267,6 @@ namespace detail {
                 _unsatisfied_nodes(0)
         {}
 
-        ~HavelHakimiIMGenerator_impl() {
-            if (DegreesOut || DeficitsOut) {
-                _input_degrees_forward.reset(nullptr);
-            }
-        }
-
         //! Push a new vertex -represented by its degree- into degree sequence
         void push(degree_t deg) {
             assert(_mode == Push);
@@ -272,35 +274,49 @@ namespace detail {
 
             if (UNLIKELY(_blocks.empty())) {
                 _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
+
+                if (DegreesOut || DeficitsOut)
+                    _input_degree_blocks.emplace_back(deg, 0);
             }
 
             if (_push_direction == IncreasingDegree) {
                 if (LIKELY(_blocks.back().degree == deg)) {
                     _blocks.back().node_upper = _push_current_node;
+
+                    if (DegreesOut || DeficitsOut)
+                        _input_degree_blocks.back().second += 1;
                 } else {
                     assert(deg > _blocks.back().degree);
                     _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
+
+                    if (DegreesOut || DeficitsOut)
+                        _input_degree_blocks.emplace_back(deg, 1);
                 }
             } else {
                 if (LIKELY(_blocks.front().degree == deg)) {
                     _blocks.front().node_upper = _push_current_node;
+
+                    if (DegreesOut || DeficitsOut)
+                        _input_degree_blocks.back().second += 1;
                 } else {
                     assert(deg < _blocks.back().degree);
                     _blocks.push_front(Block(deg, _push_current_node, _push_current_node));
+
+                    if (DegreesOut || DeficitsOut)
+                        _input_degree_blocks.emplace_back(deg, 1);
                 }
             }
 
             ++_push_current_node;
             _max_number_of_edges += deg;
-
-            if (DegreesOut || DeficitsOut)
-                _input_degrees.push_back(deg);
         }
 
         //! Switch to generation mode; the streaming interface become available
         void generate() {
-            if (DegreesOut || DeficitsOut)
-                _input_degrees_forward.reset(new degree_forward_stream(_input_degrees));
+            if (DegreesOut || DeficitsOut) {
+                _input_degree_blocks_it = _input_degree_blocks.cbegin();
+                _input_degree_counter = 0;
+            }
 
             assert(_mode == Push);
 
@@ -340,8 +356,17 @@ namespace detail {
         //! Push rest of degrees into output degree stream
         void finalize() {
             if (DegreesOut) {
-                for (; !_input_degrees_forward->empty(); _input_degrees_forward->operator++())
-                    _output_degrees.push(_input_degrees_forward->operator*());
+                // push remaining degrees that are unprocessed in the degree block
+                for (; _input_degree_counter < (*_input_degree_blocks_it).second; _input_degree_counter++)
+                    _output_degrees.push((*_input_degree_blocks_it).first);
+
+                // move on to the rest of the degrees
+                ++_input_degree_blocks_it;
+                while (_input_degree_blocks_it != _input_degree_blocks.cend()) {
+                    for (_input_degree_counter = 0; _input_degree_counter < (*_input_degree_blocks_it).second; _input_degree_counter++)
+                        _output_degrees.push((*_input_degree_blocks_it).first);
+                }
+
                 assert(_output_degrees.size() == static_cast<size_t>(_push_current_node - _initial_node));
             }
         }
