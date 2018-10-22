@@ -191,8 +191,9 @@ namespace detail {
                             _output_degrees.push((*_input_degree_blocks_it).first - _unsatisfied_neighbors);
                         }
 
-                        if (_unsatisfied_neighbors > 0)
-                            _node_degree_deficits.emplace_back(_current_edge.first, _unsatisfied_neighbors);
+                        if (DeficitsOut)
+                            if (_unsatisfied_neighbors > 0)
+                                _node_degree_deficits.emplace_back(_current_edge.first, _unsatisfied_neighbors);
 
                         // increase count of used nodes with that degree, if all have been used up move to the next
                         // degree block
@@ -203,9 +204,8 @@ namespace detail {
                         }
 
                         _unsatisfied_neighbors = 0;
-                    } else {
+                    } else
                         _skipped_first = true;
-                    }
                 }
 
                 // move blocks previously "parked" on stack back to queue
@@ -274,41 +274,41 @@ namespace detail {
 
             if (UNLIKELY(_blocks.empty())) {
                 _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
-
-                if (DegreesOut || DeficitsOut)
-                    _input_degree_blocks.emplace_back(deg, 0);
             }
 
             if (_push_direction == IncreasingDegree) {
                 if (LIKELY(_blocks.back().degree == deg)) {
                     _blocks.back().node_upper = _push_current_node;
-
-                    if (DegreesOut || DeficitsOut)
-                        _input_degree_blocks.back().second += 1;
                 } else {
                     assert(deg > _blocks.back().degree);
                     _blocks.push_back(Block(deg, _push_current_node, _push_current_node));
-
-                    if (DegreesOut || DeficitsOut)
-                        _input_degree_blocks.emplace_back(deg, 1);
                 }
             } else {
                 if (LIKELY(_blocks.front().degree == deg)) {
                     _blocks.front().node_upper = _push_current_node;
 
-                    if (DegreesOut || DeficitsOut)
-                        _input_degree_blocks.back().second += 1;
                 } else {
                     assert(deg < _blocks.back().degree);
                     _blocks.push_front(Block(deg, _push_current_node, _push_current_node));
-
-                    if (DegreesOut || DeficitsOut)
-                        _input_degree_blocks.emplace_back(deg, 1);
                 }
             }
 
             ++_push_current_node;
             _max_number_of_edges += deg;
+
+            if (DegreesOut || DeficitsOut) {
+                if (_input_degree_blocks.empty())
+                    _input_degree_blocks.emplace_back(deg, 1);
+                else {
+                    auto & last_degree_block = _input_degree_blocks.back();
+                    const auto last_degree = last_degree_block.first;
+
+                    if (last_degree == deg)
+                        last_degree_block.second++;
+                    else
+                        _input_degree_blocks.emplace_back(deg, 1);
+                }
+            }
         }
 
         //! Switch to generation mode; the streaming interface become available
@@ -356,6 +356,9 @@ namespace detail {
         //! Push rest of degrees into output degree stream
         void finalize() {
             if (DegreesOut) {
+                if (_input_degree_blocks_it == _input_degree_blocks.cend())
+                    return;
+
                 // push remaining degrees that are unprocessed in the degree block
                 for (; _input_degree_counter < (*_input_degree_blocks_it).second; _input_degree_counter++)
                     _output_degrees.push((*_input_degree_blocks_it).first);
@@ -365,6 +368,7 @@ namespace detail {
                 while (_input_degree_blocks_it != _input_degree_blocks.cend()) {
                     for (_input_degree_counter = 0; _input_degree_counter < (*_input_degree_blocks_it).second; _input_degree_counter++)
                         _output_degrees.push((*_input_degree_blocks_it).first);
+                    ++_input_degree_blocks_it;
                 }
 
                 assert(_output_degrees.size() == static_cast<size_t>(_push_current_node - _initial_node));
