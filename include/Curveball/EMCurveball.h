@@ -64,7 +64,7 @@ namespace Curveball {
 
 			ParameterEstimation() = default;
 			ParameterEstimation(const size_t mem, const edgeid_t num_edges, const int num_threads)
-				: _param_est(_compute(mem, num_edges, num_threads))
+					: _param_est(_compute(mem, num_edges, num_threads))
 			{}
 
 		protected:
@@ -77,9 +77,9 @@ namespace Curveball {
 				const chunkid_t num_batches = 8 * num_macrochunks * num_threads;
 				const chunkid_t num_fanout = 1;
 				const size_t size_insertionbuffer = std::max(32ul, static_cast<size_t>(num_threads*16));
-				
+
 				assert(num_batches < num_edges);
-				
+
 				std::cout << "Using the following estimated parameters for Curveball:\n"
 						  << "num_macrochunks:     \t" << num_macrochunks << "\n"
 						  << "num batches:         \t" << num_batches << "\n"
@@ -152,23 +152,23 @@ namespace Curveball {
 					const msgid_t insertion_buffer_size = DUMMY_INS_BUFFER_SIZE,
 					const bool sorted_output = true
 		) :
-			_edges(edges),
-			_degrees(degrees),
-			_num_nodes(num_nodes),
-			_num_rounds(num_rounds),
-			_out_edges(out_edges),
-			_num_chunks(num_chunks),
-			_num_splits(num_splits),
-			_num_fanout(num_fanout),
-			_target_sorter_mem_size(target_sorter_mem_size),
-			_token_sorter_mem_size(token_sorter_mem_size),
-			_msg_limit(msg_limit),
-			_num_threads(num_threads),
-			_insertion_buffer_size(insertion_buffer_size),
-			_edge_sorter(EdgeComparator{}, token_sorter_mem_size),
-			_sorted_output(sorted_output)
+				_edges(edges),
+				_degrees(degrees),
+				_num_nodes(num_nodes),
+				_num_rounds(num_rounds),
+				_out_edges(out_edges),
+				_num_chunks(num_chunks),
+				_num_splits(num_splits),
+				_num_fanout(num_fanout),
+				_target_sorter_mem_size(target_sorter_mem_size),
+				_token_sorter_mem_size(token_sorter_mem_size),
+				_msg_limit(msg_limit),
+				_num_threads(num_threads),
+				_insertion_buffer_size(insertion_buffer_size),
+				_edge_sorter(EdgeComparator{}, token_sorter_mem_size),
+				_sorted_output(sorted_output)
 		#ifndef NDEBUG
-			, _debug_node_tokens(NodeComparator{}, token_sorter_mem_size)
+				, _debug_node_tokens(NodeComparator{}, token_sorter_mem_size)
 		#endif
 		{
 			// this assert needs a rewound stream, maybe use edges.size() > 0
@@ -196,33 +196,33 @@ namespace Curveball {
 					const size_t mem,
 					const bool sorted_output
 		) :
-			_param_est(mem, edges.size(), num_threads),
-			_edges(edges),
-			_degrees(degrees),
-			_num_nodes(num_nodes),
-			_num_rounds(num_rounds),
-			_out_edges(out_edges),
-			_num_chunks(_param_est.num_macrochunks()),
-			_num_splits(_param_est.num_batches()),
-			_num_fanout(_param_est.num_fanout()),
-			_target_sorter_mem_size(1 * UIntScale::Gi),
-			_token_sorter_mem_size(1 * UIntScale::Gi),
-			_msg_limit(std::numeric_limits<msgid_t>::max()),
-			_num_threads(num_threads),
-			_insertion_buffer_size(_param_est.size_insertionbuffer()),
-			_edge_sorter(EdgeComparator{}, 1 * UIntScale::Gi),
-			_sorted_output(sorted_output)
+				_param_est(mem, edges.size(), num_threads),
+				_edges(edges),
+				_degrees(degrees),
+				_num_nodes(num_nodes),
+				_num_rounds(num_rounds),
+				_out_edges(out_edges),
+				_num_chunks(_param_est.num_macrochunks()),
+				_num_splits(_param_est.num_batches()),
+				_num_fanout(_param_est.num_fanout()),
+				_target_sorter_mem_size(1 * UIntScale::Gi),
+				_token_sorter_mem_size(1 * UIntScale::Gi),
+				_msg_limit(std::numeric_limits<msgid_t>::max()),
+				_num_threads(num_threads),
+				_insertion_buffer_size(_param_est.size_insertionbuffer()),
+				_edge_sorter(EdgeComparator{}, 1 * UIntScale::Gi),
+				_sorted_output(sorted_output)
 		#ifndef NDEBUG
-			, _debug_node_tokens(NodeComparator{}, 1 * UIntScale::Gi)
+				, _debug_node_tokens(NodeComparator{}, 1 * UIntScale::Gi)
 		#endif
 		{
 			// this assert needs a rewound stream, maybe use edges.size() > 0
 			assert(!_edges.empty());
 			assert(num_rounds > 0);
-            assert(_num_chunks > 0);
-            assert(_num_splits > 0);
-            assert(_num_fanout > 0);
-            assert(_num_splits < _edges.size());
+			assert(_num_chunks > 0);
+			assert(_num_splits > 0);
+			assert(_num_fanout > 0);
+			assert(_num_splits < _edges.size());
 		}
 
 		/**
@@ -241,42 +241,41 @@ namespace Curveball {
 			IOStatistics first_fill_report;
 			degree_t max_degree = 0;
 			for (node_t node = 0; !_degrees.empty(); ++_degrees) {
-                const auto degree_value = static_cast<degree_t>(*_degrees);
+				const auto degree_value = static_cast<degree_t>(*_degrees);
 				// determine maximum degree while scanning degrees
 				max_degree = std::max(max_degree, *_degrees);
 
 				// in the initialization phase this can be done for both
 				// the current and subsequent round
 				target_infos.push_active(
-					TargetMsg{hash_funcs[0].hash(node), degree_value, node}
+						TargetMsg{hash_funcs[0].hash(node), degree_value, node}
 				);
 
 				target_infos.push_pending(
-					TargetMsg{hash_funcs[1].hash(node), degree_value, node}
+						TargetMsg{hash_funcs[1].hash(node), degree_value, node}
 				);
 
 				node++;
 			}
 			first_fill_report.report("FirstFill");
 
-            assert(_num_splits < _edges.size());
+			assert(_num_splits < _edges.size());
 			IOStatistics ds_init_report;
 			// initialize message container
-			EMDualContainer<HashFactory> msgs_container
-				(target_infos.get_bounds_active(),
-				 target_infos.get_bounds_pending(),
-				 target_infos,
-				 _num_nodes,
-				 max_degree,
-				 hash_funcs,
-				 CurveballParams{_num_rounds,
-								 _num_chunks,
-								 _num_splits,
-								 _num_fanout,
-								 _token_sorter_mem_size,
-								 _msg_limit,
-								 _num_threads,
-								 _insertion_buffer_size});
+			EMDualContainer<HashFactory> msgs_container(target_infos.get_bounds_active(),
+														target_infos.get_bounds_pending(),
+														target_infos,
+														_num_nodes,
+														max_degree,
+														hash_funcs,
+														CurveballParams{_num_rounds,
+																		_num_chunks,
+																		_num_splits,
+																		_num_fanout,
+																		_token_sorter_mem_size,
+																		_msg_limit,
+																		_num_threads,
+																		_insertion_buffer_size});
 
 
 			ds_init_report.report("DualContainerInit");
@@ -289,16 +288,16 @@ namespace Curveball {
 					const edge_t edge = *_edges;
 
 					assert(edge.first != edge.second); // no self-loops
-                    assert(edge.first >= 0);
-                    assert(edge.first <= _num_nodes);
-                    assert(edge.second >= 0);
-                    assert(edge.second <= _num_nodes);
+					assert(edge.first >= 0);
+					assert(edge.first <= _num_nodes);
+					assert(edge.second >= 0);
+					assert(edge.second <= _num_nodes);
 
 					const hnode_t h_fst = hash_funcs.current_hash(edge.first);
 					const hnode_t h_snd = hash_funcs.current_hash(edge.second);
 
-                    assert(h_fst >= 0);
-                    assert(h_snd >= 0);
+					assert(h_fst >= 0);
+					assert(h_snd >= 0);
 
 					// compare targets, and direct accordingly
 					if (h_fst < h_snd)
@@ -330,11 +329,8 @@ namespace Curveball {
 					// refill obsolete containers
 					_degrees.rewind();
 					for (node_t node = 0; node < _num_nodes; node++, ++_degrees) {
-                        const auto degree_value = static_cast<degree_t>(*_degrees);
-						target_infos.push_pending(
-							TargetMsg{hash_funcs.next_hash(node),
-									  degree_value,
-									  node});
+						const auto degree_value = static_cast<degree_t>(*_degrees);
+						target_infos.push_pending(TargetMsg{hash_funcs.next_hash(node), degree_value, node});
 					}
 					assert(_degrees.empty());
 

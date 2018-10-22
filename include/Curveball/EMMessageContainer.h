@@ -27,7 +27,7 @@ namespace Curveball {
 		using insertion_buffer_vector =
 		std::vector<std::vector<std::vector<NeighbourMsg>>>;
 		enum Mode {
-			ACTIVE, NEXT
+			ACTIVE, PENDING
 		};
 
 	protected:
@@ -188,13 +188,11 @@ namespace Curveball {
 		void force_push(const chunkid_t mc_id) {
 			for (int thread_id = 0; thread_id < _num_threads; thread_id++) {
 				// bulk push these
-				_macrochunks[mc_id].bulk_push_sequential
-					(_insertion_buffer_vector[thread_id][mc_id]);
+				_macrochunks[mc_id].bulk_push_sequential(_insertion_buffer_vector[thread_id][mc_id]);
 
 				// clear buffers
 				_insertion_buffer_vector[thread_id][mc_id].clear();
-				_insertion_buffer_vector[thread_id][mc_id].
-					reserve(static_cast<size_t>(_insertion_buffer_size));
+				_insertion_buffer_vector[thread_id][mc_id].reserve(static_cast<size_t>(_insertion_buffer_size));
 			}
 		}
 
@@ -221,8 +219,7 @@ namespace Curveball {
 
 				// clear buffer
 				_insertion_buffer_vector[thread_id][target_chunk].clear();
-				_insertion_buffer_vector[thread_id][target_chunk].
-					reserve(static_cast<size_t>(_insertion_buffer_size));
+				_insertion_buffer_vector[thread_id][target_chunk].reserve(static_cast<size_t>(_insertion_buffer_size));
 			}
 		}
 
@@ -242,9 +239,9 @@ namespace Curveball {
 		 * Set this container as belonging to an active global trade round.
 		 */
 		void activate() {
-			assert(_mode == NEXT);
+			assert(_mode == PENDING);
 
-			_mode == ACTIVE; // invariants, for code readability
+			_mode = ACTIVE; // invariants, for code readability
 		}
 
 		/**
@@ -256,14 +253,14 @@ namespace Curveball {
 			for (auto &&macrochunk : _macrochunks)
 				macrochunk.reset();
 
-			_mode == NEXT; // invariants, for code readability
+			_mode = PENDING; // invariants, for code readability
 		}
 
 		/**
 		 * Swaps this active global trade round with the next one.
 		 * @param other Container struct for next global trade round.
 		 */
-		void swap_with_next(EMMessageContainer &other) {
+		void swap_with_next(EMMessageContainer & other) {
 			// note, num_chunks is not swapped, and should be the same for each
 			// it's possible to change this, remove const identifier from _num_chunks
 
@@ -282,12 +279,16 @@ namespace Curveball {
 			};
 			#endif
 
+		    // reset self
 			reset();
+
+			// activate pending
 			other.activate();
 
 			std::swap(_macrochunks, other._macrochunks);
 			std::swap(_upper_bounds, other._upper_bounds);
 			std::swap(_insertion_buffer_vector, other._insertion_buffer_vector);
+			std::swap(_mode, other._mode);
 		}
 
 		/**

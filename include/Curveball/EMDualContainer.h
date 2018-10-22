@@ -82,14 +82,12 @@ namespace Curveball {
 
         ThreadBounds() = default;
 
-        ThreadBounds(const std::vector<hnode_t> &l_bounds_,
-                     const std::vector<hnode_t> &u_bounds_)
-                : l_bounds(l_bounds_),
-                  u_bounds(u_bounds_) {}
+        ThreadBounds(std::vector<hnode_t> l_bounds_,
+                     std::vector<hnode_t> u_bounds_)
+                : l_bounds(std::move(l_bounds_)),
+                  u_bounds(std::move(u_bounds_)) {}
 
-        ThreadBounds(const ThreadBounds &o)
-                : l_bounds(o.l_bounds),
-                  u_bounds(o.u_bounds) {}
+        ThreadBounds(const ThreadBounds & o) = default;
 
         size_t size() const {
             return l_bounds.size();
@@ -107,11 +105,9 @@ namespace Curveball {
         const node_t nodes_chunks_rem =
                 (num_nodes % num_chunks);
 
-        const auto nodes_chunks_div =
-                static_cast<node_t>(num_nodes / num_chunks);
+        const auto nodes_chunks_div = static_cast<node_t>(num_nodes / num_chunks);
 
-        const auto even_nodes_chunks_div =
-                make_even_by_sub(nodes_chunks_div);
+        const auto even_nodes_chunks_div = make_even_by_sub(nodes_chunks_div);
 
         if (nodes_chunks_div == even_nodes_chunks_div)
             if (nodes_chunks_rem == 0)
@@ -130,39 +126,29 @@ namespace Curveball {
      * @param fanout Multiplier of microchunks for greedy-processing.
      * @return Struct for the microchunk bounds.
      */
-    static ThreadBounds mc_get_thread_bounds(const node_t mc_even_num_nodes,
+    static ThreadBounds mc_get_thread_bounds(const node_t mc_num_nodes,
                                              const chunkid_t num_microchunks,
                                              const chunkid_t fanout) {
-        assert(mc_even_num_nodes % 2 == 0);
+        const node_t mc_even_num_nodes = make_even_by_sub(mc_num_nodes);
+        const bool was_odd = (mc_num_nodes % 2 == 1);
 
         std::vector<node_t> lower_bounds;
         std::vector<node_t> upper_bounds;
 
-        lower_bounds.reserve(static_cast<size_t>(num_microchunks * fanout));
-        upper_bounds.reserve(static_cast<size_t>(num_microchunks * fanout));
+        lower_bounds.reserve(num_microchunks * fanout);
+        upper_bounds.reserve(num_microchunks * fanout);
 
         lower_bounds.push_back(0);
         for (chunkid_t i = 1; i < num_microchunks * fanout; i++) {
             const auto bound =
-                    make_even_by_sub(static_cast<node_t>(i * mc_even_num_nodes /
-                                                         (num_microchunks * fanout)));
+                    make_even_by_sub(static_cast<node_t>(i * mc_even_num_nodes / (num_microchunks * fanout)));
             lower_bounds.push_back(bound);
             upper_bounds.push_back(bound);
         }
-        upper_bounds.push_back(mc_even_num_nodes);
-
-        // check for empty intervals (that should not exist)
-        #ifndef NDEBUG
-        {
-            // check for empty bound interval
-            std::equal(lower_bounds.begin() + 1,
-                       lower_bounds.end(),
-                       upper_bounds.begin());
-
-            for (unsigned long ix = 0; ix < lower_bounds.size(); ix++)
-                assert(upper_bounds[ix] - lower_bounds[ix] > 0);
-        };
-        #endif
+        if (!was_odd)
+            upper_bounds.push_back(mc_even_num_nodes);
+        else
+            upper_bounds.push_back(mc_even_num_nodes);
 
         return ThreadBounds(lower_bounds, upper_bounds);
     }
@@ -250,8 +236,8 @@ namespace Curveball {
         ThreadBounds _mc_thread_bounds;
 
         // the ranks of the currently processed min and max targets in the batch
-        int _b_min_mc_node; // TODO dofference node_t and int32_t
-        int _b_max_mc_node;
+        node_t _b_min_mc_node;
+        node_t _b_max_mc_node;
 
         RNGs<std::mt19937_64, 64> _rngs;
 
@@ -298,7 +284,7 @@ namespace Curveball {
                         curveball_params.insertion_buffer_size),
                 _pending(pending_upper_bounds,
                          curveball_params.msg_limit,
-                         EMMessageContainer<HashFactory>::NEXT,
+                         EMMessageContainer<HashFactory>::PENDING,
                          curveball_params.threads,
                          curveball_params.insertion_buffer_size),
                 _target_infos(target_infos),
@@ -344,6 +330,7 @@ namespace Curveball {
                 _hash_funcs(hash_funcs),
                 _has_run(false)
         {
+            assert(_last_mc_nodes > 0);
             assert(_num_chunks > 0);
             assert(_num_splits > 0);
             assert(_num_fanout > 0);
@@ -375,29 +362,16 @@ namespace Curveball {
                     // sort messages by comparator provided by GenericComparator
                     {
                         ScopedTimer timer("Sorting");
-                        #if 0
-                        // parallel quick sort
-						__gnu_parallel::sort(msgs.begin(),
-											 msgs.end(),
-											 __gnu_parallel::quicksort_tag());
-                        #else
                         const hnode_t last_upper_bound = (mc_id > 0 ? _active_upper_bounds[mc_id - 1] : 0);
                         intsort::sort(msgs,
                                       [&] (const NeighbourMsg& msg)
                                       {return msg.target - last_upper_bound;},
                                       _active_upper_bounds[mc_id] - last_upper_bound + 1);
-                        // radix-sort data-structure is dealloc here
-                        #endif
+                        // radix-sort data-structure is deallocated here
                     }
 
                     // check if messages are sorted
-                    // only relevant in debug-mode
-                    #ifndef NDEBUG
-                    {
-                        // check if sorted
-                        assert(std::is_sorted(msgs.cbegin(), msgs.cend(), NeighbourMsgComparator{}));
-                    };
-                    #endif
+                    assert(std::is_sorted(msgs.cbegin(), msgs.cend(), NeighbourMsgComparator{}));
 
                     // =================== load informations into IM ===================
 
@@ -418,9 +392,7 @@ namespace Curveball {
 
                     // Loading degrees and inverses into IM
                     if (LIKELY(mc_id < _num_chunks - 1)) {
-                        for (node_t mc_nodeid = 0;
-                             mc_nodeid < _nodes_per_mc;
-                             mc_nodeid++, ++_target_infos) {
+                        for (node_t mc_nodeid = 0; mc_nodeid < _nodes_per_mc; mc_nodeid++, ++_target_infos) {
                             assert(static_cast<size_t>(mc_nodeid) < _mc_degs.size());
 
                             const TargetMsg info = *_target_infos;
@@ -435,8 +407,7 @@ namespace Curveball {
                         // just move the rest (might be larger than other macrochunks)
                         node_t _mc_last_num_nodes = 0;
 
-                        for (node_t mc_nodeid = 0; !_target_infos.empty();
-                             ++_target_infos, mc_nodeid++) {
+                        for (node_t mc_nodeid = 0; !_target_infos.empty(); ++_target_infos, mc_nodeid++) {
                             assert(static_cast<size_t>(mc_nodeid) < _mc_degs.size());
 
                             const TargetMsg info = *_target_infos;
@@ -448,63 +419,41 @@ namespace Curveball {
                         }
 
                         _mc_num_loaded_nodes = _mc_last_num_nodes;
+
+                        // do not suggest that there exists an edge {n - 1, 0}
+                        if (_mc_num_loaded_nodes % 2)
+                            _mc_clearpartner[_mc_num_loaded_nodes - 1] = INVALID_NODE;
                     }
 
                     _mc_largest_hnode = _mc_hashes[_mc_num_loaded_nodes - 1];
-                    assert(_mc_largest_hnode >= _g_num_processed_nodes + _mc_num_loaded_nodes - 1);
-
                     _mc_hash_offset = _mc_largest_hnode + 1 - _mc_num_loaded_nodes - _g_num_processed_nodes;
+
+                    assert(_mc_largest_hnode >= _g_num_processed_nodes + _mc_num_loaded_nodes - 1);
                     assert(_mc_hash_offset >= _mc_last_hash_offset);
                     assert(static_cast<size_t>(_mc_num_loaded_nodes) <= static_cast<size_t>(_nodes_per_mc) + 2 * _num_chunks);
 
                     // check if _mc_hashes is sorted and has no duplicates
-                    #ifndef NDEBUG
-                    {
-                        // check if _mc_hashes is increasing up to _mc_num_loaded_nodes
-                        std::is_sorted(_mc_hashes.begin(),
-                                       _mc_hashes.begin() + _mc_num_loaded_nodes);
-
-                        // check for duplicates
-                        const auto hashes_iter = std::adjacent_find(_mc_hashes.begin(),
-                                                                    _mc_hashes.begin() + _mc_num_loaded_nodes);
-                        assert(hashes_iter == _mc_hashes.cbegin() + _mc_num_loaded_nodes);
-                    };
-                    #endif
+                    _verify_sorted_noduplicates();
 
                     // =============== initialize adjacency structure ==================
 
                     // calc prefix sum, saves addresses, therefore start at 0
-                    __gnu_parallel::partial_sum(_mc_degs.cbegin(),
-                                                _mc_degs.cbegin() + _mc_num_loaded_nodes,
-                                                _mc_degs_psum.begin() + 1,
-                                                std::plus<degree_t>());
+                    std::partial_sum(_mc_degs.cbegin(),
+                                     _mc_degs.cbegin() + _mc_num_loaded_nodes,
+                                     _mc_degs_psum.begin() + 1,
+                                     std::plus<>());
                     assert(_mc_degs_psum[_mc_num_loaded_nodes] <= _target_infos.get_active_max_num_msgs());
-
-                    // check degree prefix sum computation
-                    #ifndef NDEBUG
-                    {
-                        // check prefix sum
-                        degree_t degree_sum = 0;
-                        for (node_t mc_node = 0;
-                             mc_node < _mc_num_loaded_nodes;
-                             mc_node++)
-                            degree_sum += _mc_degs[mc_node];
-
-                        assert(degree_sum == _mc_degs_psum[_mc_num_loaded_nodes]);
-                    };
-                    #endif
 
                     // identify hash-values as indices
                     // initializes bounds of each microchunk/batch
-                    _mc_thread_bounds =
-                            mc_get_thread_bounds(make_even_by_sub(_mc_num_loaded_nodes),
-                                                 _num_splits * _num_threads,
-                                                 _num_fanout);
+                    _mc_thread_bounds = mc_get_thread_bounds(_mc_num_loaded_nodes,
+                                                             _num_splits * _num_threads,
+                                                             _num_fanout);
 
                     // reallocate memory for adjacency list
                     _mc_adjacency_list.resize(_mc_degs_psum[_mc_num_loaded_nodes]);
 
-                    // initalize
+                    // initalize adjacency structure
                     _mc_adjacency_list.initialize(_mc_degs,
                                                   _mc_clearpartner,
                                                   _mc_num_loaded_nodes,
@@ -519,11 +468,11 @@ namespace Curveball {
                     {
                         uint_t index = 0;
 
-                        for (size_t msg_ix = 0; msg_ix < msgs.size(); msg_ix++) {
-                            assert(msgs[msg_ix].target >= _mc_hashes[0]);
-                            assert(msgs[msg_ix].target <= _mc_hashes[_mc_num_loaded_nodes - 1]);
+                        for (const auto & msg : msgs) {
+                            assert(msg.target >= _mc_hashes[0]);
+                            assert(msg.target <= _mc_hashes[_mc_num_loaded_nodes - 1]);
 
-                            while (msgs[msg_ix].target != _mc_hashes[index]) {
+                            while (msg.target != _mc_hashes[index]) {
                                 index++;
                                 _mc_num_inc_msgs[index] = 0;
                             }
@@ -535,21 +484,13 @@ namespace Curveball {
                     }
 
                     // check that incoming messages to node do not exceed degree
-                    #ifndef NDEBUG
-                    {
-                        // check that num incoming msgs does not exceed degree
-                        for (node_t mc_node = 0; mc_node < _mc_num_loaded_nodes; mc_node++) {
-                            assert(_mc_num_inc_msgs[mc_node] <= _mc_degs[mc_node]);
-                        }
-                    };
-                    #endif
+                    _verify_incoming_msgs_count();
 
                     // compute prefix sum of number of incoming messages for
                     // each node, this enables concurrent insertion
-                    __gnu_parallel::partial_sum
-                            (_mc_num_inc_msgs.cbegin(),
-                             _mc_num_inc_msgs.cbegin() + _mc_num_loaded_nodes,
-                             _mc_num_inc_msgs_psum.begin() + 1);
+                    std::partial_sum(_mc_num_inc_msgs.cbegin(),
+                                     _mc_num_inc_msgs.cbegin() + _mc_num_loaded_nodes,
+                                     _mc_num_inc_msgs_psum.begin() + 1);
 
                     assert(static_cast<size_t>(_mc_num_inc_msgs_psum[_mc_num_loaded_nodes]) == msgs.size());
 
@@ -625,17 +566,7 @@ namespace Curveball {
                     };
                     #endif
 
-                    // check whether offsets in adjacency list are not too big
-                    #ifndef NDEBUG
-                    {
-                        uint_t degs_sum = 0;
-                        for (node_t node = 0; node < _mc_num_loaded_nodes; node++) {
-                            degs_sum += _mc_adjacency_list.received_msgs(node);
-                        }
-
-                        assert(degs_sum <= msgs.size());
-                    };
-                    #endif
+                    _verify_adjacency_offsets(msgs.size());
                 }
 
                 IOStatistics trading_report;
@@ -662,12 +593,7 @@ namespace Curveball {
                     }
 
                     // check whether last upper bound is set correctly
-                    #ifndef NDEBUG
-                    {
-                        if (mc_id == _num_chunks - 1 && batch == _num_splits - 1)
-                            assert(mc_max_node == _mc_num_loaded_nodes - 1);
-                    };
-                    #endif
+                    _verify_last_upper_bound(mc_id, batch, mc_max_node);
 
                     // last macrochunk might have odd num of nodes, we skip the last
                     // but have to be able to insert into the 'useless' row
@@ -768,7 +694,7 @@ namespace Curveball {
                 // sequentially process the last node
                 // do not forget to send messages of possibly left out node
                 // (e.g. when given odd number of nodes)
-                // this can only happen at last macrochunk
+                // this can only happen at the last macrochunk
                 // this node must have received all messages
                 // since its hash is maximal
                 if (_mc_num_loaded_nodes % 2) {
@@ -778,8 +704,7 @@ namespace Curveball {
                     assert(_mc_adjacency_list.received_msgs(mc_last_node) == _mc_degs[mc_last_node]);
 
                     // send edges directly to new round
-                    const hnode_t hnext_last =
-                            _hash_funcs.next_hash(_mc_invs[mc_last_node]);
+                    const hnode_t hnext_last = _hash_funcs.next_hash(_mc_invs[mc_last_node]);
 
                     for (auto neigh_it = _mc_adjacency_list.begin(mc_last_node);
                          neigh_it != _mc_adjacency_list.end(mc_last_node);
@@ -796,7 +721,6 @@ namespace Curveball {
                     } // for-loop over neighbours of last _odd_ node
 
                     _mc_adjacency_list.set_traded(mc_last_node);
-                    //_mc_adjacency_list.reset_row(mc_last_node);
                 } // sending of (odd) last nodes messages
 
 
@@ -835,7 +759,7 @@ namespace Curveball {
          * intra-macrochunk and inter-macrochunk forwarding.
          *
          * In case of a intra-batch dependency message forwarding is
-         * synchornized and work-stealing is resolved.
+         * synchronized and work-stealing is resolved.
          * Intra- and inter-macrochunk messages are synchronized via simple
          * guard-locks where its difference is the insertion in different
          * containers. The thread-id is forwarded for synchronization reasons.
@@ -892,12 +816,11 @@ namespace Curveball {
                         const node_t mc_partner = mc_neighbour + 1;
                         assert(!_mc_has_traded[mc_partner]);
 
-                        const degree_t received_msgs =
-                                _mc_adjacency_list.received_msgs(mc_neighbour);
+                        const degree_t received_msgs = _mc_adjacency_list.received_msgs(mc_neighbour);
+
                         // not last message of this node
                         if (received_msgs < _mc_degs[mc_neighbour] - 1) {
-                            _mc_adjacency_list.insert_neighbour_without_check_lock
-                                    (mc_neighbour, _mc_invs[mc_node_x]);
+                            _mc_adjacency_list.insert_neighbour_without_check_lock(mc_neighbour, _mc_invs[mc_node_x]);
 
                             std::atomic_fetch_add(&_active_threads[mc_neighbour], 1);
                             return;
@@ -906,11 +829,9 @@ namespace Curveball {
                         // received_msgs == _mc_degs[mc_neighbour] - 1
 
                         // check if partner received all necessary messages
-                        const bool partner_in_neighbour =
-                                _mc_adjacency_list.get_edge_in_partner(mc_neighbour);
+                        const bool partner_in_neighbour = _mc_adjacency_list.get_edge_in_partner(mc_neighbour);
 
-                        const degree_t p_received_msgs =
-                                _mc_adjacency_list.received_msgs(mc_partner);
+                        const degree_t p_received_msgs = _mc_adjacency_list.received_msgs(mc_partner);
 
                         if (p_received_msgs < _mc_degs[mc_partner] - 1 - partner_in_neighbour) {
                             _mc_adjacency_list.insert_neighbour_without_check
@@ -950,20 +871,27 @@ namespace Curveball {
                         // received_msgs == _mc_degs[mc_neighbour] - 1
                         //     and got partner lock
                         // => last message to this node
-                        _mc_adjacency_list.insert_neighbour_without_check_lock
-                                (mc_neighbour, _mc_invs[mc_node_x]);
+                        _mc_adjacency_list.insert_neighbour_without_check_lock(mc_neighbour, _mc_invs[mc_node_x]);
 
-                        if (partner_received_msgs
-                            == _mc_degs[mc_partner] - partner_in_neighbour) {
+                        if (partner_received_msgs == _mc_degs[mc_partner] - partner_in_neighbour) {
                             std::vector<node_t> common_neighbours;
                             std::vector<node_t> disjoint_neighbours;
 
-                            trade(mc_neighbour, mc_partner,
-                                  partner_in_neighbour,
-                                  true,
-                                  common_neighbours,
-                                  disjoint_neighbours,
-                                  thread_id);
+                            // prevent the last node with even id to trade when there are only odd number
+                            // of nodes, enumerating beginning from zero results in the largest node in
+                            // having even index
+                            if (UNLIKELY(mc_neighbour == _mc_num_loaded_nodes - 1 && _mc_num_loaded_nodes % 2)) {
+                                std::cout << "Corner case occurs" << std::endl;
+                                std::atomic_fetch_add(&_active_threads[mc_neighbour], 1);
+                                std::atomic_fetch_add(&_active_threads[mc_partner], 1);
+                                return;
+                            } else
+                                trade(mc_neighbour, mc_partner,
+                                      partner_in_neighbour,
+                                      true,
+                                      common_neighbours,
+                                      disjoint_neighbours,
+                                      thread_id);
                         } else {
                             // not worksteal tradable
                             std::atomic_fetch_add(&_active_threads[mc_partner], 1);
@@ -990,12 +918,10 @@ namespace Curveball {
                             return;
                         }
 
-                        const degree_t p_received_msgs =
-                                _mc_adjacency_list.received_msgs(mc_partner);
+                        const degree_t p_received_msgs = _mc_adjacency_list.received_msgs(mc_partner);
 
                         if (p_received_msgs < _mc_degs[mc_partner] - 1) {
-                            _mc_adjacency_list.insert_neighbour_without_check
-                                    (mc_neighbour, _mc_invs[mc_node_x]);
+                            _mc_adjacency_list.insert_neighbour_without_check(mc_neighbour, _mc_invs[mc_node_x]);
 
                             std::atomic_fetch_add(&_active_threads[mc_neighbour], 1);
                             return;
@@ -1040,9 +966,9 @@ namespace Curveball {
                     if (h_neighbour <= _mc_largest_hnode) {
                         // this will never be 0, since we insert at least into another batch
                         // such that h_neighbour is large enough
-                        const node_t mc_lower = h_neighbour
-                                                - _g_num_processed_nodes // id in mc
-                                                - _mc_hash_offset; // current offset
+                        const node_t mc_lower = std::max(0, h_neighbour
+                                                            - _g_num_processed_nodes // id in mc
+                                                            - _mc_hash_offset); // current offset
 
                         const node_t mc_upper = std::min(h_neighbour
                                                          - _g_num_processed_nodes // id in mc
@@ -1051,19 +977,9 @@ namespace Curveball {
                                                          _mc_num_loaded_nodes); // has to be strictly larger
 
                         // send to other batch => no dependency
-                        #if 0
-                        const auto mc_neighbour_it =
-										std::lower_bound
-														(_mc_hashes.begin() +
-														 _mc_thread_bounds.u_bounds[_b_max_mc_node],
-														 _mc_hashes.begin() + _mc_num_loaded_nodes,
-														 h_neighbour);
-                        #else
-                        const auto mc_neighbour_it =
-                                std::lower_bound(_mc_hashes.cbegin() + mc_lower,
-                                                 _mc_hashes.cbegin() + mc_upper,
-                                                 h_neighbour);
-                        #endif
+                        const auto mc_neighbour_it = std::lower_bound(_mc_hashes.cbegin() + mc_lower,
+                                                                      _mc_hashes.cbegin() + mc_upper,
+                                                                      h_neighbour);
 
                         const auto mc_neighbour_signed = mc_neighbour_it - _mc_hashes.begin();
 
@@ -1081,13 +997,10 @@ namespace Curveball {
                         assert(mc_lower <= mc_neighbour);
                         assert(mc_neighbour <= mc_upper);
 
-                        _mc_adjacency_list.insert_neighbour_without_check
-                                (mc_neighbour, _mc_invs[mc_node_x]);
+                        _mc_adjacency_list.insert_neighbour_without_check(mc_neighbour, _mc_invs[mc_node_x]);
                     } else
                         // send to other macrochunk => no dependency
-                        _active.push(NeighbourMsg{h_neighbour,
-                                                  _mc_invs[mc_node_x]},
-                                     thread_id);
+                        _active.push(NeighbourMsg{h_neighbour, _mc_invs[mc_node_x]}, thread_id);
                 }
             else {
                 // neighbours hash is not larger, therefore send to _pending
@@ -1100,8 +1013,7 @@ namespace Curveball {
                     _pending.push(NeighbourMsg{hnext_x, neighbour}, thread_id);
                 else
                     // neighbour comes before u
-                    _pending.push(NeighbourMsg{hnext_neighbour, _mc_invs[mc_node_x]},
-                                  thread_id);
+                    _pending.push(NeighbourMsg{hnext_neighbour, _mc_invs[mc_node_x]}, thread_id);
             } // if edge [u, neighbour] not needed in this round
         } // end send_messages
 
@@ -1127,12 +1039,10 @@ namespace Curveball {
         void trade(const node_t mc_tradenode_u, const node_t mc_tradenode_v,
                    const bool mc_v_in_mc_u,
                    const bool work_stealing_flag,
-                   std::vector<node_t> &common_neighbours,
-                   std::vector<node_t> &disjoint_neighbours,
+                   std::vector<node_t> & common_neighbours,
+                   std::vector<node_t> & disjoint_neighbours,
                    const int thread_id) {
-            assert(mc_tradenode_u == mc_tradenode_v - 1); //  we trade smaller id with smaller id + 1
-            assert(!_mc_has_traded[mc_tradenode_u]); // should not trade when already traded
-            assert(!_mc_has_traded[mc_tradenode_v]);
+            _verify_trading_nodes(mc_tradenode_u, mc_tradenode_v);
 
             _mc_has_traded[mc_tradenode_u] = true;
             _mc_has_traded[mc_tradenode_v] = true;
@@ -1150,15 +1060,24 @@ namespace Curveball {
 
             // if we worksteal, we can just use max degree of both
             if (work_stealing_flag) {
-                // disjoint vector can have both degs added together
-                const degree_t disjoint_alloc =
-                        _mc_adjacency_list.degree_at(mc_tradenode_u)
-                        + _mc_adjacency_list.degree_at(mc_tradenode_v);
-
                 // common vector can only be min of both
                 const degree_t min_deg_uv =
                         std::min(_mc_adjacency_list.degree_at(mc_tradenode_u),
                                  _mc_adjacency_list.degree_at(mc_tradenode_v));
+
+                assert(min_deg_uv >= 0);
+                assert(min_deg_uv < _num_nodes);
+
+                // disjoint vector can have both degs added together
+                assert(_mc_adjacency_list.degree_at(mc_tradenode_u) < _num_nodes);
+                assert(_mc_adjacency_list.degree_at(mc_tradenode_v) < _num_nodes);
+
+                const degree_t disjoint_alloc = _mc_adjacency_list.degree_at(mc_tradenode_u)
+                                                + _mc_adjacency_list.degree_at(mc_tradenode_v)
+                                                - min_deg_uv;
+
+                assert(disjoint_alloc >= 0);
+                assert(disjoint_alloc < 2 * _num_nodes);
 
                 common_neighbours.reserve(static_cast<size_t>(min_deg_uv));
                 disjoint_neighbours.reserve(static_cast<size_t>(disjoint_alloc));
@@ -1188,49 +1107,32 @@ namespace Curveball {
                     v_neigh_iter++;
                 }
             }
+
             if (u_neigh_iter == u_iter_end)
-                disjoint_neighbours.insert(disjoint_neighbours.end(),
-                                           v_neigh_iter,
-                                           v_iter_end);
+                disjoint_neighbours.insert(disjoint_neighbours.end(), v_neigh_iter, v_iter_end);
             else
-                disjoint_neighbours.insert(disjoint_neighbours.end(),
-                                           u_neigh_iter,
-                                           u_iter_end);
+                disjoint_neighbours.insert(disjoint_neighbours.end(), u_neigh_iter, u_iter_end);
 
             // reset both rows, not necessarily needed, since deallocation
             // (sets offsets_vector to 0)
             //_mc_adjacency_list.reset_row(mc_tradenode_u);
             //_mc_adjacency_list.reset_row(mc_tradenode_v);
-
-            const degree_t u_setsize =
-                    static_cast<degree_t>
-                    (u_iter_end
-                     - _mc_adjacency_list.cbegin(mc_tradenode_u)
-                     - common_neighbours.size());
-            const degree_t v_setsize =
-                    static_cast<degree_t>
-                    (v_iter_end
-                     - _mc_adjacency_list.cbegin(mc_tradenode_v)
-                     - common_neighbours.size());
+            const auto u_setsize = static_cast<degree_t>(u_iter_end
+                                                         - _mc_adjacency_list.cbegin(mc_tradenode_u)
+                                                         - common_neighbours.size());
+            const auto v_setsize = static_cast<degree_t>(v_iter_end
+                                                         - _mc_adjacency_list.cbegin(mc_tradenode_v)
+                                                         - common_neighbours.size());
 
             // assign first u_setsize to sc_node_u: to get edge [u, *]
             // assign  last v_setsize to sc_node_v: to get edge [v, *]
-            if (0) {
-                std::shuffle(disjoint_neighbours.begin(),
-                             disjoint_neighbours.end(),
-                             _rngs[thread_id]);
-            } else {
-                CurveballImpl::random_partition(disjoint_neighbours.begin(),
-                                                disjoint_neighbours.end(),
-                                                static_cast<size_t>(u_setsize), _rngs[thread_id]);
-            }
+            CurveballImpl::random_partition(disjoint_neighbours.begin(),
+                                            disjoint_neighbours.end(),
+                                            static_cast<size_t>(u_setsize), _rngs[thread_id]);
 
             // distribute disjoint neighbours
             // send messages for u
-            for (degree_t mc_neighbour_id = 0;
-                 mc_neighbour_id < u_setsize;
-                 mc_neighbour_id++)
-            {
+            for (degree_t mc_neighbour_id = 0; mc_neighbour_id < u_setsize; mc_neighbour_id++) {
                 send_message(mc_tradenode_u,
                              disjoint_neighbours[mc_neighbour_id],
                              thread_id);
@@ -1286,29 +1188,8 @@ namespace Curveball {
          * global trade round.
          */
         void reset() {
-            // check whether threadcounter is zero for all
-            #ifndef NDEBUG
-            {
-                size_t n_count = 0;
-                for (auto && tcounter : _active_threads) {
-                    int val = tcounter.load();
-                    assert(val == 0);
-                    n_count++;
-                }
-            };
-            #endif
-
-            // check whether all nodes have been traded
-            #ifndef NDEBUG
-            {
-                for (node_t node = 0; node < _mc_num_loaded_nodes; node++) {
-                    assert(_mc_adjacency_list.has_traded(node));
-                }
-                for (node_t node = 0; node < _mc_num_loaded_nodes; node++) {
-                    assert(_mc_has_traded[node]);
-                }
-            };
-            #endif
+            _verify_atomic_fetchadds_zero();
+            _verify_trades_performed();
 
             // reset counters and flags
             std::fill(_mc_has_traded.begin(), _mc_has_traded.end(), false);
@@ -1380,7 +1261,7 @@ namespace Curveball {
         }
 
         /**
-         * Returns the number of messages that can be kept in the adj. list.
+         * Returns the number of messages that can be kept in the adjacency list.
          * @return Number of messages
          */
         size_t adjacency_list_size() const {
@@ -1418,6 +1299,97 @@ namespace Curveball {
         template <typename Receiver>
         void forward_unsorted_edges(Receiver & out_edges) {
             _active.forward_unsorted_edges(out_edges);
+        }
+
+
+        /**
+         * Check whether last upper bound is correct.
+         * @param mc_id
+         * @param batch
+         * @param mc_max_node
+         */
+        void _verify_last_upper_bound(node_t mc_id, uint32_t batch, node_t mc_max_node) {
+            #ifndef NDEBUG
+            if (mc_id == _num_chunks - 1 && batch == _num_splits - 1)
+                assert(mc_max_node == _mc_num_loaded_nodes - 1);
+            #endif
+        }
+
+        /**
+         *
+         */
+        void _verify_sorted_noduplicates() {
+            #ifndef NDEBUG
+            // check if _mc_hashes is increasing up to _mc_num_loaded_nodes
+            std::is_sorted(_mc_hashes.begin(), _mc_hashes.begin() + _mc_num_loaded_nodes);
+
+            // check for duplicates
+            const auto hashes_iter = std::adjacent_find(_mc_hashes.begin(),
+                                                        _mc_hashes.begin() + _mc_num_loaded_nodes);
+            assert(hashes_iter == _mc_hashes.cbegin() + _mc_num_loaded_nodes);
+            #endif
+        }
+
+        /**
+         *
+         * @param mc_tradenode_u
+         * @param mc_tradenode_v
+         */
+        void _verify_trading_nodes(node_t mc_tradenode_u, node_t mc_tradenode_v) {
+            assert(mc_tradenode_u < _num_nodes);
+            assert(mc_tradenode_v < _num_nodes);
+            assert(mc_tradenode_u == mc_tradenode_v - 1); //  we trade u the smaller id with v the larger id
+            assert(!_mc_has_traded[mc_tradenode_u]); // should not trade when already traded
+            assert(!_mc_has_traded[mc_tradenode_v]);
+        }
+
+        /**
+         *
+         */
+        void _verify_trades_performed() {
+            for (node_t node = 0; node < make_even_by_sub(_mc_num_loaded_nodes); node++) {
+                assert(_mc_adjacency_list.has_traded(node));
+                assert(_mc_has_traded[node]);
+            }
+
+            if (_mc_num_loaded_nodes % 2) {
+                assert(_mc_adjacency_list.has_traded(_mc_num_loaded_nodes - 1));
+                assert(!_mc_has_traded[_mc_num_loaded_nodes - 1]);
+            }
+        }
+
+        /**
+         *
+         */
+        void _verify_atomic_fetchadds_zero() {
+            #ifndef NDEBUG
+            size_t n_count = 0;
+            for (auto && tcounter : _active_threads) {
+                int val = tcounter.load();
+                assert(val == 0);
+                n_count++;
+            }
+            #endif
+        }
+
+        void _verify_adjacency_offsets(size_t msgs_size) {
+            #ifndef NDEBUG
+            uint_t degs_sum = 0;
+            for (node_t node = 0; node < _mc_num_loaded_nodes; node++) {
+                degs_sum += _mc_adjacency_list.received_msgs(node);
+            }
+
+            assert(degs_sum <= msgs_size);
+            #endif
+        }
+
+        void _verify_incoming_msgs_count() {
+            #ifndef NDEBUG
+            // check that num incoming msgs does not exceed degree
+            for (node_t mc_node = 0; mc_node < _mc_num_loaded_nodes; mc_node++) {
+                assert(_mc_num_inc_msgs[mc_node] <= _mc_degs[mc_node]);
+            }
+            #endif
         }
     };
 

@@ -253,7 +253,7 @@ TEST_F(TestMessageContainer, swap) {
 						  1000);
 	ContainerType other(upper_bounds,
 						100,
-						ContainerType::NEXT,
+						ContainerType::PENDING,
 						Curveball::DUMMY_THREAD_NUM,
 						1000);
 
