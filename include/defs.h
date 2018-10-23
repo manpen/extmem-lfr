@@ -167,7 +167,7 @@ namespace Curveball {
 	constexpr msgid_t DUMMY_LIMIT = std::numeric_limits<msgid_t>::max();
 	constexpr msgid_t DUMMY_INS_BUFFER_SIZE = 128;
 	constexpr uint_t DUMMY_SIZE = 1 * UIntScale::Gi;
-	constexpr uint_t NODE_SORTER_MEM = 2 * UIntScale::Gi;
+	constexpr uint_t NODE_SORTER_MEM = SORTER_MEM;
 	constexpr chunkid_t DUMMY_CHUNKS = 8;
 	constexpr int DUMMY_THREAD_NUM = 1;
 	constexpr int DUMMY_Z = 8;

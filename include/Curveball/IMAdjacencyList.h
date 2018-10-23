@@ -55,17 +55,17 @@ namespace Curveball {
 		 * @param degree_count Number of messages.
 		 */
 		IMAdjacencyList(const node_t num_nodes, const edgeid_t degree_count) :
-			_neighbours(static_cast<size_t>(degree_count) +
-						static_cast<size_t>(num_nodes) + 1),
-			_partners(static_cast<size_t>(num_nodes)),
-			_edge_to_partner(static_cast<size_t>(num_nodes)),
-			_offsets(static_cast<size_t>(num_nodes)),
-			_begin(static_cast<size_t>(num_nodes) + 1),
-			_degree_count(degree_count),
-			_node_locks(static_cast<size_t>(num_nodes)),
-			_active_threads(static_cast<size_t>(num_nodes)),
-			_init_num_nodes(num_nodes),
-			_init_num_msgs(degree_count) {}
+				_neighbours(static_cast<size_t>(degree_count) +
+							static_cast<size_t>(num_nodes) + 1),
+				_partners(static_cast<size_t>(num_nodes)),
+				_edge_to_partner(static_cast<size_t>(num_nodes)),
+				_offsets(static_cast<size_t>(num_nodes)),
+				_begin(static_cast<size_t>(num_nodes) + 1),
+				_degree_count(degree_count),
+				_node_locks(static_cast<size_t>(num_nodes)),
+				_active_threads(static_cast<size_t>(num_nodes)),
+				_init_num_nodes(num_nodes),
+				_init_num_msgs(degree_count) {}
 
 		/**
 		 * Resizes the vector holding the neighbours.
@@ -368,5 +368,16 @@ namespace Curveball {
 			else
 				return _offsets[larger] + shared_edge == degree_at(larger);
 		}
+
+		#ifndef NDEBUG
+		/**
+		 * Check whether the offset values are monotonically increasing.
+		 */
+		void check_offsets(node_t num_nodes) {
+			for (node_t node = 0; node < num_nodes - 1; node++)
+				assert(_offsets[node] <= _offsets[node + 1]);
+		}
+		#endif
+
 	};
 }

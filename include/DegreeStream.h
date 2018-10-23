@@ -9,7 +9,74 @@
 
 #include <defs.h>
 #include <stxxl/sequence>
-#include <memory>
+
+class IMGroupedDegreeStream {
+public:
+    using value_type = degree_t;
+
+protected:
+    using degree_group_t = std::pair<degree_t, uint32_t>;
+    std::vector<degree_group_t> _degree_groups;
+    std::vector<degree_group_t>::const_iterator _degree_groups_it;
+    size_t _group_counter = 0;
+    size_t _size = 0;
+
+public:
+    IMGroupedDegreeStream() = default;
+
+    void rewind() {
+        _degree_groups_it = _degree_groups.cbegin();
+        _group_counter = 0;
+    }
+
+    void push_group(std::pair<degree_t, uint32_t> degree_group) {
+        auto & back_degree_group = _degree_groups.back();
+        if (back_degree_group.first != degree_group.first)
+            _degree_groups.push_back(std::move(degree_group));
+        else
+            back_degree_group.second += degree_group.second;
+    }
+
+    void push(const degree_t degree) {
+        if (UNLIKELY(_degree_groups.empty()))
+            _degree_groups.emplace_back(degree, 1u);
+        else {
+            auto & back_degree_group = _degree_groups.back();
+            if (back_degree_group.first == degree)
+                back_degree_group.second++;
+            else
+                _degree_groups.emplace_back(degree, 1u);
+        }
+
+        ++_size;
+    }
+
+    const value_type & operator * () {
+        assert(_degree_groups_it != _degree_groups.cend());
+
+        auto & degree_group = *_degree_groups_it;
+
+        return degree_group.first;
+    }
+
+    IMGroupedDegreeStream & operator ++ () {
+        ++_group_counter;
+
+        auto & degree_group = *_degree_groups_it;
+        if (degree_group.second == _group_counter) {
+            _group_counter = 0;
+            ++_degree_groups_it;
+        }
+    }
+
+    bool empty() const {
+        return _degree_groups_it == _degree_groups.cend();
+    }
+
+    size_t size() const {
+        return _size;
+    }
+};
 
 class DegreeStream {
 public:

@@ -121,12 +121,13 @@ namespace LFR {
                     // materialisation unsatisfied nodes and edges can occur
                     edge_sorter1.push({orig_edge.second, (*extDegree).second});
                 }
-                assert(gen.unsatisfiedNodes() == static_cast<node_t>(gen.get_deficits().size()));
 
                 edge_sorter1.sort();
                 extDegree.rewind();
 
                 #ifdef CURVEBALL_RAND
+                assert(gen.unsatisfiedNodes() == static_cast<node_t>(gen.get_deficits().size()));
+
                 bool check_deficits = (gen.unsatisfiedNodes() > 0);
                 auto & deficits = gen.get_deficits();
                 auto deficits_it = deficits.begin();
@@ -182,27 +183,18 @@ namespace LFR {
                 IOStatistics ios("GlobalGenInitialRandCurveball");
                 if (gen.unsatisfiedNodes() == 0) {
                     using CurveballType = Curveball::EMCurveball<Curveball::ModHash>;
-                    CurveballType randAlgo(_inter_community_edges,
-                                           temp_rewindable_ext_degrees,
-                                           _number_of_nodes,
-                                           20,
-                                           _inter_community_edges,
-                                           omp_get_max_threads(),
-                                           _max_memory_usage,
-                                           true); // change to false when it is possible
+                    CurveballType randAlgo(_inter_community_edges, temp_rewindable_ext_degrees, _number_of_nodes,
+                                           20, _inter_community_edges, omp_get_max_threads(), _max_memory_usage,
+                                           true);
                     randAlgo.run();
                 } else if (gen.unsatisfiedNodes() > 0){
+                    // use realised degrees, by applying the wrapper
                     FixedDegreeStreamWrapper rewindable_ext_degrees(temp_rewindable_ext_degrees, gen.get_deficits());
 
                     using CurveballType = Curveball::EMCurveball<Curveball::ModHash, FixedDegreeStreamWrapper>;
-                    CurveballType randAlgo(_inter_community_edges,
-                                           rewindable_ext_degrees,
-                                           _number_of_nodes,
-                                           20,
-                                           _inter_community_edges,
-                                           omp_get_max_threads(),
-                                           _max_memory_usage,
-                                           true); // change to false when it is possible
+                    CurveballType randAlgo(_inter_community_edges, rewindable_ext_degrees, _number_of_nodes,
+                                           20, _inter_community_edges, omp_get_max_threads(), _max_memory_usage,
+                                           true);
                     randAlgo.run();
                 }
             }
