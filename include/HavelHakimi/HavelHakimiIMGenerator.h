@@ -71,7 +71,7 @@ namespace detail {
         node_t _unsatisfied_nodes;
 
         //! Degree outputs
-        using degree_count_t = std::pair<degree_t, degree_t>;
+        using degree_count_t = std::pair<degree_t, uint32_t>;
         std::vector<degree_count_t> _input_degree_blocks;
         std::vector<degree_count_t>::const_iterator _input_degree_blocks_it;
         degree_t _input_degree_counter = 0;
@@ -79,7 +79,7 @@ namespace detail {
         std::vector<std::pair<node_t, degree_t>> _node_degree_deficits;
         degree_t _unsatisfied_neighbors = 0;
 
-        DegreeStream _output_degrees;
+        IMGroupedDegreeStream _output_degrees;
         bool _skipped_first = false;
 
         /**
@@ -365,11 +365,8 @@ namespace detail {
 
                 // move on to the rest of the degrees
                 ++_input_degree_blocks_it;
-                while (_input_degree_blocks_it != _input_degree_blocks.cend()) {
-                    for (_input_degree_counter = 0; _input_degree_counter < (*_input_degree_blocks_it).second; _input_degree_counter++)
-                        _output_degrees.push((*_input_degree_blocks_it).first);
-                    ++_input_degree_blocks_it;
-                }
+                for (; _input_degree_blocks_it != _input_degree_blocks.cend(); ++_input_degree_blocks_it)
+                    _output_degrees.push_group(*_input_degree_blocks_it);
 
                 assert(_output_degrees.size() == static_cast<size_t>(_push_current_node - _initial_node));
             }
@@ -379,7 +376,7 @@ namespace detail {
             return _node_degree_deficits;
         }
 
-        DegreeStream& get_degree_stream() {
+        IMGroupedDegreeStream & get_degree_stream() {
             return _output_degrees;
         }
 
@@ -420,5 +417,5 @@ namespace detail {
 }
 
 using HavelHakimiIMGenerator = detail::HavelHakimiIMGenerator_impl<false>;
-using HavelHakimiIMGeneratorWithDegrees = detail::HavelHakimiIMGenerator_impl<true>;
+using HavelHakimiIMGeneratorWithDegrees = detail::HavelHakimiIMGenerator_impl<true, false>;
 using HavelHakimiIMGeneratorWithDeficits = detail::HavelHakimiIMGenerator_impl<false, true>;

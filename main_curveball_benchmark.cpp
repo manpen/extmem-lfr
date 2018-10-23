@@ -105,8 +105,7 @@ void benchmark(const PowerlawBenchmarkParams& config) {
 
     IOStatistics hh_report;
 
-    HavelHakimiIMGeneratorWithDegrees hh_gen(
-            HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
+    HavelHakimiIMGeneratorWithDegrees hh_gen(HavelHakimiIMGeneratorWithDegrees::PushDirection::DecreasingDegree);
     assert(config.gamma < 0);
     MonotonicPowerlawRandomStream<false> degree_sequence(config.min_deg,
                                                          config.max_deg,
@@ -119,7 +118,7 @@ void benchmark(const PowerlawBenchmarkParams& config) {
     hh_gen.generate();
     StreamPusher<decltype(hh_gen), EdgeStream>(hh_gen, edge_stream);
     hh_gen.finalize();
-    DegreeStream& degree_stream = hh_gen.get_degree_stream();
+    auto & degree_stream = hh_gen.get_degree_stream();
 
     hh_report.report("HHEdges");
 
@@ -127,20 +126,20 @@ void benchmark(const PowerlawBenchmarkParams& config) {
     edge_stream.rewind();
     degree_stream.rewind();
     IOStatistics cb_report;
-    Curveball::EMCurveball<Curveball::ModHash> algo(edge_stream,
-                                                    degree_stream,
-                                                    config.num_nodes,
-                                                    config.num_rounds,
-                                                    out_edge_stream,
-                                                    config.num_macrochunks,
-                                                    config.num_microchunk_splits,
-                                                    config.num_batch_splits,
-                                                    config.internal_mem / 4,
-                                                    config.internal_mem,
-                                                    config.num_max_msgs,
-                                                    config.num_threads,
-                                                    config.insertion_buffer_size,
-                                                    true);
+    Curveball::EMCurveball<Curveball::ModHash, decltype(degree_stream)> algo(edge_stream,
+                                                                             degree_stream,
+                                                                             config.num_nodes,
+                                                                             config.num_rounds,
+                                                                             out_edge_stream,
+                                                                             config.num_macrochunks,
+                                                                             config.num_microchunk_splits,
+                                                                             config.num_batch_splits,
+                                                                             config.internal_mem / 4,
+                                                                             config.internal_mem,
+                                                                             config.num_max_msgs,
+                                                                             config.num_threads,
+                                                                             config.insertion_buffer_size,
+                                                                             true);
 
     algo.run();
     cb_report.report("CurveballStats");
